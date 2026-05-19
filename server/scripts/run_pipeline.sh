@@ -59,6 +59,31 @@ SAMPLE_COUNT=$(wc -l < "$VOICE_HISTORY")
 echo "Voice history: $SAMPLE_COUNT samples"
 echo ""
 
+# ========== 0. 自动构建错词表 (§3.1 L2 #7 ①) ==========
+echo "=== [0/5] Auto-build dictionary ==="
+
+AUTO_DICT_PATH="$WORK_DIR/dictionary.auto.json"
+EXISTING_DICT="${DICTIONARY:-${DATA_DIR}/correction-dictionary.json}"
+
+DICT_ARGS=(
+    --voice-history "$VOICE_HISTORY"
+    --output "$AUTO_DICT_PATH"
+)
+if [ -f "$EXISTING_DICT" ]; then
+    DICT_ARGS+=(--existing "$EXISTING_DICT")
+fi
+
+python3 "${PROJECT_DIR}/lib/build_dictionary.py" "${DICT_ARGS[@]}" || {
+    echo "Warning: dictionary build failed, continuing without auto-built dict"
+}
+
+# 如果 build 成功，后续蒸馏用 auto 字典；否则保持原 DICTIONARY
+if [ -f "$AUTO_DICT_PATH" ]; then
+    DICTIONARY="$AUTO_DICT_PATH"
+    echo "Using auto-built dictionary: $AUTO_DICT_PATH"
+fi
+echo ""
+
 # ========== 1. 蒸馏 ==========
 if [ "$SKIP_DISTILL" = false ]; then
     if [ -z "$GEMINI_KEY" ]; then
@@ -78,7 +103,7 @@ if [ "$SKIP_DISTILL" = false ]; then
         echo "Using dictionary: $DICTIONARY"
     fi
 
-    python3 "${PROJECT_DIR}/gen_distill_gemini.py" "${GEMINI_ARGS[@]}"
+    python3 "${PROJECT_DIR}/lib/gen_distill_gemini.py" "${GEMINI_ARGS[@]}"
     echo "Gemini done"
 
     # 合并
@@ -92,7 +117,7 @@ if [ "$SKIP_DISTILL" = false ]; then
         MERGE_ARGS+=(--corrections "$CORRECTIONS")
         echo "Including human corrections"
     fi
-    python3 "${PROJECT_DIR}/merge_pairs.py" "${MERGE_ARGS[@]}"
+    python3 "${PROJECT_DIR}/lib/merge_pairs.py" "${MERGE_ARGS[@]}"
 else
     echo "=== [1/4] Distillation: SKIPPED ==="
     # 如果跳过蒸馏，查找最新的 training_data
@@ -122,7 +147,7 @@ if [ "$SKIP_TRAIN" = false ]; then
         exit 1
     fi
 
-    python3 "${PROJECT_DIR}/train_qlora.py" \
+    python3 "${PROJECT_DIR}/lib/train_qlora.py" \
         --data "$TRAIN_DATA" \
         --base-model "$BASE_MODEL" \
         --output-dir "${WORK_DIR}/checkpoints"
@@ -136,7 +161,7 @@ ADAPTER_DIR="${WORK_DIR}/checkpoints/adapter"
 if [ -d "$ADAPTER_DIR" ]; then
     echo ""
     echo "=== [3/4] Evaluation ==="
-    python3 "${PROJECT_DIR}/eval_model.py" \
+    python3 "${PROJECT_DIR}/lib/eval_model.py" \
         --data "$TRAIN_DATA" \
         --model-path "$ADAPTER_DIR" \
         --base-model "$BASE_MODEL" \
@@ -151,7 +176,7 @@ fi
 if [ "$DO_DEPLOY" = true ] && [ -d "$ADAPTER_DIR" ]; then
     echo ""
     echo "=== [4/4] Deploy ==="
-    bash "${SCRIPT_DIR}/deploy_model.sh" \
+    bash "${PROJECT_DIR}/entry/deploy.sh" \
         --adapter "$ADAPTER_DIR" \
         --base-model "$BASE_MODEL" \
         --model-name "$MODEL_NAME"
@@ -159,7 +184,7 @@ else
     echo ""
     echo "=== [4/4] Deploy: SKIPPED ==="
     if [ -d "$ADAPTER_DIR" ]; then
-        echo "To deploy: bash ${SCRIPT_DIR}/deploy_model.sh --adapter $ADAPTER_DIR"
+        echo "To deploy: bash ${PROJECT_DIR}/entry/deploy.sh --adapter $ADAPTER_DIR"
     fi
 fi
 

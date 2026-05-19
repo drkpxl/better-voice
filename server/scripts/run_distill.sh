@@ -8,9 +8,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 WORK_DIR="${PROJECT_DIR}/workdir/$(date +%Y%m%d-%H%M%S)"
 
-# 默认路径
-VOICE_HISTORY="${HOME}/.we/voice-history.jsonl"
-CORRECTIONS="${HOME}/.we/corrections.jsonl"
+# 默认路径（可被 WE_DATA_DIR env 覆盖，与 lib/paths.py 对齐）
+WE_DATA_DIR="${WE_DATA_DIR:-${HOME}/.we}"
+VOICE_HISTORY="${WE_DATA_DIR}/voice-history.jsonl"
+CORRECTIONS="${WE_DATA_DIR}/corrections.jsonl"
 GEMINI_KEY=""
 DICTIONARY=""
 
@@ -30,8 +31,8 @@ if [ -z "$GEMINI_KEY" ]; then
 fi
 
 # 默认词典路径
-if [ -z "$DICTIONARY" ] && [ -f "${HOME}/.we/dictionary.json" ]; then
-    DICTIONARY="${HOME}/.we/dictionary.json"
+if [ -z "$DICTIONARY" ] && [ -f "${WE_DATA_DIR}/dictionary.json" ]; then
+    DICTIONARY="${WE_DATA_DIR}/dictionary.json"
 fi
 
 mkdir -p "$WORK_DIR"
@@ -52,7 +53,7 @@ if [ -n "$DICTIONARY" ] && [ -f "$DICTIONARY" ]; then
     echo "Using dictionary: $DICTIONARY"
 fi
 
-python3 "${PROJECT_DIR}/gen_distill_gemini.py" "${GEMINI_ARGS[@]}"
+python3 "${PROJECT_DIR}/lib/gen_distill_gemini.py" "${GEMINI_ARGS[@]}"
 echo "Gemini done"
 
 # ========== 2. 合并 ==========
@@ -70,7 +71,7 @@ if [ -f "$CORRECTIONS" ]; then
     echo "Including human corrections: $CORRECTIONS"
 fi
 
-python3 "${PROJECT_DIR}/merge_pairs.py" "${MERGE_ARGS[@]}"
+python3 "${PROJECT_DIR}/lib/merge_pairs.py" "${MERGE_ARGS[@]}"
 
 # ========== 3. 统计 ==========
 echo ""
