@@ -237,7 +237,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 检查权限
         let axOK = PermissionManager.checkAccessibility()
         let screenOK = PermissionManager.checkScreenCapture()
-        Logger.log("WE", "Accessibility: \(axOK), Screen capture: \(screenOK)")
+        // Input Monitoring 是 CGEventTap 监听全局热键真正需要的权限（不是 Accessibility）
+        let inputOK = PermissionManager.checkInputMonitoring()
+        Logger.log("WE", "Accessibility: \(axOK), Input Monitoring: \(inputOK), Screen capture: \(screenOK)")
 
         // 初始化菜单栏
         statusBar = StatusBarController(moduleManager: moduleManager)

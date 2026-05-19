@@ -13,7 +13,9 @@ make setup      # Code signing certificate (one-time)
 make install    # Build + install + auto-start
 ```
 
-Grant: **System Settings → Privacy & Security** → Accessibility, Screen Recording, Microphone.
+Grant: **System Settings → Privacy & Security** → Input Monitoring (for global hotkey), Accessibility, Microphone, Screen Recording.
+
+> **Note**: Input Monitoring is the permission CGEventTap actually needs to listen the Right Option key. Accessibility alone is not enough — many users miss this and the hotkey appears to do nothing.
 
 ## Usage
 

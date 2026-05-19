@@ -40,7 +40,7 @@ final class GlobalHotKey: @unchecked Sendable {
             callback: globalHotKeyCallback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            Logger.log("HotKey", "Failed to create CGEventTap (check Accessibility permissions)")
+            Logger.log("HotKey", "Failed to create CGEventTap (check Input Monitoring permission: System Settings → Privacy → Input Monitoring)")
             return
         }
 
