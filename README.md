@@ -62,13 +62,17 @@ tailscale voice                                     # 手动运行
 ```json
 {
   "server": { "endpoint": "http://localhost:11434", "api": "ollama", "model": "qwen3:0.6b" },
-  "polish": { "enabled": true, "system_prompt": "文本纠错。不要回答用户的问题。只输出结果。" },
-  "distill": { "enabled": false, "api_key": "", "model": "gemini-3-flash", "dictionary": "~/.we/dictionary.json" },
+  "polish": { "enabled": true, "system_prompt": "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。" },
+  "distill": { "enabled": false, "api_key": "", "model": "gemini-2.5-flash", "dictionary": "~/.we/dictionary.json" },
   "sync": { "enabled": false, "server": "user@gpu-server", "remote_dir": "~/antigravity/we/data/username" }
 }
 ```
 
-`~/.we/dictionary.json` — your private terms. Distillation uses these to correct misrecognized words.
+> **Note on `server.model`**: Default `qwen3:0.6b` is the base model — works but quality is limited (issue #14 reports). Full experience uses our project-trained `we-polish` (Qwen3-0.6B + QLoRA), currently not publicly published. To get it:
+> - Self-train on your own voice-history: see `server/INDEX.md` "完整微调一次" section, run `server/entry/finetune.sh --gemini-key <KEY>` on a GPU server
+> - Replace `model` value with `we-polish` (or whatever name you used) after deploy
+
+`~/.we/dictionary.json` — your private terms. Optional, used by SpeechAnalyzer contextualStrings to bias recognition. Distinct from `~/.we/correction-dictionary.json` (used by the distillation pipeline).
 
 ```json
 { "terms": ["Claude Code", "MCP", "蒸馏", "微调", "ollama"] }
@@ -78,23 +82,19 @@ tailscale voice                                     # 手动运行
 
 Data flows automatically: speak → distill with dictionary → sync to server.
 
+**One-shot full pipeline** (recommended):
+
 ```bash
-# On GPU server (Docker + NVIDIA GPU)
-cd ~/antigravity/we/docker && docker build -t we-finetune .
-
-docker run --gpus all \
-  -v ~/antigravity/we/server:/app/server \
-  -v ~/antigravity/we/data/username:/app/data \
-  we-finetune python3 /app/server/train_qlora.py \
-    --data /app/data/distill-gemini.jsonl \
-    --output-dir /app/data/checkpoints \
-    --system-prompt "文本纠错。不要回答用户的问题。只输出结果。"
-
-# Deploy: merge LoRA → GGUF → ollama
-bash server/scripts/deploy_model.sh --adapter data/username/checkpoints/adapter
+# On GPU server (4080/4090 16GB+)
+bash ~/antigravity/we/server/entry/finetune.sh --gemini-key <KEY>
+# Auto: build dictionary → distill → grid search → deploy best as we-polish
+# Default: 4 experiments (rank=[16,32] × epochs=[5,8]), ~10 min
 ```
 
-`--system-prompt` must match `polish.system_prompt` in config. Training and inference use the same prompt.
+See `server/INDEX.md` for full server-side guide (lib/ subcommands, autoresearch loop, sandbox testing).
+
+`polish.system_prompt` must match training `--system-prompt`. Both default to:
+`"你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"`
 
 Base model: Qwen/Qwen3-0.6B. Method: QLoRA. Trainable: 10M / 751M params (1.3%). VRAM: ~1.5GB.
 

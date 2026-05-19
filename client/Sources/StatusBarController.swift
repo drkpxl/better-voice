@@ -286,7 +286,7 @@ final class StatusBarController {
     }
 
     @objc private func openConfig() {
-        let configURL = WEDataDir.url.appendingPathComponent("config.json")
+        let configURL = WEDataDir.configURL
         // 确保配置文件存在
         if !FileManager.default.fileExists(atPath: configURL.path) {
             _ = RuntimeConfig.shared  // 触发默认配置创建
@@ -299,7 +299,7 @@ final class StatusBarController {
     }
 
     @objc private func openLog() {
-        let logURL = WEDataDir.url.appendingPathComponent("debug.log")
+        let logURL = WEDataDir.logURL
         if FileManager.default.fileExists(atPath: logURL.path) {
             NSWorkspace.shared.open(logURL)
         }

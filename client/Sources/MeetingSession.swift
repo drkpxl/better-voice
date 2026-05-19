@@ -336,7 +336,7 @@ final class MeetingSession {
 
         // 8. 准备音频文件路径
         let fileName = "meeting-" + ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let url = WEDataDir.url.appendingPathComponent("audio/\(fileName).wav")
+        let url = WEDataDir.audioURL(forName: fileName)
         audioFileURL = url
         meetingId = fileName  // 流式 jsonl 用作会议唯一标识
 

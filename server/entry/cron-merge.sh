@@ -1,7 +1,7 @@
 #!/bin/bash
-# 服务器端统一 pipeline
-# 自动扫描 data/ 下所有用户目录，有数据就跑合并
-# cron: */10 * * * * bash ~/antigravity/we/server/scripts/pipeline.sh
+# 服务器端定时合并 — cron 用
+# 自动扫描 data/ 下所有用户目录，有 distill-gemini.jsonl 就跑 merge_pairs
+# cron: */10 * * * * bash ~/antigravity/we/server/entry/cron-merge.sh
 
 set -euo pipefail
 
@@ -28,7 +28,9 @@ process_user() {
     [ -f "$user_dir/distill-gemini.jsonl" ] || return 0
 
     # 合并（distill-gemini 是唯一的训练数据来源）
-    local merge_result=$($PYTHON "$SERVER_DIR/merge_pairs.py"         --inputs "$user_dir/distill-gemini.jsonl"         --output "$user_dir/merged-pairs.jsonl" 2>&1) || true
+    local merge_result=$($PYTHON "$SERVER_DIR/lib/merge_pairs.py" \
+        --inputs "$user_dir/distill-gemini.jsonl" \
+        --output "$user_dir/merged-pairs.jsonl" 2>&1) || true
 
     if echo "$merge_result" | grep -q "Merged:"; then
         local merged=$(echo "$merge_result" | grep "Merged:" | head -1)

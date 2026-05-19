@@ -12,7 +12,7 @@ import Speech
 /// 3. 所有 buffer 发送完后，执行和 VoiceSession.stop() 一样的关闭逻辑
 /// 4. 记录每一步的时间戳和 SA 状态，输出诊断报告
 enum TruncationTest {
-    private static let outputURL = WEDataDir.url.appendingPathComponent("truncation-test.log")
+    private static let outputURL = WEDataDir.archiveReports.appendingPathComponent("truncation-test.log")
     nonisolated(unsafe) private static var logHandle: FileHandle?
 
     private static func log(_ msg: String) {

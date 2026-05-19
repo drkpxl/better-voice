@@ -52,7 +52,7 @@ final class RuntimeConfig {
     }
 
     private init() {
-        self.configURL = WEDataDir.url.appendingPathComponent("config.json")
+        self.configURL = WEDataDir.configURL
         load()
         watchFile()
     }
@@ -72,7 +72,7 @@ final class RuntimeConfig {
                     "enabled": true,
                     "system_prompt": "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。",
                     "context_dictionary_enabled": false,
-                    "context_dictionary_path": "~/.we/correction-dictionary.json",
+                    "context_dictionary_path": WEDataDir.correctionDictURL.path,
                     "context_ocr_enabled": false
                 ],
                 "distill": [

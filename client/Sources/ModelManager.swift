@@ -5,7 +5,7 @@ import Foundation
 final class ModelManager {
     static let shared = ModelManager()
 
-    private let modelsDir = WEDataDir.url.appendingPathComponent("models")
+    private let modelsDir = WEDataDir.models
 
     struct ManifestEntry: Codable {
         let filename: String

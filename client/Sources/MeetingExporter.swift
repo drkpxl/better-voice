@@ -12,13 +12,11 @@ final class MeetingExporter {
         duration: TimeInterval,
         date: Date = Date()
     ) -> URL? {
-        let dir = WEDataDir.url.appendingPathComponent("meetings")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: WEDataDir.meetings, withIntermediateDirectories: true)
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-        let fileName = "\(formatter.string(from: date)).md"
-        let fileURL = dir.appendingPathComponent(fileName)
+        let fileURL = WEDataDir.meetingMarkdownURL(forName: formatter.string(from: date))
 
         var md = "# 会议记录\n\n"
         md += "- 日期：\(formatDate(date))\n"

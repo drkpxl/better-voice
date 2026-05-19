@@ -196,7 +196,7 @@ final class RemoteInbox {
 
         // 1. 写临时文件
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let tempURL = WEDataDir.url.appendingPathComponent("audio/remote-\(timestamp).wav")
+        let tempURL = WEDataDir.remoteAudioURL(timestamp: timestamp)
         do {
             try wavData.write(to: tempURL)
         } catch {

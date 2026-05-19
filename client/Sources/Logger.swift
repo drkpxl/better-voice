@@ -3,7 +3,7 @@ import Foundation
 /// 简单日志，写入 ~/.we/debug.log + 控制台
 /// 超过 maxSize 时自动截断保留最近一半
 enum Logger {
-    private static let logURL = WEDataDir.url.appendingPathComponent("debug.log")
+    private static let logURL = WEDataDir.logURL
     private static let queue = DispatchQueue(label: "we.logger", qos: .utility)
     private static let maxSize: UInt64 = 5 * 1024 * 1024  // 5 MB
     private static let dateFormatter: DateFormatter = {

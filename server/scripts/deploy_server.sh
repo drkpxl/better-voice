@@ -16,10 +16,10 @@ echo "Done: code synced"
 echo ""
 echo "=== 2. 安装 pipeline cron（每 10 分钟，自动扫描所有用户） ==="
 ssh "$SERVER" bash -s <<'CRON'
-CRON_CMD="*/10 * * * * bash ~/antigravity/we/server/scripts/pipeline.sh"
-(crontab -l 2>/dev/null | grep -v "run_whisper_distill\|pipeline.sh" ; echo "$CRON_CMD") | crontab -
+CRON_CMD="*/10 * * * * bash ~/antigravity/we/server/entry/cron-merge.sh"
+(crontab -l 2>/dev/null | grep -v "run_whisper_distill\|cron-merge.sh\|pipeline.sh" ; echo "$CRON_CMD") | crontab -
 echo "Cron installed:"
-crontab -l | grep pipeline
+crontab -l | grep cron-merge
 CRON
 
 echo ""

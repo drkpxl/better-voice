@@ -141,7 +141,7 @@ final class VoiceSession {
 
         // 8. 准备音频文件
         let fileName = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let url = WEDataDir.url.appendingPathComponent("audio/\(fileName).wav")
+        let url = WEDataDir.audioURL(forName: fileName)
         audioFileURL = url
 
         // 9. 启动 AVCaptureSession（替代 AVAudioEngine，兼容蓝牙设备）
