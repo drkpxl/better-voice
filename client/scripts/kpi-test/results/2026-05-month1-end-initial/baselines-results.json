@@ -1,0 +1,41 @@
+[
+{
+  "pdf_ref": "§3.2 L4 ①",
+  "name": "short_command_accuracy",
+  "status": "ok",
+  "value": 0.41,
+  "sample_count": 100,
+  "higher_is_better": true,
+  "pdf_formula": "100 条短指令测试集，完全识别正确条数 / 100",
+  "per_sample_jsonl": "/Users/marvin/antigravity/we/client/scripts/kpi-test/results/latest/short_command_accuracy.jsonl",
+  "transcribe_dir": "/var/folders/sd/yfsbqr9531v538rjwd9_ps4h0000gn/T/kpi_batch_7n22obzo"
+}
+,
+{
+  "pdf_ref": "§3.2 L4 ②",
+  "name": "medium_wer",
+  "status": "ok",
+  "value": 0.2552,
+  "sample_count": 100,
+  "higher_is_better": false,
+  "pdf_formula": "100 条中等长度测试集，整体 WER（词错率）",
+  "per_sample_jsonl": "/Users/marvin/antigravity/we/client/scripts/kpi-test/results/latest/medium_wer.jsonl",
+  "transcribe_dir": "/var/folders/sd/yfsbqr9531v538rjwd9_ps4h0000gn/T/kpi_batch_lalkwao7"
+}
+,
+{
+  "pdf_ref": "§3.2 L4 ③",
+  "name": "long_retention",
+  "status": "ok",
+  "value": 0.965,
+  "sample_count": 50,
+  "higher_is_better": true,
+  "pdf_formula": "50 条长段测试集，转写字数 / 原文字数（多次平均），且 WER < 15%",
+  "per_sample_jsonl": "/Users/marvin/antigravity/we/client/scripts/kpi-test/results/latest/long_retention.jsonl",
+  "transcribe_dir": "/var/folders/sd/yfsbqr9531v538rjwd9_ps4h0000gn/T/kpi_batch_h1gz0a09"
+}
+,
+{"pdf_ref":"§3.2 L4 ④","name":"meeting_facts","status":"todo","value":null,"note":"manifest missing"}
+,
+{"pdf_ref":"§3.2 L4 ⑤","name":"meeting_wer","status":"todo","value":null,"note":"manifest missing"}
+]

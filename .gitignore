@@ -47,3 +47,16 @@ config.json
 *.p12
 *.key
 __pycache__/
+
+# Playwright temp + local test artifacts
+.playwright-mcp/
+meeting-temp.wav
+client/scripts/kpi-test/data/short/audio/
+client/scripts/kpi-test/data/medium/audio/
+client/scripts/kpi-test/data/long/audio/
+client/scripts/kpi-test/data/meeting/*.wav
+client/scripts/kpi-test/results/latest/
+
+# KPI test manifests + results — override the global *.jsonl rule
+!client/scripts/kpi-test/data/*/manifest.jsonl
+!client/scripts/kpi-test/results/**/*.jsonl

@@ -1,0 +1,105 @@
+[
+{
+  "pdf_ref": "§3.1 L4 #11 ①",
+  "name": "录入语音 → 转写 → 输出文字",
+  "status": "pass",
+  "score": 1.0,
+  "evidence": {
+    "audio": "/Users/marvin/.we/audio/remote-2026-05-15T02-39-29Z.wav",
+    "duration_s": 3.54,
+    "rawSA": "试一下能不能转路。",
+    "finalText": "试一下能不能转路。",
+    "ctx_ms": 42,
+    "sa_ms": 615,
+    "l2_ms": 326,
+    "total_ms": 985,
+    "checks": {
+      "process_exited_cleanly": true,
+      "has_finalText": true,
+      "has_rawSA": true,
+      "timing_complete": true
+    }
+  }
+}
+,
+{
+  "pdf_ref": "§3.1 L4 #11 ②",
+  "name": "会议模式可录可转",
+  "status": "todo",
+  "score": 0,
+  "evidence": null,
+  "note": "test audio /Users/marvin/antigravity/we/client/scripts/kpi-test/data/meeting/sample-1.wav missing; populate data/meeting/ first"
+}
+,
+{
+  "pdf_ref": "§3.1 L4 #11 ③",
+  "name": "跨网传输可用",
+  "status": "pass",
+  "score": 1.0,
+  "evidence": {
+    "audio": "/Users/marvin/.we/audio/remote-2026-05-15T02-39-29Z.wav",
+    "http_code": "200",
+    "log_received": 1,
+    "log_transcribed": 1,
+    "log_timing": 1,
+    "voice_history_new": 1,
+    "checks": {
+      "process_listening_9800": true,
+      "http_200": true,
+      "log_chain_complete": true,
+      "voice_history_appended": true
+    }
+  }
+}
+,
+{
+  "pdf_ref": "§3.1 L2 #7 ①",
+  "name": "自动构建错词表",
+  "status": "pass",
+  "score": 1.0,
+  "evidence": {
+    "script": "/Users/marvin/antigravity/we/server/build_dictionary.py",
+    "term_count": 104,
+    "exit_code": 0,
+    "checks": {
+      "syntax_ok": true,
+      "exited_cleanly": true,
+      "min_terms": true,
+      "schema_ok": true
+    }
+  }
+}
+,
+{
+  "pdf_ref": "§3.1 L2 #7 ②",
+  "name": "自动微调",
+  "status": "partial",
+  "score": 0.7,
+  "evidence": {
+    "pipeline_script": "/Users/marvin/antigravity/we/server/scripts/run_pipeline.sh",
+    "latest_adapter": "",
+    "checks": {
+      "pipeline_executable": true,
+      "pipeline_contains_training_stage": true,
+      "cron_pipeline_exists": true,
+      "latest_adapter_present": false
+    }
+  }
+}
+,
+{
+  "pdf_ref": "§3.1 L2 #7 ③",
+  "name": "输出报告",
+  "status": "fail",
+  "score": 0,
+  "evidence": {
+    "eval_script": "/Users/marvin/antigravity/we/server/eval_model.py",
+    "latest_eval_result": "",
+    "checks": {
+      "eval_script_present": true,
+      "latest_eval_jsonl_present": false,
+      "eval_jsonl_schema_ok": false
+    }
+  }
+}
+]

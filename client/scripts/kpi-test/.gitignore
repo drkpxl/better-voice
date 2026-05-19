@@ -1,0 +1,12 @@
+# 测试集音频不进 git（体积大）
+data/short/audio/
+data/medium/audio/
+data/long/audio/
+data/meeting/*.wav
+
+# 临时结果（latest 总在变）
+results/latest/
+
+# Python 缓存
+**/__pycache__/
+**/*.pyc

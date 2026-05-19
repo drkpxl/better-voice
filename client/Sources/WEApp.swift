@@ -52,6 +52,19 @@ struct WEApp {
             return
         }
 
+        // 即时录音评估：WE --bench-voice <wav> [--locale zh-CN] [--output result.json]
+        // 走完整 ContextEnhancer + SA + L2 polish 链路（用户视角），但不注入光标、不写历史
+        if CommandLine.arguments.contains("--bench-voice") {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            Task {
+                await VoiceBenchmark.run()
+                app.terminate(nil)
+            }
+            app.run()
+            return
+        }
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

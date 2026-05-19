@@ -1,0 +1,100 @@
+{"id": "s001", "audio": "/Users/marvin/.we/audio/remote-2026-04-09T08-31-51Z.wav", "ground_truth": "OK，我试一下这个窗口最小化了还行不行 ？", "hypothesis": "OK，我试一下这个窗口最小化了还行不行 ？", "correct": true, "cer": 0.0}
+{"id": "s002", "audio": "/Users/marvin/.we/audio/2026-03-10T08-41-38Z.wav", "ground_truth": "测试一下，您现在是否有用户交错的情况？", "hypothesis": "测试一下你现在有用户并发吗 ？", "correct": false, "cer": 0.4737}
+{"id": "s003", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T02-27-02Z.wav", "ground_truth": "嗯 ，会影响其他的部署吗 ？如果影响部署", "hypothesis": "嗯 ，会影响其他的配置吗 ？如果影响其。", "correct": false, "cer": 0.2222}
+{"id": "s004", "audio": "/Users/marvin/.we/audio/remote-2026-04-13T07-36-17Z.wav", "ground_truth": "呃 ，他可以做成那个飞轮", "hypothesis": "他可以做成那个", "correct": false, "cer": 0.3636}
+{"id": "s005", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T08-48-19Z.wav", "ground_truth": "嗯 ，这个跟具体怎么做有什么关系呢。", "hypothesis": "登录密码", "correct": false, "cer": 1.0}
+{"id": "s006", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T02-46-40Z.wav", "ground_truth": "然后我用的是 remote deser top destop。", "hypothesis": "然后我用的是 remote desktop top desktop。", "correct": false, "cer": 0.1852}
+{"id": "s007", "audio": "/Users/marvin/.we/audio/2026-03-23T06-09-03Z.wav", "ground_truth": "我会针对以下三项内容制作卡片式可视化展示。", "hypothesis": "这个这个我肯定下面三个站去做一个可视化。用卡片的展示给我", "correct": false, "cer": 1.0952}
+{"id": "s008", "audio": "/Users/marvin/.we/audio/2026-03-19T03-10-50Z.wav", "ground_truth": "我来测试一下这个数据链接是否有效。", "hypothesis": "我试一下这个数据链接能不能通过。", "correct": false, "cer": 0.4118}
+{"id": "s009", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T08-57-02Z.wav", "ground_truth": "嗯 ，这个 TQTQ的具体实现可能需要进一步确认。", "hypothesis": "就是 Tailscale。", "correct": false, "cer": 0.913}
+{"id": "s010", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T08-28-06Z.wav", "ground_truth": "你为什么会连不上呢这是一个问题啊就是你连不上才是问题啊。", "hypothesis": "你为什么会连不上呢这是一个问题啊就是你连不上才是问题啊。", "correct": true, "cer": 0.0}
+{"id": "s011", "audio": "/Users/marvin/.we/audio/2026-03-10T06-33-46Z.wav", "ground_truth": "您好，请问有什么可以帮您？", "hypothesis": "我想测试一下你的准确性。", "correct": false, "cer": 1.0}
+{"id": "s012", "audio": "/Users/marvin/.we/audio/2026-03-10T06-33-31Z.wav", "ground_truth": "你好，我想去试试你的 KQ 语。", "hypothesis": "嗨 ，我想去试一下你的 KE语我。", "correct": false, "cer": 0.4286}
+{"id": "s013", "audio": "/Users/marvin/.we/audio/2026-03-12T03-06-03Z.wav", "ground_truth": "我来测试一下是否有屏幕录制功能。", "hypothesis": "我试一下有没有screen录制功能。", "correct": false, "cer": 0.625}
+{"id": "s014", "audio": "/Users/marvin/.we/audio/remote-2026-04-09T08-31-12Z.wav", "ground_truth": "OK，那我再试一下你这次测试能不能成功吧。", "hypothesis": "OK，那我再试一下你这次测试能不能成功吧。", "correct": true, "cer": 0.0}
+{"id": "s015", "audio": "/Users/marvin/.we/audio/remote-2026-04-09T08-38-01Z.wav", "ground_truth": "就是教程吧或者教程文档吧。", "hypothesis": "就是教程吧或者教程文档吧。", "correct": true, "cer": 0.0}
+{"id": "s016", "audio": "/Users/marvin/.we/audio/remote-2026-04-13T08-31-09Z.wav", "ground_truth": "帮我看一下我有没有刚切在", "hypothesis": "帮我看一下我有没有刚 Clyton这个 s在", "correct": false, "cer": 0.75}
+{"id": "s017", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T09-03-00Z.wav", "ground_truth": "嗯 ，其他没有什么问题。", "hypothesis": "嗯 ，其他没有什么问题。", "correct": true, "cer": 0.0}
+{"id": "s018", "audio": "/Users/marvin/.we/audio/2026-03-10T06-13-37Z.wav", "ground_truth": "你好，我尝试了转换功能，但未能成功。", "hypothesis": "哈喽我再试一下能不能转。", "correct": false, "cer": 0.7222}
+{"id": "s019", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T03-14-53Z.wav", "ground_truth": "MCP改为CLI是否可行 ？", "hypothesis": "MC升级为CLI是否可行 ？", "correct": false, "cer": 0.1538}
+{"id": "s020", "audio": "/Users/marvin/.we/audio/2026-03-23T05-48-59Z.wav", "ground_truth": "帮我本地的一个 AS解释之后件帮我加一辆下一个。", "hypothesis": "帮我本地的一个 AR解释之后件帮我加一辆下一个。", "correct": false, "cer": 0.0435}
+{"id": "s021", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T08-00-58Z.wav", "ground_truth": "我猜者你不是执行者。", "hypothesis": "我说过你是检查者 ，你不是执行者。", "correct": false, "cer": 0.7}
+{"id": "s022", "audio": "/Users/marvin/.we/audio/remote-2026-04-15T09-46-46Z.wav", "ground_truth": "嗯 ，先共识一下 ，不要先急着写 ，先共识一下看看。", "hypothesis": "嗯 ，先共识一下 ，不要先急着写 ，先共识一下看看。", "correct": true, "cer": 0.0}
+{"id": "s023", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T05-09-03Z.wav", "ground_truth": "嗯 ，我没有让你去执行。", "hypothesis": "我没有让你去执行 OK。", "correct": false, "cer": 0.3636}
+{"id": "s024", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T02-09-22Z.wav", "ground_truth": "然后项目名称应该是 autoemail。", "hypothesis": "然后项目名称应该是 auto-mail。", "correct": false, "cer": 0.0526}
+{"id": "s025", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T08-25-59Z.wav", "ground_truth": "嗯 ，还是打不开网页。", "hypothesis": "嗯 ，还是打不开网页。", "correct": true, "cer": 0.0}
+{"id": "s026", "audio": "/Users/marvin/.we/audio/remote-2026-04-09T08-31-20Z.wav", "ground_truth": "嗯 ，挺好的 ，那我继续测试 ，我看有没有什么其他的问题。", "hypothesis": "嗯 ，挺好的 ，那我继续测试 ，我看有没有什么其他的问题。", "correct": true, "cer": 0.0}
+{"id": "s027", "audio": "/Users/marvin/.we/audio/remote-2026-05-15T02-07-39Z.wav", "ground_truth": "试一下能不能转路。", "hypothesis": "试一下能不能转路。", "correct": true, "cer": 0.0}
+{"id": "s028", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T06-18-35Z.wav", "ground_truth": "就生成我一个输出内容。", "hypothesis": "就整理我一个输出内容。", "correct": false, "cer": 0.1818}
+{"id": "s029", "audio": "/Users/marvin/.we/audio/remote-2026-05-14T08-28-11Z.wav", "ground_truth": "试一下能不能转路。", "hypothesis": "试一下能不能转路。", "correct": true, "cer": 0.0}
+{"id": "s030", "audio": "/Users/marvin/.we/audio/remote-2026-04-17T03-41-13Z.wav", "ground_truth": "你不要可能你不可能出现会有可能这样的回复的你嗯。", "hypothesis": "你不要可能你不可能出现会有可能这样的回复的你嗯。", "correct": true, "cer": 0.0}
+{"id": "s031", "audio": "/Users/marvin/.we/audio/remote-2026-04-20T03-01-14Z.wav", "ground_truth": "呃 ，WEWE而不是微调 WE。", "hypothesis": "呃 ，WEWE而不是微调 WE。", "correct": true, "cer": 0.0}
+{"id": "s032", "audio": "/Users/marvin/.we/audio/2026-03-10T05-51-03Z.caf", "ground_truth": "我认为我在休息没有回事。", "hypothesis": "我认为我在休息没有回事。", "correct": true, "cer": 0.0}
+{"id": "s033", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T09-29-02Z.wav", "ground_truth": "嗯 ，agent肯定是不能不能打折的吧。", "hypothesis": "嗯 ，27肯定是不能不能打折的吧。", "correct": false, "cer": 0.2632}
+{"id": "s034", "audio": "/Users/marvin/.we/audio/remote-2026-04-17T03-39-29Z.wav", "ground_truth": "呃 ，状态定时向我更新状态 ，5分钟更新一次状态。", "hypothesis": "状态定时向我更新状态 ，5分钟更新一次状态。", "correct": false, "cer": 0.087}
+{"id": "s035", "audio": "/Users/marvin/.we/audio/2026-03-17T05-30-38Z.wav", "ground_truth": "还要考虑编辑的设定，比如因素要更重一些。", "hypothesis": "嗯 ，就照顾有那些编辑要设置好比因素要越重。", "correct": false, "cer": 0.75}
+{"id": "s036", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T05-07-57Z.wav", "ground_truth": "呃这个才是嗯理解了这个才真正理解我说的话 OK。", "hypothesis": "这个才是嗯理解了这个才真正理解我说的话 OK。", "correct": false, "cer": 0.0435}
+{"id": "s037", "audio": "/Users/marvin/.we/audio/2026-04-27T03-59-41Z.wav", "ground_truth": "第三个我觉得确定 ，你可以拟定。", "hypothesis": "第三个我觉得你确定你可以拟定。", "correct": false, "cer": 0.1333}
+{"id": "s038", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T03-58-18Z.wav", "ground_truth": "嗯看一下今天的 gitup项目状态吧。", "hypothesis": "看一下今天的 GitHub项目状态吧。", "correct": false, "cer": 0.2222}
+{"id": "s039", "audio": "/Users/marvin/.we/audio/remote-2026-04-24T08-21-30Z.wav", "ground_truth": "呃 ，你可以继续往下了 ，可以继续往下。", "hypothesis": "呃 ，你可以继续往下了 ，可以继续往下。", "correct": true, "cer": 0.0}
+{"id": "s040", "audio": "/Users/marvin/.we/audio/2026-03-16T09-16-51Z.wav", "ground_truth": "使用 Cloud Console 的 Spin 功能。", "hypothesis": "用肯定是用 Claude Code的 spin。", "correct": false, "cer": 0.5909}
+{"id": "s041", "audio": "/Users/marvin/.we/audio/2026-04-27T03-48-47Z.wav", "ground_truth": "我更换了一个Tailscale应该可以的吧。", "hypothesis": "我更换了一个Tailscale应该可以的吧。", "correct": true, "cer": 0.0}
+{"id": "s042", "audio": "/Users/marvin/.we/audio/remote-2026-04-17T01-35-57Z.wav", "ground_truth": "嗯 ，继续吧 ，嗯 ，然后呢 ，你数据获取层面呢 ，你你先继续写吧。", "hypothesis": "嗯 ，继续吧 ，嗯 ，然后呢 ，你数据获取层面呢 ，你你先继续写吧。", "correct": true, "cer": 0.0}
+{"id": "s043", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T03-51-53Z.wav", "ground_truth": "Remote desk top may manager。", "hypothesis": "Remote desktop may manager。", "correct": false, "cer": 0.0}
+{"id": "s044", "audio": "/Users/marvin/.we/audio/2026-03-13T02-03-42Z.wav", "ground_truth": "现实问题。", "hypothesis": "现实的问题吧。", "correct": false, "cer": 0.4}
+{"id": "s045", "audio": "/Users/marvin/.we/audio/remote-2026-04-27T03-52-17Z.wav", "ground_truth": "嗯 ，这样应该也能听到的吧 ，这样应该也没什么问题吧。", "hypothesis": "嗯 ，这样应该也能听到的吧 ，这样应该也没什么问题吧。", "correct": true, "cer": 0.0}
+{"id": "s046", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-45-43Z.wav", "ground_truth": "OK，那你先上线试一下看看。", "hypothesis": "OK，那你先上线试一下看看。", "correct": true, "cer": 0.0}
+{"id": "s047", "audio": "/Users/marvin/.we/audio/2026-03-12T06-31-34Z.wav", "ground_truth": "哈喽。", "hypothesis": "哈喽哈喽哈喽哈喽。", "correct": false, "cer": 2.0}
+{"id": "s048", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-21-26Z.wav", "ground_truth": "嗯 ，帮我打开。", "hypothesis": "嗯 ，帮我打开。", "correct": true, "cer": 0.0}
+{"id": "s049", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T05-35-01Z.wav", "ground_truth": "嗯 ，你帮我看一下我 windows本地的这个呃版本吧。", "hypothesis": "嗯 ，你帮我看一下我 Windows本地的这个版本吧。", "correct": false, "cer": 0.0769}
+{"id": "s050", "audio": "/Users/marvin/.we/audio/remote-2026-04-27T03-43-48Z.wav", "ground_truth": "试试不行 ，我试一下这样能不能够识别到并且执行。", "hypothesis": "试试不行 ，我试一下这样能不能够识别到并且执行。", "correct": true, "cer": 0.0}
+{"id": "s051", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T02-40-04Z.wav", "ground_truth": "嗯 ，我先试试看这样能不能成功。", "hypothesis": "我先试试看这样能不能成功。", "correct": false, "cer": 0.1333}
+{"id": "s052", "audio": "/Users/marvin/.we/audio/remote-2026-04-23T07-29-55Z.wav", "ground_truth": "然后嗯 ，那你帮我写一个哦 ，你已经写了是吧那你打开。", "hypothesis": "然后嗯 ，那你帮我写一个哦 ，你已经写了是吧那你打开。", "correct": true, "cer": 0.0}
+{"id": "s053", "audio": "/Users/marvin/.we/audio/2026-03-10T08-41-24Z.wav", "ground_truth": "尝试一下，现在有没有用错字？", "hypothesis": "尝试一下你现在有用无纠错。", "correct": false, "cer": 0.4286}
+{"id": "s054", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T08-21-27Z.wav", "ground_truth": "嗯 ，好的 ，帮我安装一下看看。", "hypothesis": "好的 ，让我仔细看看用户的需求。用户说，“嗯 ，好的 ，帮我安装一下看看。”这句话看起来像是在询问如何安装某个软件。但修正后的最终文本需要去掉语气词，去掉修正标点符号。原句中的语气词“嗯”是多余的，去掉之后变成“嗯 ，好的 ，帮我安装一下看看。”标点符号修正了逗号的位置。用户之前的历史记录显示，之前的回复都是直接执行命令，但这次可能用户是测试一下语音识别纠错功能，所以不需要改变原意，只修正语法错误。确认没有问题后，输出修正后的最终文本。", "correct": false, "cer": 14.3571}
+{"id": "s055", "audio": "/Users/marvin/.we/audio/remote-2026-04-13T02-20-31Z.wav", "ground_truth": "嗯 ，如果出问题的话 ，恢复指令是什么 ？", "hypothesis": "嗯 ，如果出问题的话 ，复原指令是什么 ？", "correct": false, "cer": 0.1111}
+{"id": "s056", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T02-05-50Z.wav", "ground_truth": "嗯 ，合理的 ，我觉得你最后的筛选维度是合理的。", "hypothesis": "嗯 ，合理的 ，我觉得你最后的筛选维度是合理的。", "correct": true, "cer": 0.0}
+{"id": "s057", "audio": "/Users/marvin/.we/audio/2026-03-13T08-10-41Z.wav", "ground_truth": "这话没关系，先放一放再说。", "hypothesis": "这这种先放好多话没有关系。", "correct": false, "cer": 0.8462}
+{"id": "s058", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-42-13Z.wav", "ground_truth": "好了好了", "hypothesis": "好的", "correct": false, "cer": 0.75}
+{"id": "s059", "audio": "/Users/marvin/.we/audio/2026-03-12T02-11-04Z.wav", "ground_truth": "我试试看你这个。选确率如何能不能成功 ？", "hypothesis": "我试试看你这个。识别率如何能不能成功 ？", "correct": false, "cer": 0.1053}
+{"id": "s060", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T02-53-47Z.wav", "ground_truth": "嗯 ，好的 ，看一下最近的项目情况 ，看看有没有更新吧。", "hypothesis": "好的 ，看一下最近的项目情况 ，看看有没有更新吧。", "correct": false, "cer": 0.08}
+{"id": "s061", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T03-15-03Z.wav", "ground_truth": "呃 ，打开昨天的日报 ，我看一下。", "hypothesis": "打开昨天的日报 ，我看一下。", "correct": false, "cer": 0.1333}
+{"id": "s062", "audio": "/Users/marvin/.we/audio/remote-2026-04-15T05-52-40Z.wav", "ground_truth": "嗯。对 ，那就用那个语距离吧 ，通过语距离来重新评估。", "hypothesis": "嗯。对 ，那就用那个语距离吧 ，通过语距离来重新评估。", "correct": true, "cer": 0.0}
+{"id": "s063", "audio": "/Users/marvin/.we/audio/remote-2026-04-15T02-22-43Z.wav", "ground_truth": "嗯 ，好的 ，开始做吧。", "hypothesis": "好的 ，我修正语音识别错误。原句是“嗯 ，好的 ，开始做吧。”，修正后的最终文本是“好的 ，开始做吧。”去掉语气词，修正标点符号。", "correct": false, "cer": 5.1}
+{"id": "s064", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-21-56Z.wav", "ground_truth": "嗯 ，帮我用 Antigravity打开。", "hypothesis": "嗯 ，帮我用 Antigravity打开。", "correct": true, "cer": 0.0}
+{"id": "s065", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T05-04-19Z.wav", "ground_truth": "就你不要老是想着啊 ，有 A就 B就结合 AB这完全是错误的呀。", "hypothesis": "就不要老是想着啊 ，有 A就 B就结合 AB这完全是错误的呀。", "correct": false, "cer": 0.0357}
+{"id": "s066", "audio": "/Users/marvin/.we/audio/2026-03-23T05-48-33Z.wav", "ground_truth": "下面不是不开配置是你本机解析不了这。个 IP地址", "hypothesis": "下面不是不开配置是你本机解析不了这。个 IP地址", "correct": true, "cer": 0.0}
+{"id": "s067", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T05-17-45Z.wav", "ground_truth": "OK ，呃 ，看看真亮抓去有API吗 ？", "hypothesis": "OK，看看Tailscale抓去有邮件吗 ？", "correct": false, "cer": 0.8235}
+{"id": "s068", "audio": "/Users/marvin/.we/audio/2026-03-10T08-54-56Z.wav", "ground_truth": "测试一下修改功能。", "hypothesis": "测试一下修改功能。", "correct": true, "cer": 0.0}
+{"id": "s069", "audio": "/Users/marvin/.we/audio/remote-2026-04-17T05-05-34Z.wav", "ground_truth": "嗯 ，给我现在的配置", "hypothesis": "嗯 ，给我现在的状态", "correct": false, "cer": 0.2222}
+{"id": "s070", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T01-52-34Z.wav", "ground_truth": "嗯 ，不要去跑验证 ，不要去跑验证。", "hypothesis": "嗯 ，不要去跑验证 ，不要去跑验证。", "correct": true, "cer": 0.0}
+{"id": "s071", "audio": "/Users/marvin/.we/audio/remote-2026-04-09T08-32-12Z.wav", "ground_truth": "OK，我试一下这个这样行不行 ？", "hypothesis": "OK，我试一下这个方法 ？", "correct": false, "cer": 0.3333}
+{"id": "s072", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T03-13-17Z.wav", "ground_truth": "二开 tale scele杠主线。", "hypothesis": "二开 Tailscale杠主线。", "correct": false, "cer": 0.2667}
+{"id": "s073", "audio": "/Users/marvin/.we/audio/remote-2026-04-17T02-58-27Z.wav", "ground_truth": "嗯 ，先停一下 ，先停一下 ，等我再跑 ，等我再跑容易 OM了。", "hypothesis": "嗯 ，先停一下 ，先停一下 ，等我再跑 ，等会儿再跑容易 OM了。", "correct": false, "cer": 0.0741}
+{"id": "s074", "audio": "/Users/marvin/.we/audio/2026-04-27T03-46-00Z.wav", "ground_truth": "试试这样能不能行。", "hypothesis": "试试这样能不能行。", "correct": true, "cer": 0.0}
+{"id": "s075", "audio": "/Users/marvin/.we/audio/2026-03-12T08-24-03Z.wav", "ground_truth": "喂，我试一下能不能听到自己的声音。", "hypothesis": "我试一下能不能听到我的声音。", "correct": false, "cer": 0.2353}
+{"id": "s076", "audio": "/Users/marvin/.we/audio/remote-2026-04-17T05-52-55Z.wav", "ground_truth": "我们用的是降值。", "hypothesis": "现在呢现在呢 ？", "correct": false, "cer": 1.0}
+{"id": "s077", "audio": "/Users/marvin/.we/audio/remote-2026-04-22T02-49-48Z.wav", "ground_truth": "嗯 ，继续吧 ，继续。", "hypothesis": "嗯 ，继续吧 ，继续。", "correct": true, "cer": 0.0}
+{"id": "s078", "audio": "/Users/marvin/.we/audio/remote-2026-04-13T02-16-06Z.wav", "ground_truth": "嗯 ，我先测试一下。如果连通正常的话 ，那我再测试一下。", "hypothesis": "我执行好了", "correct": false, "cer": 0.9615}
+{"id": "s079", "audio": "/Users/marvin/.we/audio/remote-2026-04-15T06-01-38Z.wav", "ground_truth": "嗯 ，不是用的 Docker吗 ？", "hypothesis": "嗯 ，不是用的 Docker吗 ？", "correct": true, "cer": 0.0}
+{"id": "s080", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-31-12Z.wav", "ground_truth": "改一下吧 ，改一下吧。", "hypothesis": "改一下 ，改一下。", "correct": false, "cer": 0.2}
+{"id": "s081", "audio": "/Users/marvin/.we/audio/2026-03-17T08-25-12Z.wav", "ground_truth": "此外，还有心跳机制以及学习类等类似功能。", "hypothesis": "然后还有就是。还有一些心跳机制吧 ，还有一些比如说嗯。学习的类这样的类似的", "correct": false, "cer": 1.35}
+{"id": "s082", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-32-31Z.wav", "ground_truth": "嗯 ，继续继续。", "hypothesis": "嗯 ，继续继续。", "correct": true, "cer": 0.0}
+{"id": "s083", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T07-13-08Z.wav", "ground_truth": "嗯 ，这些功能逻辑我不知道你和我是不是共识的。", "hypothesis": "这些功能逻辑我不知道你和我是不是共识的。", "correct": false, "cer": 0.0909}
+{"id": "s084", "audio": "/Users/marvin/.we/audio/2026-03-23T08-46-18Z.wav", "ground_truth": "请查阅官方文档。", "hypothesis": "请去了解一下官方的文档。", "correct": false, "cer": 0.75}
+{"id": "s085", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T01-58-26Z.wav", "ground_truth": "嗯 ，没有问题就先这么做吧。", "hypothesis": "嗯 ，没有问题就先这么做吧。", "correct": true, "cer": 0.0}
+{"id": "s086", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T02-40-47Z.wav", "ground_truth": "你看看要怎么帮我找一下原因吧。", "hypothesis": "你看看要怎么帮我找一下原因吧。", "correct": true, "cer": 0.0}
+{"id": "s087", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T03-04-47Z.wav", "ground_truth": "嗯，先共识我们的理解", "hypothesis": "先共识我们的理解", "correct": false, "cer": 0.2}
+{"id": "s088", "audio": "/Users/marvin/.we/audio/remote-2026-04-15T08-56-48Z.wav", "ground_truth": "嗯 ，不急着先训练 ，确保你先理完整理解了我的架构。", "hypothesis": "嗯 ，不急着先训练 ，确保你先理完整理解了我的架构。", "correct": true, "cer": 0.0}
+{"id": "s089", "audio": "/Users/marvin/.we/audio/2026-03-10T08-55-06Z.wav", "ground_truth": "在测试水下模块。", "hypothesis": "在测水下模块。", "correct": false, "cer": 0.125}
+{"id": "s090", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T09-04-33Z.wav", "ground_truth": "嗯 ，好像直接复制一些那种 HDML代码好像是不行的。", "hypothesis": "嗯 ，好像直接复制一些那种 HDML代码好像是不行的。", "correct": true, "cer": 0.0}
+{"id": "s091", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T08-13-29Z.wav", "ground_truth": "嗯 ，你能创建吗 ？你如果能创建的话就你帮我创建。", "hypothesis": "嗯 ，你能创建吗 ？你如果能创建的话就你帮我创建。", "correct": true, "cer": 0.0}
+{"id": "s092", "audio": "/Users/marvin/.we/audio/2026-03-18T06-01-27Z.wav", "ground_truth": "我不仅要看具体的数据结果，还要关注其执行效果。", "hypothesis": "流程吧就是我不仅要看一些具体的一些数据结果 ，我要看他的一些执行结果和。", "correct": false, "cer": 0.7391}
+{"id": "s093", "audio": "/Users/marvin/.we/audio/remote-2026-04-13T10-07-28Z.wav", "ground_truth": "嗯 ，我已经做过一点修改的 ，你按照我最终的结果来。", "hypothesis": "我已经做过一点修改的 ，你按照我最终的结果来。", "correct": false, "cer": 0.0833}
+{"id": "s094", "audio": "/Users/marvin/.we/audio/remote-2026-04-09T09-04-12Z.wav", "ground_truth": "嗯 ，好 ，那这个任务就圆满完成了。", "hypothesis": "嗯 ，好 ，那这个任务就圆满完成了。", "correct": true, "cer": 0.0}
+{"id": "s095", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T06-11-09Z.wav", "ground_truth": "嗯 ，或者说把一些事情做得更加的好 ，更加的呃深刻度吧。", "hypothesis": "嗯 ，或者说把一些事情做得更加的好 ，更加的呃深度吧。", "correct": false, "cer": 0.0385}
+{"id": "s096", "audio": "/Users/marvin/.we/audio/remote-2026-04-13T03-25-04Z.wav", "ground_truth": "嗯 ，确认确认", "hypothesis": "嗯 ，确认确认", "correct": true, "cer": 0.0}
+{"id": "s097", "audio": "/Users/marvin/.we/audio/remote-2026-04-16T08-21-35Z.wav", "ground_truth": "嗯 ，放在一个目录下就放在 AndyTarget目录下面吧。", "hypothesis": "放在一个目录下就放在 GitHub仓库目录下面吧。", "correct": false, "cer": 0.4286}
+{"id": "s098", "audio": "/Users/marvin/.we/audio/remote-2026-04-10T02-44-02Z.wav", "ground_truth": "嗯 ，我测试一下测试一下", "hypothesis": "嗯 ，我测试一下测试一下", "correct": true, "cer": 0.0}
+{"id": "s099", "audio": "/Users/marvin/.we/audio/remote-2026-04-15T06-08-21Z.wav", "ground_truth": "呃 ，包括你标准的选取就是你评估标准的选取也可以。", "hypothesis": "呃 ，包括你标准的选取就是你评估标准的选取也可以。", "correct": true, "cer": 0.0}
+{"id": "s100", "audio": "/Users/marvin/.we/audio/remote-2026-04-14T02-57-12Z.wav", "ground_truth": "然后第一个问题你确认一下我的 Xcode版本是什么。", "hypothesis": "然后第一个问题你确认一下我的 Xcode版本是什么。", "correct": true, "cer": 0.0}
