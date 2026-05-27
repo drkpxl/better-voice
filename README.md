@@ -51,8 +51,9 @@ Windows 端按热键说话 → 音频通过 Tailscale 私网发送到 Mac → WE
 **Windows 端**（需安装 [Marvin Tailscale](https://github.com/Marvinngg/tailscale/releases)）：
 
 ```bash
-tailscale voice setup --target 100.64.0.10:9800   # 首次设置，之后开机自启
-tailscale voice                                     # 手动运行
+# 先在 Mac 上跑 `tailscale ip`，拿到你 Mac 的 Tailscale IP（形如 100.x.x.x）
+tailscale voice setup --target <YOUR_MAC_TAILSCALE_IP>:9800   # 首次设置，之后开机自启
+tailscale voice                                                # 手动运行
 ```
 
 按住右 Alt 说话，松开发送。

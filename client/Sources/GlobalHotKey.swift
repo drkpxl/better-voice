@@ -19,6 +19,12 @@ final class GlobalHotKey: @unchecked Sendable {
     private nonisolated(unsafe) var runLoopSource: CFRunLoopSource?
     private nonisolated(unsafe) var isPressed = false
 
+    /// 定期检查 CGEventTap 是否仍 enable，失活自动 re-enable。
+    /// macOS 26 上 CGEventTap 长时间运行（数小时到数天）会被静默 disable，
+    /// 而 .tapDisabledByTimeout/.tapDisabledByUserInput 回调有时不触发（因为 callback
+    /// 本身就被 disable 了），所以需要外部主动 ping。
+    private var healthTimer: Timer?
+
     /// 当前生效的配置（nonisolated 是因为 callback 在非 actor 上下文读它）
     fileprivate nonisolated(unsafe) var currentConfig: HotKeyConfig = .default
 
@@ -51,10 +57,27 @@ final class GlobalHotKey: @unchecked Sendable {
         CGEvent.tapEnable(tap: tap, enable: true)
 
         Logger.log("HotKey", "Global hotkey started (CGEventTap)")
+
+        startHealthMonitor()
+    }
+
+    /// 每 30 秒检查一次 tap 是否还 enable；失活则主动 re-enable + 打日志。
+    @MainActor
+    private func startHealthMonitor() {
+        healthTimer?.invalidate()
+        healthTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            guard let self, let tap = self.eventTap else { return }
+            if !CGEvent.tapIsEnabled(tap: tap) {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                Logger.log("HotKey", "Re-enabled CGEventTap (was disabled by system)")
+            }
+        }
     }
 
     @MainActor
     func stop() {
+        healthTimer?.invalidate()
+        healthTimer = nil
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
         }
@@ -63,6 +86,13 @@ final class GlobalHotKey: @unchecked Sendable {
         }
         eventTap = nil
         runLoopSource = nil
+    }
+
+    /// 让状态栏菜单查询 CGEventTap 实时是否健康（启用 + 进程能收到事件）。
+    @MainActor
+    var isHealthy: Bool {
+        guard let tap = eventTap else { return false }
+        return CGEvent.tapIsEnabled(tap: tap)
     }
 
     /// 热更新配置（保存设置后调用）

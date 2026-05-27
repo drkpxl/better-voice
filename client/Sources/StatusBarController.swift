@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor
-final class StatusBarController {
+final class StatusBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let moduleManager: ModuleManager
     private let config = RuntimeConfig.shared
@@ -18,6 +18,8 @@ final class StatusBarController {
         self.moduleManager = moduleManager
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
+        super.init()
+
         ModelServer.shared.onStatusChange = { [weak self] _ in
             self?.updateIcon()
             self?.setupMenu()
@@ -25,6 +27,11 @@ final class StatusBarController {
 
         updateIcon()
         setupMenu()
+    }
+
+    /// 用户点开菜单时实时刷新权限状态（因为去系统设置授权后回来，希望看到 ✓）
+    nonisolated func menuWillOpen(_ menu: NSMenu) {
+        Task { @MainActor in self.setupMenu() }
     }
 
     func setRecording(_ recording: Bool) {
@@ -77,6 +84,34 @@ final class StatusBarController {
         )
         reconnectItem.target = self
         menu.addItem(reconnectItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // 权限状态行：用户视角直接看 4 项 + 点击跳系统设置
+        addPermissionRow(
+            to: menu,
+            label: "全局热键监听",
+            granted: PermissionManager.isInputMonitoringGranted(),
+            selector: #selector(openInputMonitoringSettings)
+        )
+        addPermissionRow(
+            to: menu,
+            label: "文字注入光标",
+            granted: PermissionManager.isAccessibilityGranted(),
+            selector: #selector(openAccessibilitySettings)
+        )
+        addPermissionRow(
+            to: menu,
+            label: "麦克风录音",
+            granted: PermissionManager.isMicrophoneGranted(),
+            selector: #selector(openMicrophoneSettings)
+        )
+        addPermissionRow(
+            to: menu,
+            label: "屏幕录制（会议系统音频）",
+            granted: PermissionManager.isScreenCaptureGranted(),
+            selector: #selector(openScreenRecordingSettings)
+        )
 
         menu.addItem(NSMenuItem.separator())
 
@@ -152,6 +187,7 @@ final class StatusBarController {
         quitItem.target = self
         menu.addItem(quitItem)
 
+        menu.delegate = self
         statusItem.menu = menu
     }
 
@@ -307,5 +343,46 @@ final class StatusBarController {
 
     @objc private func quit() {
         NSApplication.shared.terminate(nil)
+    }
+
+    // MARK: - 权限状态行
+
+    /// 给菜单加一行权限状态。granted=true 时不可点击（信息行）；
+    /// granted=false 时变红，点击跳系统设置对应页面。
+    private func addPermissionRow(to menu: NSMenu, label: String, granted: Bool, selector: Selector) {
+        let icon = granted ? "✓" : "⚠"
+        let item = NSMenuItem(
+            title: "\(icon) \(label)：\(granted ? "已授权" : "未授权 — 点击设置")",
+            action: granted ? nil : selector,
+            keyEquivalent: ""
+        )
+        if !granted {
+            item.target = self
+            // 红色高亮提示
+            let attr = NSMutableAttributedString(string: item.title)
+            attr.addAttribute(.foregroundColor, value: NSColor.systemRed, range: NSRange(location: 0, length: attr.length))
+            item.attributedTitle = attr
+        }
+        menu.addItem(item)
+    }
+
+    @objc private func openInputMonitoringSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openAccessibilitySettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openMicrophoneSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openScreenRecordingSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+        NSWorkspace.shared.open(url)
     }
 }

@@ -36,6 +36,24 @@ enum PermissionManager {
         return granted
     }
 
+    // MARK: - 状态栏轮询用 — 纯查询，不弹对话框
+
+    static func isAccessibilityGranted() -> Bool {
+        AXIsProcessTrusted()
+    }
+
+    static func isInputMonitoringGranted() -> Bool {
+        IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
+    }
+
+    static func isMicrophoneGranted() -> Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+    }
+
+    static func isScreenCaptureGranted() -> Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
     static func checkMicrophone() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
