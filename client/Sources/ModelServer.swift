@@ -134,13 +134,19 @@ final class ModelServer {
         let urlStr = endpoint.hasSuffix("/api/generate") ? endpoint : endpoint + "/api/generate"
         guard let url = URL(string: urlStr) else { return nil }
 
+        // 长会议需要更大的 KV 上下文；num_predict 需足够容纳整段说话人回合，
+        // 否则长段落会被截断。均可在 config 的 server 段覆盖。
+        // Long meetings need a bigger KV context; num_predict must fit a whole
+        // speaker turn or long turns get truncated. Both overridable in config.server.
+        let numCtx = (serverConfig["num_ctx"] as? Int) ?? 32768
+        let numPredict = (serverConfig["num_predict"] as? Int) ?? 2048
         let body: [String: Any] = [
             "model": model,
             "prompt": prompt,
             "system": systemPrompt,
             "stream": false,
             "think": false,
-            "options": ["temperature": 0, "num_predict": 256]
+            "options": ["temperature": 0, "num_predict": numPredict, "num_ctx": numCtx]
         ]
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
