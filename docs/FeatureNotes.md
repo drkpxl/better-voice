@@ -37,9 +37,11 @@
 - Goal: auto-recognize and label speakers across sessions without manual assignment.
 - Speaker-labeling UI (#3) is the interim solution until this is built.
 
-### 6. Clarify and Enhance Self Training
- - TBD
- - Rather than have the fine tuning and self training of a tiny model use a 2GB+ model and add a personal context to the model up front. For example I could give it a list of people I speak with most commonly at meetings, I could tell it about where I work, what I do, etc so when its cleaning up transcription or summarization it’s creating better data? That seems better than straight model training of a tiny model.
+### 6. Personalization via personal context (replaces self-training) — DONE
+- **Decision:** rather than fine-tune a tiny model, run a general ~4B model in ollama and add personal context up front (people I meet with, where I work, what I do) so cleanup — and later summarization — produce better output. Editable in seconds, carries meaning, and one file serves both stages.
+- **Removed:** the entire self-training / fine-tuning pipeline (server/ distillation → QLoRA on Qwen3-0.6B → GGUF deploy, client→server sync, KPI m7 milestones).
+- **Added:** free-text `~/.we/personal-context.md` injected into the polish prompt via `PersonalContext.appended(to:)`, gated by `polish.personal_context_enabled`. Default model bumped to `qwen3:4b`.
+- **Next:** reuse the same `PersonalContext.appended(to:)` in the summarization prompt (#2–#4).
 
 
 ### 7. Other later-stage ideas

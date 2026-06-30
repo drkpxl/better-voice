@@ -2,7 +2,7 @@ import Foundation
 
 /// 语音后处理流水线
 /// L2: PolishClient 语义润色（可关闭）
-/// 注入 → 历史落盘
+/// 注入 → 历史落盘（本地调试日志）
 @MainActor
 final class VoicePipeline {
     private let history = VoiceHistory()
@@ -50,7 +50,7 @@ final class VoicePipeline {
         TextInjector.inject(text: finalText, to: targetApp)
         let injectMs = Int((CFAbsoluteTimeGetCurrent() - tInject) * 1000)
 
-        // 历史落盘（始终写入，蒸馏需要）
+        // 历史落盘（始终写入，本地调试日志：配对 audio/*.wav 便于排查转写问题）
         history.save(
             transcription: transcription,
             l1Text: l1Text,

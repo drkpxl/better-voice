@@ -73,26 +73,16 @@ final class RuntimeConfig {
                 "server": [
                     "endpoint": "http://localhost:11434",
                     "api": "ollama",
-                    "model": "qwen3:0.6b",
+                    "model": "qwen3.5:4b-mlx",
                     "timeout": 10,
                     "health_interval": 30
                 ],
                 "polish": [
                     "enabled": true,
                     "system_prompt": Prompts.defaultPolish,
+                    "personal_context_enabled": true,
                     "context_dictionary_enabled": false,
                     "context_dictionary_path": WEDataDir.correctionDictURL.path
-                ],
-                "distill": [
-                    "enabled": false,
-                    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-                    "api_key": "",
-                    "model": "gemini-2.5-flash"
-                ],
-                "sync": [
-                    "enabled": false,
-                    "server": "",
-                    "remote_dir": "~/we-data"
                 ],
                 "downloads": [:],
                 "remote": [

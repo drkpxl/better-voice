@@ -16,7 +16,7 @@ The `server` object controls how WE connects to the model inference backend for 
 |-----|------|---------|-------------|
 | `server.endpoint` | string | `"http://localhost:11434"` | Base URL of the model server. For Ollama this is typically `http://host:11434`. For OpenAI-compatible APIs, use the full base URL (the client appends `/v1/chat/completions` if no `/v1/` path is present). |
 | `server.api` | string | `"ollama"` | API protocol. `"ollama"` uses the `/api/generate` endpoint; `"openai"` uses the `/v1/chat/completions` endpoint. |
-| `server.model` | string | `"qwen3:0.6b"` | Model name passed to the inference server. Must match an available model on the server. |
+| `server.model` | string | `"qwen3.5:4b-mlx"` | Model name passed to the inference server. Must match an available model on the server (`ollama list`). A general ~4B model gives good cleanup out of the box; smaller models trade quality for speed. |
 | `server.timeout` | number | `10` | Request timeout in seconds for inference calls. |
 | `server.health_interval` | number | `30` | Interval in seconds between automatic health checks. The app polls the server periodically and updates its status (connected / disconnected) shown in the menu bar. |
 | `server.api_key` | string | `""` | API key for OpenAI-compatible endpoints. Sent as `Bearer` token in the `Authorization` header. Not needed for Ollama. |
@@ -28,7 +28,7 @@ Local Ollama (default):
 "server": {
     "endpoint": "http://localhost:11434",
     "api": "ollama",
-    "model": "qwen3:0.6b",
+    "model": "qwen3.5:4b-mlx",
     "timeout": 10,
     "health_interval": 30
 }
@@ -66,7 +66,38 @@ The `polish` object controls the L2 semantic polish stage, which refines raw spe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `polish.enabled` | bool | `true` | Master switch for the polish pipeline. When `false`, raw transcription is used as-is (L1 only). |
-| `polish.system_prompt` | string | `"Convert spoken language to written form. Output only the result."` | System prompt sent to the model. Controls the style of text refinement. Keep it short -- the model has a 256-token output limit. |
+| `polish.system_prompt` | string | (locale-aware default from `Prompts.swift`) | System prompt sent to the model. Controls the style of text refinement. |
+| `polish.personal_context_enabled` | bool | `true` | When `true`, the contents of `~/.we/personal-context.md` (if present and non-empty) are appended to the system prompt for disambiguation. See **Personal Context** below. |
+| `polish.context_dictionary_enabled` | bool | `false` | When `true`, terms from the dictionary at `context_dictionary_path` are fed to SpeechAnalyzer as contextual hints to bias recognition (a transcription-layer aid, separate from the polish prompt). |
+| `polish.context_dictionary_path` | string | `~/.we/correction-dictionary.json` | Path to the dictionary used for SpeechAnalyzer biasing. |
+
+---
+
+## Personal Context
+
+`~/.we/personal-context.md` is a free-text Markdown file you edit by hand. Its
+contents are appended to the L2 polish system prompt (and, in future, the
+summarization prompt) so the model can disambiguate names, jargon, acronyms, and
+references using your real-world background. This replaces the old fine-tuning
+approach to personalization: it carries meaning (not just word spellings), is
+editable in seconds, and needs no retraining.
+
+There is no schema -- write whatever helps. Example:
+
+```markdown
+I'm a product manager at Acme Robotics. I work mostly on the Atlas platform.
+
+People I meet with often:
+- Erin (design lead)
+- Sam (staff engineer)
+- Priya (my manager)
+
+Recurring topics: Q3 roadmap, latency SLOs, the warehouse pilot.
+```
+
+The model is instructed to use this only for disambiguation and never to output
+or act on it. Set `polish.personal_context_enabled` to `false` to disable
+injection without deleting the file. Changes are picked up on the next polish call.
 
 ---
 
@@ -76,51 +107,11 @@ Top-level boolean flags that enable or disable major features.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `correction_enabled` | bool | `false` | Enable correction capture. When `true`, the app monitors the active text field after text injection and records any manual edits the user makes. These corrections are saved to `~/.we/corrections.jsonl` and serve as high-priority training data for model distillation. |
+| `correction_enabled` | bool | `false` | Enable correction capture. When `true`, the app monitors the active text field after text injection and records any manual edits the user makes to `~/.we/corrections.jsonl` (a local log). |
 | `ambient_enabled` | bool | `false` | Enable ambient (always-listening) mode. When `true`, the app continuously captures audio and segments speech automatically, rather than requiring the hotkey to be held. Intended for meeting transcription scenarios. |
 
 ---
 
-## Distill Settings
-
-The `distill` object configures Route B of the distillation pipeline: sending speech recognition output to a cloud LLM for correction, producing training pairs.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `distill.enabled` | bool | `false` | Enable Gemini distillation. When `true`, the sync script processes new entries from `voice-history.jsonl` through the configured LLM. |
-| `distill.base_url` | string | `"https://generativelanguage.googleapis.com/v1beta/openai"` | Base URL for the distillation API (OpenAI-compatible). |
-| `distill.api_key` | string | `""` | API key for the distillation service. Distillation is skipped if this is empty. |
-| `distill.model` | string | `"gemini-2.5-flash"` | Model to use for distillation. |
-
----
-
-## Sync Settings
-
-The `sync` object configures automatic data synchronization from the client machine to a remote training server via SSH + rsync. Sync is triggered by a launchd agent that watches `~/.we/voice-history.jsonl` for changes (throttled to once every 30 seconds).
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `sync.enabled` | bool | `false` | Enable automatic sync to a remote server. |
-| `sync.server` | string | `""` | SSH destination for the remote server (e.g. `user@192.168.1.50`). Sync is skipped if empty. The server must be reachable via SSH with key-based authentication (BatchMode). |
-| `sync.remote_dir` | string | `"~/we-data"` | Directory on the remote server where data files are synced to. |
-
-Files synced: `voice-history.jsonl`, `corrections.jsonl` (if exists), `distill-gemini.jsonl` (if exists), and the `audio/` directory.
-
----
-
-## Downloads Settings
-
-The `downloads` object configures model downloading for on-device inference (future use).
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `downloads.manifest` | string | -- | URL to a JSON manifest describing available models, their download URLs, sizes, and SHA-256 hashes. |
-| `downloads.base_model` | string | -- | Direct URL to download the base GGUF model. |
-| `downloads.adapter` | string | -- | Direct URL to download the LoRA adapter GGUF. |
-
-Models are stored in `~/.we/models/`.
-
----
 
 ## Full Example
 
@@ -132,30 +123,16 @@ Models are stored in `~/.we/models/`.
     "server": {
         "endpoint": "http://localhost:11434",
         "api": "ollama",
-        "model": "qwen3:0.6b",
+        "model": "qwen3.5:4b-mlx",
         "timeout": 10,
         "health_interval": 30
     },
 
     "polish": {
         "enabled": true,
-        "system_prompt": "Convert spoken language to written form. Output only the result."
-    },
-
-    "distill": {
-        "enabled": false,
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "api_key": "",
-        "model": "gemini-2.5-flash"
-    },
-
-    "sync": {
-        "enabled": false,
-        "server": "",
-        "remote_dir": "~/we-data"
-    },
-
-    "downloads": {}
+        "personal_context_enabled": true,
+        "context_dictionary_enabled": false
+    }
 }
 ```
 

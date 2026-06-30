@@ -11,6 +11,7 @@ import Foundation
 ///     ├─ debug.log                       全局日志
 ///     ├─ correction-dictionary.json      错词字典（蒸馏管线用）
 ///     ├─ dictionary.json                 用户私有术语数组（SA contextualStrings 用）
+///     ├─ personal-context.md             用户自由文本个人上下文（注入 L2 润色/摘要提示词）
 ///     ├─ voice-history.jsonl             即时录音历史
 ///     ├─ meeting-history.jsonl           会议每段 L2 流式记录
 ///     ├─ corrections.jsonl               用户手动纠错（如开启）
@@ -56,6 +57,7 @@ enum WEDataDir {
         static let corrections       = "corrections.jsonl"
         static let correctionDict    = "correction-dictionary.json"
         static let contextualDict    = "dictionary.json"            // README 文档化的 SA contextualStrings 用
+        static let personalContext   = "personal-context.md"        // 自由文本个人上下文，注入润色/摘要提示词
     }
 
     // MARK: - 完整文件 URL 快捷
@@ -66,6 +68,7 @@ enum WEDataDir {
     static var meetingHistoryURL: URL { url.appendingPathComponent(FileName.meetingHistory) }
     static var correctionsURL: URL    { url.appendingPathComponent(FileName.corrections) }
     static var correctionDictURL: URL { url.appendingPathComponent(FileName.correctionDict) }
+    static var personalContextURL: URL { url.appendingPathComponent(FileName.personalContext) }
 
     // MARK: - 派生路径（按时间戳产生）
 

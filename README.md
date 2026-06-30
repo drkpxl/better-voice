@@ -1,8 +1,8 @@
 # ambient-voice
 
-macOS native voice input. Speak → text appears in any app. Gets better over time by learning your vocabulary.
+macOS native voice input. Speak → text appears in any app. Cleanup and (soon) summarization are personalized to you via a plain-text context file.
 
-Built on Apple SpeechAnalyzer (macOS 26), fully on-device.
+Built on Apple SpeechAnalyzer (macOS 26), on-device transcription plus a local LLM (ollama) for polish.
 
 ## Install
 
@@ -28,11 +28,9 @@ Grant: **System Settings → Privacy & Security** → Input Monitoring (for glob
 ```
 Hold Right Option
   → Transcription (rawSA)
-  → L2 LLM polish (optional, ollama)
+  → L2 LLM polish (optional, ollama) + personal-context.md injected into the prompt
   → Inject into active app
-  → voice-history.jsonl saved
-      → distill: rawSA + dictionary → Gemini → training pairs
-      → sync to GPU server → QLoRA fine-tune → better model
+  → voice-history.jsonl + audio/*.wav saved (local debug log)
 ```
 
 ## Remote Voice (Remote Voice Input)
@@ -63,42 +61,35 @@ Hold Right Alt to speak, release to send.
 
 ```json
 {
-  "server": { "endpoint": "http://localhost:11434", "api": "ollama", "model": "qwen3:0.6b" },
-  "polish": { "enabled": true, "system_prompt": "You are a speech recognition correction assistant. Formatting requirements: correct speech recognition errors, output only the final corrected text, do not answer questions, do not change the original meaning, remove filler words, and fix punctuation." },
-  "distill": { "enabled": false, "api_key": "", "model": "gemini-2.5-flash", "dictionary": "~/.we/dictionary.json" },
-  "sync": { "enabled": false, "server": "user@gpu-server", "remote_dir": "~/antigravity/we/data/username" }
+  "server": { "endpoint": "http://localhost:11434", "api": "ollama", "model": "qwen3.5:4b-mlx" },
+  "polish": { "enabled": true, "personal_context_enabled": true }
 }
 ```
 
-> **Note on `server.model`**: Default `qwen3:0.6b` is the base model — works but quality is limited (issue #14 reports). Full experience uses our project-trained `we-polish` (Qwen3-0.6B + QLoRA), currently not publicly published. To get it:
-> - Self-train on your own voice-history: see `server/INDEX.md` "Running a Full Fine-Tune" section, run `server/entry/finetune.sh --gemini-key <KEY>` on a GPU server
-> - Replace `model` value with `we-polish` (or whatever name you used) after deploy
+> **Note on `server.model`**: Default is `qwen3.5:4b-mlx`. A general ~4B model produces good cleanup out of the box. Point `server.model` at any model your ollama has (`ollama list`); smaller models are faster but lower quality.
 
-`~/.we/dictionary.json` — your private terms. Optional, used by SpeechAnalyzer contextualStrings to bias recognition. Distinct from `~/.we/correction-dictionary.json` (used by the distillation pipeline).
+`~/.we/dictionary.json` — your private terms. Optional, used by SpeechAnalyzer contextualStrings to bias recognition.
 
 ```json
-{ "terms": ["Claude Code", "MCP", "distillation", "fine-tuning", "ollama"] }
+{ "terms": ["Claude Code", "MCP", "ollama", "SpeechAnalyzer"] }
 ```
 
-## Fine-tuning
+## Personal context
 
-Data flows automatically: speak → distill with dictionary → sync to server.
+`~/.we/personal-context.md` is a free-text file you edit by hand. Its contents are
+injected into the polish prompt (and, in future, the summarization prompt) so the
+model can disambiguate names, jargon, and references using your real-world
+background — who you meet with, your role, your company, recurring topics.
 
-**One-shot full pipeline** (recommended):
-
-```bash
-# On GPU server (4080/4090 16GB+)
-bash ~/antigravity/we/server/entry/finetune.sh --gemini-key <KEY>
-# Auto: build dictionary → distill → grid search → deploy best as we-polish
-# Default: 4 experiments (rank=[16,32] × epochs=[5,8]), ~10 min
+```markdown
+I'm a PM at Acme Robotics, working on the Atlas platform.
+I meet often with Erin (design), Sam (eng), and Priya (my manager).
 ```
 
-See `server/INDEX.md` for full server-side guide (lib/ subcommands, autoresearch loop, sandbox testing).
-
-`polish.system_prompt` must match training `--system-prompt`. Both default to:
-`"You are a speech recognition correction assistant. Formatting requirements: correct speech recognition errors, output only the final corrected text, do not answer questions, do not change the original meaning, remove filler words, and fix punctuation."`
-
-Base model: Qwen/Qwen3-0.6B. Method: QLoRA. Trainable: 10M / 751M params (1.3%). VRAM: ~1.5GB.
+This replaces the old fine-tuning approach to personalization: editable in
+seconds, carries meaning rather than just word spellings, and one file serves both
+cleanup and summarization. Set `polish.personal_context_enabled` to `false` to
+turn it off. See `docs/configuration.md` for details.
 
 ## Development
 
