@@ -2,20 +2,21 @@ import AppKit
 import SwiftUI
 import WECore
 
-/// 录音指示器：从屏幕顶部中央「滑下」的黑色小药丸，内含实时音频波形。
-/// 仅用于即时听写（VoiceModule），不用于会议。
+/// 录音指示器：从屏幕顶部「挂下」的黑色条，含实时音频波形。仅用于即时听写。
 ///
-/// 波形渲染与电平归一化移植自 FreeFlow（github.com/zachlatta/freeflow, MIT）：
-/// 单个 audioLevel(0...1) 驱动 9 条对称白色竖条；电平由 LiveAudioLevelNormalizer
-/// 自适应归一化（自动噪声地板/峰值跟踪），故无需手工噪声阈值。
+/// 移植自 FreeFlow（github.com/zachlatta/freeflow, MIT）的 RecordingOverlay：
+/// - 有刘海的屏幕用「双翼」布局：波形在刘海左侧的小翼里，中间是与刘海等宽的纯黑
+///   遮罩，整体与菜单栏齐高、紧贴顶边，看起来像从刘海两侧挂下来。
+/// - 无刘海的屏幕用顶部居中的下拉小药丸。
+/// 电平由 LiveAudioLevelNormalizer 自适应归一化；单个 audioLevel(0...1) 驱动竖条。
 @MainActor
 final class RecordingIndicator {
     private var window: NSPanel?
     private let state = RecordingIndicatorState()
     private var normalizer = LiveAudioLevelNormalizer()
 
-    private let panelWidth: CGFloat = 150
-    private let panelHeight: CGFloat = 34
+    // 双翼尺寸（与紧凑波形一致，避免顶到右侧菜单栏图标）。
+    private let wingWidth: CGFloat = 38
 
     func show() {
         guard window == nil else { return }
@@ -24,12 +25,8 @@ final class RecordingIndicator {
         state.audioLevel = 0
 
         let screen = NSScreen.main ?? NSScreen.screens.first!
-        let x = screen.frame.midX - panelWidth / 2
-        // 顶部居中，落在菜单栏/刘海「下方」（visibleFrame.maxY 已在菜单栏之下），
-        // 避免被刘海遮挡——这正是之前看不到指示器的原因。
-        let gap: CGFloat = 6
-        let finalY = screen.visibleFrame.maxY - panelHeight - gap
-        let finalFrame = NSRect(x: x, y: finalY, width: panelWidth, height: panelHeight)
+        let geom = Geometry(screen: screen, wingWidth: wingWidth)
+        let finalFrame = geom.frame
 
         let panel = NSPanel(
             contentRect: finalFrame,
@@ -37,30 +34,32 @@ final class RecordingIndicator {
             backing: .buffered,
             defer: false
         )
-        panel.level = .floating
+        panel.level = .screenSaver            // 浮在菜单栏之上，贴着顶边
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
         panel.ignoresMouseEvents = true
         panel.isMovableByWindowBackground = false
 
-        let host = NSHostingView(rootView: RecordingIndicatorContentView(state: state))
+        let root = RecordingIndicatorContentView(state: state, geometry: geom)
+        let host = NSHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: finalFrame.size)
         panel.contentView = host
 
-        // 从菜单栏下沿「滑下」一小段
-        let hiddenFrame = NSRect(x: x, y: screen.visibleFrame.maxY, width: panelWidth, height: panelHeight)
+        // 从顶边外「滑下」一小段，营造挂下来的感觉。
+        let hiddenFrame = NSRect(x: finalFrame.origin.x, y: screen.frame.maxY,
+                                 width: finalFrame.width, height: finalFrame.height)
         panel.setFrame(hiddenFrame, display: false)
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.20
+            ctx.duration = 0.18
             ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1.0)
             panel.animator().setFrame(finalFrame, display: true)
         }
 
         self.window = panel
-        Logger.log("UI", "Recording indicator shown at \(finalFrame)")
+        Logger.log("UI", "Recording indicator shown at \(finalFrame), notch=\(geom.hasNotch)")
     }
 
     func hide() {
@@ -80,6 +79,53 @@ final class RecordingIndicator {
     }
 }
 
+// MARK: - 几何（刘海/菜单栏）
+
+/// 计算指示器的窗口 frame 与布局参数。移植自 FreeFlow 的 overlayFrame 逻辑（仅录音态）。
+struct Geometry {
+    let frame: NSRect
+    let hasNotch: Bool
+    let leftWingWidth: CGFloat
+    let notchWidth: CGFloat
+    let rightWingWidth: CGFloat
+    let height: CGFloat
+    let cornerRadius: CGFloat
+
+    init(screen: NSScreen, wingWidth: CGFloat) {
+        // 菜单栏高度（也是刘海与可见区之间的重叠高度）。
+        let menuOverlap = max(screen.frame.maxY - screen.visibleFrame.maxY, 22)
+        let notch = screen.safeAreaInsets.top > 0
+        self.hasNotch = notch
+        self.height = menuOverlap
+
+        if notch,
+           let left = screen.auxiliaryTopLeftArea,
+           let right = screen.auxiliaryTopRightArea {
+            // 双翼：[左翼][刘海纯黑][右翼]，整体贴顶、与菜单栏齐高。
+            let nWidth = screen.frame.width - left.width - right.width
+            let nLeftX = left.maxX
+            self.leftWingWidth = wingWidth
+            self.notchWidth = max(nWidth, 0)
+            self.rightWingWidth = wingWidth
+            self.cornerRadius = 14
+            let panelWidth = wingWidth + notchWidth + wingWidth
+            let panelX = nLeftX - wingWidth
+            let panelY = screen.frame.maxY - menuOverlap
+            self.frame = NSRect(x: panelX, y: panelY, width: panelWidth, height: menuOverlap)
+        } else {
+            // 无刘海：顶部居中下拉小药丸。
+            let pillWidth: CGFloat = 150
+            self.leftWingWidth = 0
+            self.notchWidth = 0
+            self.rightWingWidth = 0
+            self.cornerRadius = 12
+            let x = screen.frame.midX - pillWidth / 2
+            let y = screen.frame.maxY - menuOverlap
+            self.frame = NSRect(x: x, y: y, width: pillWidth, height: menuOverlap)
+        }
+    }
+}
+
 // MARK: - State
 
 private final class RecordingIndicatorState: ObservableObject {
@@ -90,14 +136,31 @@ private final class RecordingIndicatorState: ObservableObject {
 
 private struct RecordingIndicatorContentView: View {
     @ObservedObject var state: RecordingIndicatorState
+    let geometry: Geometry
 
     var body: some View {
-        ZStack {
-            WaveformView(audioLevel: state.audioLevel, showsActivityPulse: true)
+        Group {
+            if geometry.hasNotch {
+                // 左翼波形 + 中间刘海纯黑 + 右翼留白（被相机切口遮住）。
+                HStack(spacing: 0) {
+                    CompactWaveformView(audioLevel: state.audioLevel)
+                        .frame(width: geometry.leftWingWidth, height: geometry.height)
+                    Color.black
+                        .frame(width: geometry.notchWidth, height: geometry.height)
+                    Color.clear
+                        .frame(width: geometry.rightWingWidth, height: geometry.height)
+                }
+            } else {
+                WaveformView(audioLevel: state.audioLevel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
-        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 12, bottomTrailingRadius: 12))
+        .clipShape(UnevenRoundedRectangle(
+            bottomLeadingRadius: geometry.cornerRadius,
+            bottomTrailingRadius: geometry.cornerRadius
+        ))
     }
 }
 
@@ -105,74 +168,89 @@ private struct RecordingIndicatorContentView: View {
 
 private struct WaveformBar: View {
     let amplitude: CGFloat
-
-    private let minHeight: CGFloat = 2
-    private let maxHeight: CGFloat = 20
+    var width: CGFloat = 3
+    var minHeight: CGFloat = 2
+    var maxHeight: CGFloat = 18
 
     var body: some View {
         Capsule()
             .fill(.white)
-            .frame(width: 3, height: minHeight + (maxHeight - minHeight) * amplitude)
+            .frame(width: width, height: minHeight + (maxHeight - minHeight) * amplitude)
     }
 }
 
+/// 9 条对称竖条（无刘海药丸用）。
 private struct WaveformView: View {
     let audioLevel: Float
-    var showsActivityPulse = false
 
     private static let barCount = 9
     private static let multipliers: [CGFloat] = [0.35, 0.55, 0.75, 0.9, 1.0, 0.9, 0.75, 0.55, 0.35]
     private static let centerIndex = CGFloat((barCount - 1) / 2)
 
     var body: some View {
-        Group {
-            if showsActivityPulse {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { context in
-                    waveformBars(pulseTime: context.date.timeIntervalSinceReferenceDate)
-                }
-            } else {
-                waveformBars(pulseTime: nil)
-            }
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { context in
+            bars(pulseTime: context.date.timeIntervalSinceReferenceDate)
         }
         .frame(height: 24)
     }
 
-    private func waveformBars(pulseTime: TimeInterval?) -> some View {
+    private func bars(pulseTime: TimeInterval?) -> some View {
         HStack(spacing: 2.5) {
             ForEach(0..<Self.barCount, id: \.self) { index in
-                WaveformBar(amplitude: barAmplitude(for: index, pulseTime: pulseTime))
-                    .animation(
-                        .spring(response: barResponse(for: index), dampingFraction: 0.88)
-                            .delay(barDelay(for: index)),
-                        value: audioLevel
-                    )
+                WaveformBar(amplitude: amplitude(for: index, pulseTime: pulseTime), maxHeight: 18)
+                    .animation(.spring(response: response(for: index), dampingFraction: 0.88), value: audioLevel)
             }
         }
     }
 
-    private func barAmplitude(for index: Int, pulseTime: TimeInterval?) -> CGFloat {
-        let level = CGFloat(max(audioLevel, 0))
-        let baseAmplitude = min(level * Self.multipliers[index], 1.0)
-
-        guard let pulseTime else { return baseAmplitude }
-
-        let travelingWave = CGFloat(0.5 + 0.5 * sin((pulseTime * 6.2) - Double(index) * 0.78))
-        let shimmer = CGFloat(0.5 + 0.5 * sin((pulseTime * 3.1) + Double(index) * 0.5))
-        let pulse = travelingWave * 0.22 + shimmer * 0.06
-
-        let saturationRelief = baseAmplitude * (0.74 + pulse)
-        let quietPulse = (1.0 - baseAmplitude) * (0.04 + pulse * 0.28)
-        return min(saturationRelief + quietPulse, 1.0)
+    private func amplitude(for index: Int, pulseTime: TimeInterval?) -> CGFloat {
+        sharedAmplitude(level: audioLevel, multiplier: Self.multipliers[index], index: index, pulseTime: pulseTime)
     }
 
-    private func barResponse(for index: Int) -> Double {
-        let distance = abs(CGFloat(index) - Self.centerIndex)
-        let normalizedDistance = distance / Self.centerIndex
-        return 0.18 + Double(normalizedDistance) * 0.06
+    private func response(for index: Int) -> Double {
+        let d = abs(CGFloat(index) - Self.centerIndex) / Self.centerIndex
+        return 0.18 + Double(d) * 0.06
     }
+}
 
-    private func barDelay(for index: Int) -> Double {
-        let distance = abs(CGFloat(index) - Self.centerIndex)
-        return Double(distance) * 0.01
+/// 5 条紧凑竖条（刘海左翼用）。
+private struct CompactWaveformView: View {
+    let audioLevel: Float
+
+    private static let barCount = 5
+    private static let multipliers: [CGFloat] = [0.5, 0.75, 1.0, 0.75, 0.5]
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { context in
+            HStack(spacing: 1.5) {
+                ForEach(0..<Self.barCount, id: \.self) { index in
+                    WaveformBar(
+                        amplitude: sharedAmplitude(
+                            level: audioLevel,
+                            multiplier: Self.multipliers[index],
+                            index: index,
+                            pulseTime: context.date.timeIntervalSinceReferenceDate
+                        ),
+                        width: 2,
+                        maxHeight: 14
+                    )
+                    .animation(.spring(response: 0.18, dampingFraction: 0.88), value: audioLevel)
+                }
+            }
+        }
+        .frame(height: 18)
     }
+}
+
+/// FreeFlow 的竖条幅度公式：低电平时叠加一点行波/微光，让波形「活」起来。
+private func sharedAmplitude(level: Float, multiplier: CGFloat, index: Int, pulseTime: TimeInterval?) -> CGFloat {
+    let lvl = CGFloat(max(level, 0))
+    let base = min(lvl * multiplier, 1.0)
+    guard let pulseTime else { return base }
+    let travelingWave = CGFloat(0.5 + 0.5 * sin((pulseTime * 6.2) - Double(index) * 0.78))
+    let shimmer = CGFloat(0.5 + 0.5 * sin((pulseTime * 3.1) + Double(index) * 0.5))
+    let pulse = travelingWave * 0.22 + shimmer * 0.06
+    let saturationRelief = base * (0.74 + pulse)
+    let quietPulse = (1.0 - base) * (0.04 + pulse * 0.28)
+    return min(saturationRelief + quietPulse, 1.0)
 }
