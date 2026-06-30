@@ -158,10 +158,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         hotkeyItem.target = self
         menu.addItem(hotkeyItem)
 
+        let settingsItem = NSMenuItem(
+            title: t("Settings..."),
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         let configItem = NSMenuItem(
             title: t("Edit Config File..."),
             action: #selector(openConfig),
-            keyEquivalent: ","
+            keyEquivalent: ""
         )
         configItem.target = self
         menu.addItem(configItem)
@@ -402,6 +410,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func openHotKeySettings() {
         HotKeySettingsWindow.shared.show()
+    }
+
+    @objc private func openSettings() {
+        SettingsWindow.shared.show()
     }
 
     @objc private func openConfig() {
