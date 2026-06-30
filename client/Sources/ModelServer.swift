@@ -1,4 +1,5 @@
 import Foundation
+import WECore
 
 /// 模型推理服务器连接管理
 /// 支持局域网直连 / Tailscale / localhost，自动健康检测 + 断线降级
@@ -10,6 +11,22 @@ final class ModelServer {
         case unknown
         case connected
         case disconnected
+    }
+
+    /// 单次推理的参数覆盖（摘要用不同模型 / 更大上下文 / 更长超时）。
+    /// 任一字段为 nil 时回退到 config.server 的默认值。
+    struct GenerateOptions {
+        var model: String?
+        var numCtx: Int?
+        var numPredict: Int?
+        var timeout: TimeInterval?
+
+        init(model: String? = nil, numCtx: Int? = nil, numPredict: Int? = nil, timeout: TimeInterval? = nil) {
+            self.model = model
+            self.numCtx = numCtx
+            self.numPredict = numPredict
+            self.timeout = timeout
+        }
     }
 
     private(set) var status: Status = .unknown
@@ -106,7 +123,8 @@ final class ModelServer {
 
     func generate(
         prompt: String,
-        systemPrompt: String = Prompts.defaultPolish
+        systemPrompt: String = Prompts.defaultPolish,
+        options: GenerateOptions = .init()
     ) async -> String? {
         // 如果状态不是 connected，先尝试一次快速健康检查
         if status != .connected {
@@ -114,42 +132,42 @@ final class ModelServer {
             await checkHealth()
         }
         guard status == .connected else {
-            Logger.log("Server", "Not connected after check, skipping polish")
+            Logger.log("Server", "Not connected after check, skipping generation")
             return nil
         }
 
         let result: String?
         switch apiType {
         case "openai":
-            result = await generateOpenAI(prompt: prompt, systemPrompt: systemPrompt)
+            result = await generateOpenAI(prompt: prompt, systemPrompt: systemPrompt, options: options)
         default:
-            result = await generateOllama(prompt: prompt, systemPrompt: systemPrompt)
+            result = await generateOllama(prompt: prompt, systemPrompt: systemPrompt, options: options)
         }
         return result
     }
 
     // MARK: - Ollama API
 
-    private func generateOllama(prompt: String, systemPrompt: String) async -> String? {
+    private func generateOllama(prompt: String, systemPrompt: String, options: GenerateOptions) async -> String? {
         let urlStr = endpoint.hasSuffix("/api/generate") ? endpoint : endpoint + "/api/generate"
         guard let url = URL(string: urlStr) else { return nil }
 
         // 长会议需要更大的 KV 上下文；num_predict 需足够容纳整段说话人回合，
-        // 否则长段落会被截断。均可在 config 的 server 段覆盖。
+        // 否则长段落会被截断。可在 config 的 server 段覆盖，或由调用方 options 覆盖。
         // Long meetings need a bigger KV context; num_predict must fit a whole
-        // speaker turn or long turns get truncated. Both overridable in config.server.
-        let numCtx = (serverConfig["num_ctx"] as? Int) ?? 32768
-        let numPredict = (serverConfig["num_predict"] as? Int) ?? 2048
-        let body: [String: Any] = [
-            "model": model,
-            "prompt": prompt,
-            "system": systemPrompt,
-            "stream": false,
-            "think": false,
-            "options": ["temperature": 0, "num_predict": numPredict, "num_ctx": numCtx]
-        ]
+        // speaker turn or long turns get truncated. Resolved from options → config → default.
+        let numCtx = options.numCtx ?? (serverConfig["num_ctx"] as? Int) ?? 32768
+        let numPredict = options.numPredict ?? (serverConfig["num_predict"] as? Int) ?? 2048
+        let body = makeOllamaRequestBody(
+            model: options.model ?? model,
+            system: systemPrompt,
+            prompt: prompt,
+            numCtx: numCtx,
+            numPredict: numPredict,
+            temperature: 0
+        )
 
-        var request = URLRequest(url: url, timeoutInterval: timeout)
+        var request = URLRequest(url: url, timeoutInterval: options.timeout ?? timeout)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -169,23 +187,23 @@ final class ModelServer {
 
     // MARK: - OpenAI-compatible API
 
-    private func generateOpenAI(prompt: String, systemPrompt: String) async -> String? {
+    private func generateOpenAI(prompt: String, systemPrompt: String, options: GenerateOptions) async -> String? {
         let urlStr = endpoint.contains("/v1/") ? endpoint : endpoint + "/v1/chat/completions"
         guard let url = URL(string: urlStr) else { return nil }
 
         let apiKey = serverConfig["api_key"] as? String ?? ""
 
         let body: [String: Any] = [
-            "model": model,
+            "model": options.model ?? model,
             "messages": [
                 ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": prompt]
             ],
             "temperature": 0,
-            "max_tokens": 256
+            "max_tokens": options.numPredict ?? (serverConfig["num_predict"] as? Int) ?? 256
         ]
 
-        var request = URLRequest(url: url, timeoutInterval: timeout)
+        var request = URLRequest(url: url, timeoutInterval: options.timeout ?? timeout)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if !apiKey.isEmpty {

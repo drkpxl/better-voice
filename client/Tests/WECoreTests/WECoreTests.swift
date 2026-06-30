@@ -42,6 +42,16 @@ final class WECoreTests: XCTestCase {
         XCTAssertEqual(resolveSummarizationPrompt(type: .general, overrides: overrides, builtin: builtin), "builtin-general")
     }
 
+    // MARK: - MeetingType
+
+    func testMeetingTypeFromConfigKey() {
+        XCTAssertEqual(MeetingType.from(configKey: "general"), .general)
+        XCTAssertEqual(MeetingType.from(configKey: "one_on_one"), .oneOnOne)
+        XCTAssertEqual(MeetingType.from(configKey: "standup"), .standup)
+        XCTAssertEqual(MeetingType.from(configKey: "  STANDUP "), .standup)
+        XCTAssertNil(MeetingType.from(configKey: "nonsense"))
+    }
+
     // MARK: - Classification parsing
 
     func testParseMeetingType() {

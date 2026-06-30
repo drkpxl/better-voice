@@ -20,6 +20,9 @@ final class VoiceModule: WEModule {
     /// 状态变化回调（UI 指示器用）
     var onStateChange: ((State) -> Void)?
 
+    /// 实时音频电平回调（原始 RMS，0...1，用于波形指示器；仅听写流程触发，会议不走此模块）
+    var onAudioLevel: ((Float) -> Void)?
+
     private var session: VoiceSession?
     private let pipeline = VoicePipeline()
     private var pinnedApp: AppIdentity?
@@ -57,6 +60,9 @@ final class VoiceModule: WEModule {
 
         let voiceSession = VoiceSession()
         self.session = voiceSession
+        voiceSession.onAudioLevel = { [weak self] level in
+            self?.onAudioLevel?(level)
+        }
 
         Task {
             do {

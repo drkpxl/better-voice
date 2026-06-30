@@ -87,6 +87,16 @@ enum WEDataDir {
         meetings.appendingPathComponent("\(name).md")
     }
 
+    /// 解析用户配置的会议保存目录（支持 ~ 展开）。nil/空时回退到默认 meetings 目录。
+    /// Resolve the user-configured meetings save folder (expands ~). Falls back to `meetings`.
+    static func resolveMeetingsFolder(_ path: String?) -> URL {
+        guard let path, !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return meetings
+        }
+        let expanded = (path as NSString).expandingTildeInPath
+        return URL(fileURLWithPath: expanded, isDirectory: true)
+    }
+
     // MARK: - 初始化
 
     /// 确保所有活跃 / 归档子目录存在

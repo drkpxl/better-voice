@@ -257,6 +257,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.recordingIndicator.hide()
             }
         }
+        voiceModule.onAudioLevel = { [weak self] level in
+            self?.recordingIndicator.update(level: level)
+        }
         moduleManager.register(voiceModule)
 
         // 注册全局热键

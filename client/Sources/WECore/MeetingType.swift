@@ -19,6 +19,13 @@ public enum MeetingType: String, Sendable, CaseIterable, Identifiable {
         }
     }
 
+    /// 从配置键名解析（如 "one_on_one"）。未知值返回 nil。
+    /// Resolve from a config key (e.g. "one_on_one"). Returns nil for unknown values.
+    public static func from(configKey: String) -> MeetingType? {
+        let key = configKey.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return allCases.first { $0.configKey == key }
+    }
+
     /// 朴素英文显示名（UI 层可再本地化）。
     /// Plain-English display name (the UI layer may localize further).
     public var defaultDisplayName: String {

@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import CoreMedia
 import Speech
+import WECore
 
 // MARK: - 转写数据类型
 
@@ -50,6 +51,9 @@ final class VoiceSession {
 
     /// 实时部分结果回调（可选，用于 UI 显示）
     var onPartialResult: ((String) -> Void)?
+
+    /// 实时音频电平回调（归一化前的原始 RMS，0...1，用于波形指示器）
+    var onAudioLevel: ((Float) -> Void)?
 
     init() {}
 
@@ -161,7 +165,12 @@ final class VoiceSession {
         let delegate = AudioCaptureDelegate(
             inputBuilder: inputBuilder,
             analyzerFormat: analyzerFormat,
-            audioFileURL: url
+            audioFileURL: url,
+            onAudioLevel: { [weak self] level in
+                DispatchQueue.main.async {
+                    self?.onAudioLevel?(level)
+                }
+            }
         )
         audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
         session.addOutput(audioOutput)
@@ -323,17 +332,24 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
     private let audioFileURL: URL
+    private let onAudioLevel: (@Sendable (Float) -> Void)?
     private var converter: AVAudioConverter?
     private var fileHandle: FileHandle?
     private var wavDataSize: UInt32 = 0
     private var wavFormat: AVAudioFormat?
     private(set) var bufferCount = 0
 
-    init(inputBuilder: AsyncStream<AnalyzerInput>.Continuation, analyzerFormat: AVAudioFormat?, audioFileURL: URL) {
+    init(
+        inputBuilder: AsyncStream<AnalyzerInput>.Continuation,
+        analyzerFormat: AVAudioFormat?,
+        audioFileURL: URL,
+        onAudioLevel: (@Sendable (Float) -> Void)? = nil
+    ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
         // 改用 .wav 扩展名
         self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
+        self.onAudioLevel = onAudioLevel
         super.init()
     }
 
@@ -378,6 +394,14 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
 
         // 写入 WAV 文件（用 outputBuffer，格式始终一致：Int16 16kHz mono）
         writeToWAV(buffer: outputBuffer)
+
+        // 计算音频电平（用于波形指示器），仅在 Int16 缓冲下计算
+        if let onAudioLevel, let channelData = outputBuffer.int16ChannelData {
+            let frameCount = Int(outputBuffer.frameLength)
+            let samples = UnsafeBufferPointer(start: channelData[0], count: frameCount)
+            let level = WaveformMath.rms(int16: samples)
+            onAudioLevel(level)
+        }
 
         // 发送给 SpeechAnalyzer
         let input = AnalyzerInput(buffer: outputBuffer)
