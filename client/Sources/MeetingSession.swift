@@ -859,15 +859,9 @@ final class MeetingSession {
     // MARK: - Locale 查找（与 VoiceSession 相同）
 
     private func findChineseLocale() async -> Locale? {
-        let supported = await SpeechTranscriber.supportedLocales
-        let prefixes = ["zh-Hans", "zh-CN", "zh-Hant", "zh"]
-        for prefix in prefixes {
-            if let match = supported.first(where: { $0.identifier(.bcp47).hasPrefix(prefix) }) {
-                return match
-            }
-        }
-        Logger.log("Meeting", "No Chinese locale found")
-        return nil
+        // 现在跟随配置/系统语言（见 SpeechUtils.bestLocale）。
+        // Now follows the configured/system language (see SpeechUtils.bestLocale).
+        await SpeechUtils.bestLocale()
     }
 
     // MARK: - 模型管理（与 VoiceSession 相同）

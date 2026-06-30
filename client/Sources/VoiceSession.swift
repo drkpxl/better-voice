@@ -261,19 +261,9 @@ final class VoiceSession {
     // MARK: - Locale 查找
 
     private func findChineseLocale() async -> Locale? {
-        let supported = await SpeechTranscriber.supportedLocales
-        let ids = supported.map { $0.identifier(.bcp47) }
-        Logger.log("Voice", "Supported locales: \(ids)")
-
-        let prefixes = ["zh-Hans", "zh-CN", "zh-Hant", "zh"]
-        for prefix in prefixes {
-            if let match = supported.first(where: { $0.identifier(.bcp47).hasPrefix(prefix) }) {
-                return match
-            }
-        }
-
-        Logger.log("Voice", "No Chinese locale found")
-        return nil
+        // 现在跟随配置/系统语言（见 SpeechUtils.bestLocale）。
+        // Now follows the configured/system language (see SpeechUtils.bestLocale).
+        await SpeechUtils.bestLocale()
     }
 
     // MARK: - 词级信息提取
