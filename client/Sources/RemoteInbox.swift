@@ -19,10 +19,20 @@ final class RemoteInbox {
     var onStatusChange: ((Status) -> Void)?
 
     enum Status: String {
-        case listening = "监听中"
-        case receiving = "接收中"
-        case processing = "识别中"
-        case idle = "未启动"
+        case listening
+        case receiving
+        case processing
+        case idle
+
+        /// 本地化的显示名称 / Localized display name
+        var displayName: String {
+            switch self {
+            case .listening: return t("Listening")
+            case .receiving: return t("Receiving")
+            case .processing: return t("Processing")
+            case .idle: return t("Inactive")
+            }
+        }
     }
 
     func start(port: UInt16, authToken: String) {

@@ -26,7 +26,7 @@ struct MeetingSegment: Sendable, Identifiable {
     /// 显示用的说话人标签
     var speakerLabel: String? {
         guard let speakerId else { return nil }
-        return "说话人 \(speakerId)"
+        return "\(t("Speaker")) \(speakerId)"
     }
 }
 

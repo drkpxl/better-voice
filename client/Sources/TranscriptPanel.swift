@@ -94,14 +94,14 @@ struct TranscriptContentView: View {
                 Circle()
                     .fill(.red)
                     .frame(width: 8, height: 8)
-                Text("录音中")
+                Text(t("Recording"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Circle()
                     .fill(.gray)
                     .frame(width: 8, height: 8)
-                Text("已停止")
+                Text(t("Stopped"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -114,7 +114,7 @@ struct TranscriptContentView: View {
                 .foregroundStyle(.secondary)
 
             // 字数
-            Text("· \(viewModel.wordCount) 字")
+            Text("· " + t("\(String(viewModel.wordCount)) characters"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -148,7 +148,7 @@ final class TranscriptPanelController {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.titlebarAppearsTransparent = true
-        panel.title = "WE 会议转录"
+        panel.title = t("WE Meeting Transcript")
         panel.isMovableByWindowBackground = true
         panel.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95)
         panel.minSize = NSSize(width: 280, height: 200)

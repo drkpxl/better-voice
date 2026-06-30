@@ -1,0 +1,61 @@
+/* Development language (English). Keys are the English source text.
+   To add a language, copy this folder to <lang>.lproj and translate the values. */
+
+/* --- Status bar menu --- */
+"WE Voice Input" = "WE Voice Input";
+"Check server connection" = "Check server connection";
+"Global hotkey monitoring" = "Global hotkey monitoring";
+"Text injection (cursor)" = "Text injection (cursor)";
+"Microphone" = "Microphone";
+"Screen Recording (meeting system audio)" = "Screen Recording (meeting system audio)";
+"Stop Meeting" = "Stop Meeting";
+"Start Meeting Recording" = "Start Meeting Recording";
+"Edit Config File..." = "Edit Config File...";
+"Open Data Folder..." = "Open Data Folder...";
+"View Logs..." = "View Logs...";
+"Quit" = "Quit";
+"not configured" = "not configured";
+"Authorized" = "Authorized";
+"Not authorized — click to open Settings" = "Not authorized — click to open Settings";
+
+/* --- Menu format strings (%@ filled in code) --- */
+"%@: %@" = "%@: %@";
+"Model: %@" = "Model: %@";
+"Server: connected (%@)" = "Server: connected (%@)";
+"Server: disconnected (%@)" = "Server: disconnected (%@)";
+"Server: checking..." = "Server: checking...";
+"Set Hotkey... (%@)" = "Set Hotkey... (%@)";
+"Remote voice: %@ (:%@)" = "Remote voice: %@ (:%@)";
+
+/* --- Remote inbox status --- */
+"Listening" = "Listening";
+"Receiving" = "Receiving";
+"Processing" = "Processing";
+"Inactive" = "Inactive";
+
+/* --- Meeting transcript panel --- */
+"WE Meeting Transcript" = "WE Meeting Transcript";
+"Recording" = "Recording";
+"Stopped" = "Stopped";
+"%@ characters" = "%@ characters";
+"Listening..." = "Listening...";
+"Speaker" = "Speaker";
+
+/* --- Meeting export (Markdown) --- */
+"Meeting Transcript" = "Meeting Transcript";
+"Date: %@" = "Date: %@";
+"Duration: %@" = "Duration: %@";
+"Total characters: %@" = "Total characters: %@";
+"Unknown" = "Unknown";
+"%dh %dm %ds" = "%dh %dm %ds";
+"%dm %ds" = "%dm %ds";
+"yyyy-MM-dd HH:mm" = "yyyy-MM-dd HH:mm";
+
+/* --- Hotkey settings window --- */
+"WE Set Hotkey" = "WE Set Hotkey";
+"This shortcut may conflict with system shortcuts." = "This shortcut may conflict with system shortcuts.";
+"Record / Stop Hotkey" = "Record / Stop Hotkey";
+"Click the button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌘+⇧+R). Press Esc to cancel." = "Click the button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌘+⇧+R). Press Esc to cancel.";
+"Cancel" = "Cancel";
+"Save" = "Save";
+"Press hotkey... (Esc to cancel)" = "Press hotkey... (Esc to cancel)";

@@ -106,7 +106,7 @@ final class ModelServer {
 
     func generate(
         prompt: String,
-        systemPrompt: String = "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"
+        systemPrompt: String = Prompts.defaultPolish
     ) async -> String? {
         // 如果状态不是 connected，先尝试一次快速健康检查
         if status != .connected {
@@ -134,13 +134,19 @@ final class ModelServer {
         let urlStr = endpoint.hasSuffix("/api/generate") ? endpoint : endpoint + "/api/generate"
         guard let url = URL(string: urlStr) else { return nil }
 
+        // 长会议需要更大的 KV 上下文；num_predict 需足够容纳整段说话人回合，
+        // 否则长段落会被截断。均可在 config 的 server 段覆盖。
+        // Long meetings need a bigger KV context; num_predict must fit a whole
+        // speaker turn or long turns get truncated. Both overridable in config.server.
+        let numCtx = (serverConfig["num_ctx"] as? Int) ?? 32768
+        let numPredict = (serverConfig["num_predict"] as? Int) ?? 2048
         let body: [String: Any] = [
             "model": model,
             "prompt": prompt,
             "system": systemPrompt,
             "stream": false,
             "think": false,
-            "options": ["temperature": 0, "num_predict": 256]
+            "options": ["temperature": 0, "num_predict": numPredict, "num_ctx": numCtx]
         ]
 
         var request = URLRequest(url: url, timeoutInterval: timeout)

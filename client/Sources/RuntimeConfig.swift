@@ -40,6 +40,14 @@ final class RuntimeConfig {
         values["meeting"] as? [String: Any] ?? [:]
     }
 
+    /// 转写与界面语言（BCP-47 或语言代码，如 "en"、"zh-Hans"）。
+    /// nil 时跟随系统语言。
+    /// Transcription & UI language (BCP-47 or language code, e.g. "en", "zh-Hans").
+    /// When nil, follows the system language.
+    var language: String? {
+        (values["language"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     /// 全局热键配置
     var hotKeyConfig: [String: Any] {
         values["hotkey"] as? [String: Any] ?? [:]
@@ -61,6 +69,7 @@ final class RuntimeConfig {
         guard FileManager.default.fileExists(atPath: configURL.path) else {
             // 首次运行，创建默认配置
             let defaults: [String: Any] = [
+                "language": "en",
                 "server": [
                     "endpoint": "http://localhost:11434",
                     "api": "ollama",
@@ -70,7 +79,7 @@ final class RuntimeConfig {
                 ],
                 "polish": [
                     "enabled": true,
-                    "system_prompt": "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。",
+                    "system_prompt": Prompts.defaultPolish,
                     "context_dictionary_enabled": false,
                     "context_dictionary_path": WEDataDir.correctionDictURL.path,
                     "context_ocr_enabled": false
