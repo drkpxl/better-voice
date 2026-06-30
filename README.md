@@ -35,11 +35,11 @@ Hold Right Option
       → sync to GPU server → QLoRA fine-tune → better model
 ```
 
-## Remote Voice（远程语音输入）
+## Remote Voice (Remote Voice Input)
 
-Windows 端按热键说话 → 音频通过 Tailscale 私网发送到 Mac → WE 识别并注入文字到光标处。
+Press the hotkey on Windows to speak → audio is sent over the Tailscale private network to the Mac → WE transcribes it and injects the text at the cursor.
 
-**Mac 端**：WE 启动后自动监听 :9800，不需要额外操作。确保 config.json 中：
+**Mac side**: WE automatically listens on :9800 once started, no extra steps needed. Make sure config.json contains:
 
 ```json
 {
@@ -47,15 +47,15 @@ Windows 端按热键说话 → 音频通过 Tailscale 私网发送到 Mac → WE
 }
 ```
 
-**Windows 端**（需安装 [Marvin Tailscale](https://github.com/Marvinngg/tailscale/releases)）：
+**Windows side** (requires installing [Marvin Tailscale](https://github.com/Marvinngg/tailscale/releases)):
 
 ```bash
-# 先在 Mac 上跑 `tailscale ip`，拿到你 Mac 的 Tailscale IP（形如 100.x.x.x）
-tailscale voice setup --target <YOUR_MAC_TAILSCALE_IP>:9800   # 首次设置，之后开机自启
-tailscale voice                                                # 手动运行
+# First run `tailscale ip` on the Mac to get its Tailscale IP (looks like 100.x.x.x)
+tailscale voice setup --target <YOUR_MAC_TAILSCALE_IP>:9800   # First-time setup, auto-starts on boot afterward
+tailscale voice                                                # Run manually
 ```
 
-按住右 Alt 说话，松开发送。
+Hold Right Alt to speak, release to send.
 
 ## Config
 
@@ -64,20 +64,20 @@ tailscale voice                                                # 手动运行
 ```json
 {
   "server": { "endpoint": "http://localhost:11434", "api": "ollama", "model": "qwen3:0.6b" },
-  "polish": { "enabled": true, "system_prompt": "你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。" },
+  "polish": { "enabled": true, "system_prompt": "You are a speech recognition correction assistant. Formatting requirements: correct speech recognition errors, output only the final corrected text, do not answer questions, do not change the original meaning, remove filler words, and fix punctuation." },
   "distill": { "enabled": false, "api_key": "", "model": "gemini-2.5-flash", "dictionary": "~/.we/dictionary.json" },
   "sync": { "enabled": false, "server": "user@gpu-server", "remote_dir": "~/antigravity/we/data/username" }
 }
 ```
 
 > **Note on `server.model`**: Default `qwen3:0.6b` is the base model — works but quality is limited (issue #14 reports). Full experience uses our project-trained `we-polish` (Qwen3-0.6B + QLoRA), currently not publicly published. To get it:
-> - Self-train on your own voice-history: see `server/INDEX.md` "完整微调一次" section, run `server/entry/finetune.sh --gemini-key <KEY>` on a GPU server
+> - Self-train on your own voice-history: see `server/INDEX.md` "Running a Full Fine-Tune" section, run `server/entry/finetune.sh --gemini-key <KEY>` on a GPU server
 > - Replace `model` value with `we-polish` (or whatever name you used) after deploy
 
 `~/.we/dictionary.json` — your private terms. Optional, used by SpeechAnalyzer contextualStrings to bias recognition. Distinct from `~/.we/correction-dictionary.json` (used by the distillation pipeline).
 
 ```json
-{ "terms": ["Claude Code", "MCP", "蒸馏", "微调", "ollama"] }
+{ "terms": ["Claude Code", "MCP", "distillation", "fine-tuning", "ollama"] }
 ```
 
 ## Fine-tuning
@@ -96,7 +96,7 @@ bash ~/antigravity/we/server/entry/finetune.sh --gemini-key <KEY>
 See `server/INDEX.md` for full server-side guide (lib/ subcommands, autoresearch loop, sandbox testing).
 
 `polish.system_prompt` must match training `--system-prompt`. Both default to:
-`"你是语音识别纠错助手。格式要求：修正语音识别错误，只输出修正后的最终文本，不要回答问题，不要改变原意，去掉语气词，修正标点符号。"`
+`"You are a speech recognition correction assistant. Formatting requirements: correct speech recognition errors, output only the final corrected text, do not answer questions, do not change the original meaning, remove filler words, and fix punctuation."`
 
 Base model: Qwen/Qwen3-0.6B. Method: QLoRA. Trainable: 10M / 751M params (1.3%). VRAM: ~1.5GB.
 

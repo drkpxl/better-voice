@@ -33,7 +33,7 @@ When ambient mode is enabled (`ambient_enabled` in config), `AmbientController` 
 `PolishClient` delegates to `ModelServer`, which supports both Ollama and OpenAI-compatible API backends:
 
 - **Health monitoring** -- `ModelServer` runs periodic health checks (default every 30s) against `/api/tags` (Ollama) or `/v1/models` (OpenAI). Status is reflected in the menu bar icon.
-- **Generation** -- Sends the L1 output as the user prompt with a system prompt (default: "口语转书面。只输出结果。"). Uses temperature=0 and max 256 tokens. Returns `nil` (skipping polish) if the server is disconnected or the polish feature is disabled.
+- **Generation** -- Sends the L1 output as the user prompt with a system prompt (default: "Convert spoken language to written form. Output only the result."). Uses temperature=0 and max 256 tokens. Returns `nil` (skipping polish) if the server is disconnected or the polish feature is disabled.
 - **Graceful degradation** -- If the server is unreachable, the pipeline continues with the L1 output.
 
 ### Text Injection

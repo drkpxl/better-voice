@@ -154,13 +154,13 @@ Written by the client after each voice session.
 ```jsonl
 {
   "timestamp": "2026-03-19T14:30:00Z",
-  "rawSA": "哈喽我再试一下能不能转",
-  "l1Text": "哈喽我再试一下能不能转",
-  "polishedText": "哈喽，我再试一下能不能转。",
-  "finalText": "哈喽，我再试一下能不能转。",
+  "rawSA": "hello let me try again can it transcribe",
+  "l1Text": "hello let me try again can it transcribe",
+  "polishedText": "Hello, let me try again to see if it can transcribe.",
+  "finalText": "Hello, let me try again to see if it can transcribe.",
   "words": [
-    {"text": "哈喽", "confidence": 0.92, "alternatives": ["哈楼"], "startTime": 0.0, "duration": 0.5},
-    {"text": "我", "confidence": 0.98, "alternatives": [], "startTime": 0.5, "duration": 0.2}
+    {"text": "Hello", "confidence": 0.92, "alternatives": ["Hullo"], "startTime": 0.0, "duration": 0.5},
+    {"text": "I", "confidence": 0.98, "alternatives": [], "startTime": 0.5, "duration": 0.2}
   ],
   "audioPath": "~/.we/audio/20260319-143000.wav",
   "appBundleID": "com.apple.dt.Xcode",
@@ -172,8 +172,8 @@ Written by the client after each voice session.
 
 ```jsonl
 {
-  "input": "哈喽我再试一下能不能转",
-  "output": "哈喽，我再试一下能不能转。",
+  "input": "hello let me try again can it transcribe",
+  "output": "Hello, let me try again to see if it can transcribe.",
   "source": "whisper",
   "edit_ratio": 0.0833,
   "avg_confidence": 0.95,
@@ -186,10 +186,10 @@ Written by the client after each voice session.
 
 ```jsonl
 {
-  "input": "哈喽我再试一下能不能转",
-  "output": "哈喽，我再试一下能不能转。",
+  "input": "hello let me try again can it transcribe",
+  "output": "Hello, let me try again to see if it can transcribe.",
   "source": "gemini",
-  "polished_0.6b": "哈喽我再试一下能不能转。",
+  "polished_0.6b": "Hello let me try again to see if it can transcribe.",
   "edit_ratio": 0.0833,
   "avg_confidence": 0.95,
   "timestamp": "2026-03-19T14:30:00Z"
@@ -200,8 +200,8 @@ Written by the client after each voice session.
 
 ```jsonl
 {
-  "input": "哈喽我再试一下能不能转",
-  "output": "哈喽，我再试一下能不能转。",
+  "input": "hello let me try again can it transcribe",
+  "output": "Hello, let me try again to see if it can transcribe.",
   "source": "whisper",
   "edit_ratio": 0.0833,
   "avg_confidence": 0.95,
@@ -214,8 +214,8 @@ When sourced from human corrections:
 
 ```jsonl
 {
-  "input": "哈喽我再试一下能不能转",
-  "output": "哈喽，我再试一下能不能转。",
+  "input": "hello let me try again can it transcribe",
+  "output": "Hello, let me try again to see if it can transcribe.",
   "source": "human",
   "quality": 0.91,
   "sample_weight": 2.0
@@ -229,10 +229,10 @@ Written by `CorrectionCapture` on the client when enabled.
 ```jsonl
 {
   "timestamp": "2026-03-19T14:31:00Z",
-  "rawText": "哈喽我再试一下能不能转",
-  "insertedText": "哈喽我再试一下能不能转。",
-  "userFinalText": "哈喽，我再试一下能不能转。",
-  "diffs": [{"original": "哈喽我再试一下能不能转。", "corrected": "哈喽，我再试一下能不能转。"}],
+  "rawText": "hello let me try again can it transcribe",
+  "insertedText": "Hello let me try again to see if it can transcribe.",
+  "userFinalText": "Hello, let me try again to see if it can transcribe.",
+  "diffs": [{"original": "Hello let me try again to see if it can transcribe.", "corrected": "Hello, let me try again to see if it can transcribe."}],
   "quality": 0.91,
   "source": "human",
   "appBundleID": "com.apple.dt.Xcode"

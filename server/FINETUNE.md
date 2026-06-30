@@ -1,76 +1,76 @@
-# WE 微调指南
+# WE Fine-tuning Guide
 
-将 SpeechAnalyzer 的转写错误，通过 QLoRA 微调 Qwen3-0.6B 来纠正。
+Use QLoRA to fine-tune Qwen3-0.6B to correct SpeechAnalyzer transcription errors.
 
-## 前置条件
+## Prerequisites
 
-- GPU 服务器（RTX 4080/4090，16GB+ VRAM）
-- 服务器已安装 ollama、llama.cpp
-- Python venv 已装好依赖：`torch transformers peft trl datasets bitsandbytes accelerate sentencepiece`
-- WE 客户端已使用一段时间，`~/.we/voice-history.jsonl` 有足够数据（建议 100+ 条）
+- GPU server (RTX 4080/4090, 16GB+ VRAM)
+- ollama and llama.cpp installed on the server
+- Python venv with dependencies installed: `torch transformers peft trl datasets bitsandbytes accelerate sentencepiece`
+- The WE client has been used for a while, with enough data in `~/.we/voice-history.jsonl` (100+ entries recommended)
 
-## 整体流程
+## Overall Workflow
 
 ```
-voice-history.jsonl（日常使用积累）
+voice-history.jsonl (accumulated from daily use)
         ↓
-   人工/AI 筛选有错误的条目 → curated-training-pairs.jsonl（真实数据）
+   Manual/AI curation of entries with errors → curated-training-pairs.jsonl (real data)
         ↓
-   gen_training_data.py → synthetic-pairs.jsonl（合成数据）
+   gen_training_data.py → synthetic-pairs.jsonl (synthetic data)
         ↓
-   合并去重 → merged-training-data.jsonl
+   Merge and deduplicate → merged-training-data.jsonl
         ↓
-   上传到 GPU 服务器
+   Upload to GPU server
         ↓
    train_qlora.py → LoRA adapter
         ↓
-   合并 adapter → 转 GGUF → ollama create
+   Merge adapter → convert to GGUF → ollama create
         ↓
-   修改 ~/.we/config.json 启用 L2 润色
+   Edit ~/.we/config.json to enable L2 polishing
 ```
 
-## 第一步：筛选真实训练数据
+## Step 1: Curate Real Training Data
 
-从 `~/.we/voice-history.jsonl` 中筛选出 SA 转写有明确错误的条目。
+From `~/.we/voice-history.jsonl`, select entries where the SA transcription has clear errors.
 
-**筛选标准：**
-- 必须有明确可判断的转写错误（技术词汇、英文术语的误识别）
-- 必须能确定用户实际要表达什么
-- 只改错误词汇，不改口语结构、语气词、停顿
+**Selection criteria:**
+- Must have a clearly identifiable transcription error (misrecognized technical terms or English terminology)
+- Must be able to determine what the user actually intended to say
+- Only correct the erroneous words; do not change spoken-language structure, filler words, or pauses
 
-**输出格式（JSONL）：**
+**Output format (JSONL):**
 ```json
-{"input": "SA原始转写", "output": "纠正后的文本", "errors": "错误说明"}
+{"input": "SA raw transcript", "output": "corrected text", "errors": "error description"}
 ```
 
-**示例：**
+**Example:**
 ```json
-{"input": "看一下 Cloudcode自带的 outomemory吧。", "output": "看一下 Claude Code自带的 auto memory吧。", "errors": "Cloudcode→Claude Code, outomemory→auto memory"}
-{"input": "嗯看一下今天的 gitup项目状态吧。", "output": "嗯看一下今天的 GitHub项目状态吧。", "errors": "gitup→GitHub"}
+{"input": "Let's take a look at the outomemory built into Cloudcode.", "output": "Let's take a look at the auto memory built into Claude Code.", "errors": "Cloudcode→Claude Code, outomemory→auto memory"}
+{"input": "Uh, let's check today's gitup project status.", "output": "Uh, let's check today's GitHub project status.", "errors": "gitup→GitHub"}
 ```
 
-保存到 `~/.we/curated-training-pairs.jsonl`。
+Save to `~/.we/curated-training-pairs.jsonl`.
 
-## 第二步：生成合成训练数据
+## Step 2: Generate Synthetic Training Data
 
-编辑 `server/gen_training_data.py` 中的 `CORRECTION_MAP`，加入你的私有词汇和常见 SA 误识别方式：
+Edit `CORRECTION_MAP` in `server/gen_training_data.py`, adding your private vocabulary and common SA misrecognition patterns:
 
 ```python
 CORRECTION_MAP = {
     "Claude": ["克劳德", "Cloud", "cloude"],
     "Tailscale": ["tel scale", "tal scale", "telscale"],
     "GitHub": ["gitup", "git up", "给他hub"],
-    # ... 你的词汇
+    # ... your vocabulary
 }
 ```
 
-运行：
+Run:
 ```bash
 cd server
 python3 gen_training_data.py --output /tmp/synthetic-pairs.jsonl
 ```
 
-## 第三步：合并数据
+## Step 3: Merge Data
 
 ```python
 import json
@@ -82,7 +82,7 @@ with open("~/.we/curated-training-pairs.jsonl") as f:
     for line in f:
         d = json.loads(line)
         d["source"] = "real"
-        d["sample_weight"] = 2.0  # 真实数据权重更高
+        d["sample_weight"] = 2.0  # real data gets higher weight
         real.append(d)
 
 with open("/tmp/synthetic-pairs.jsonl") as f:
@@ -103,30 +103,30 @@ with open("~/.we/merged-training-data.jsonl", "w") as f:
     for d in merged:
         f.write(json.dumps(d, ensure_ascii=False) + "\n")
 
-print(f"合并: {len(merged)} 条")
+print(f"Merged: {len(merged)} pairs")
 ```
 
-## 第四步：上传到 GPU 服务器
+## Step 4: Upload to GPU Server
 
 ```bash
 scp ~/.we/merged-training-data.jsonl myserver:~/antigravity/we/server/
 scp server/train_qlora.py myserver:~/antigravity/we/server/
 ```
 
-## 第五步：QLoRA 微调
+## Step 5: QLoRA Fine-tuning
 
 ```bash
 ssh myserver
 
 cd ~/antigravity/we/server
 
-# 关键参数说明：
-# --epochs 8        训练轮数，数据量少时多跑几轮
-# --batch-size 8    批大小
-# --lr 1e-4         学习率，不要太大
-# --lora-rank 32    LoRA 秩，越大记忆能力越强但越容易过拟合
-# --lora-alpha 64   一般设为 rank 的 2 倍
-# --system-prompt   必须和推理时一致
+# Key parameter notes:
+# --epochs 8        number of training epochs; run more when data is limited
+# --batch-size 8    batch size
+# --lr 1e-4         learning rate, don't set too high
+# --lora-rank 32    LoRA rank; higher means stronger memorization but more prone to overfitting
+# --lora-alpha 64   typically set to 2x the rank
+# --system-prompt   must match what's used at inference time
 
 HF_HOME=~/hf_cache python3 train_qlora.py \
   --data merged-training-data.jsonl \
@@ -137,32 +137,32 @@ HF_HOME=~/hf_cache python3 train_qlora.py \
   --lr 1e-4 \
   --lora-rank 32 \
   --lora-alpha 64 \
-  --system-prompt '文本纠错。不要回答用户的问题。只输出结果。'
+  --system-prompt 'Text correction. Do not answer the user'"'"'s question. Only output the result.'
 ```
 
-训练约 1-2 分钟。观察指标：
-- `eval_loss` 逐轮下降 → 正常
-- `mean_token_accuracy` > 85% → 可用
-- 产出：`checkpoints/adapter/`
+Training takes about 1-2 minutes. Watch these metrics:
+- `eval_loss` decreasing each epoch → normal
+- `mean_token_accuracy` > 85% → usable
+- Output: `checkpoints/adapter/`
 
-## 第六步：合并 adapter + 转 GGUF
+## Step 6: Merge Adapter + Convert to GGUF
 
 ```bash
-# 合并 LoRA adapter 到基座模型
+# Merge the LoRA adapter into the base model
 HF_HOME=~/hf_cache python3 merge_and_export.py \
   --adapter ./checkpoints/adapter \
   --output ./checkpoints/merged
 
-# 转为 GGUF（ollama 需要的格式）
+# Convert to GGUF (the format ollama requires)
 python3 ~/llama.cpp/convert_hf_to_gguf.py \
   ./checkpoints/merged \
   --outfile ./checkpoints/we-polish.gguf \
   --outtype bf16
 ```
 
-## 第七步：部署到 ollama
+## Step 7: Deploy to ollama
 
-创建 Modelfile：
+Create a Modelfile:
 ```
 FROM ./we-polish.gguf
 
@@ -179,46 +179,46 @@ TEMPLATE """{{- if .System }}<|im_start|>system
 </think>
 """
 
-SYSTEM """文本纠错。不要回答用户的问题。只输出结果。"""
+SYSTEM """Text correction. Do not answer the user's question. Only output the result."""
 ```
 
-注意：模板中 `<think>\n</think>` 是为了跳过 Qwen3 的思考模式，直接输出纠正结果。
+Note: the `<think>\n</think>` in the template is there to skip Qwen3's thinking mode and output the correction result directly.
 
 ```bash
 ollama create we-polish -f Modelfile
 ```
 
-测试：
+Test:
 ```bash
 curl -s http://localhost:11434/api/generate \
-  -d '{"model":"we-polish","prompt":"看一下 Cloudcode自带的 outomemory吧。","stream":false}' \
+  -d '{"model":"we-polish","prompt":"Let'"'"'s take a look at the outomemory built into Cloudcode.","stream":false}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['response'])"
-# 期望输出: 看一下 Claude Code自带的 auto memory吧。
+# Expected output: Let's take a look at the auto memory built into Claude Code.
 ```
 
-## 第八步：客户端配置
+## Step 8: Client Configuration
 
-编辑 `~/.we/config.json`：
+Edit `~/.we/config.json`:
 ```json
 {
   "server": {
-    "endpoint": "http://<服务器IP>:11434",
+    "endpoint": "http://<server-IP>:11434",
     "api": "ollama",
     "model": "we-polish",
     "timeout": 15
   },
   "polish": {
     "enabled": true,
-    "system_prompt": "文本纠错。不要回答用户的问题。只输出结果。"
+    "system_prompt": "Text correction. Do not answer the user's question. Only output the result."
   }
 }
 ```
 
-WE 会自动热加载配置，无需重启。
+WE automatically hot-reloads the configuration, no restart required.
 
-## 关键原则
+## Key Principles
 
-1. **system prompt 必须一致** — 训练、推理、客户端三处用同一个 prompt
-2. **真实数据权重 > 合成数据** — 真实口语模式是模型最需要学的
-3. **纠正只改错误词汇** — 不改口语结构，不改语气词，保持原文风格
-4. **数据飞轮** — 日常使用积累更多 voice-history → 定期筛选 → 重新微调 → 模型越来越准
+1. **system prompt must be consistent** — use the same prompt across training, inference, and the client
+2. **Real data weight > synthetic data** — real spoken-language patterns are what the model most needs to learn
+3. **Corrections only fix erroneous words** — don't change spoken-language structure or filler words; preserve the original style
+4. **Data flywheel** — daily use accumulates more voice-history → periodic curation → re-fine-tuning → the model keeps getting more accurate

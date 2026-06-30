@@ -1,28 +1,28 @@
-# WE 评测结果报告
+# WE Evaluation Results Report
 
-评测日期：2026-03-18
-设备：Mac Mini M4 (10 核 CPU, 16GB RAM), macOS 26
+Evaluation date: 2026-03-18
+Device: Mac Mini M4 (10-core CPU, 16GB RAM), macOS 26
 
-## 测试变量
+## Test Variables
 
-| 变量 | 值 |
+| Variable | Value |
 |------|---|
-| 转写引擎 | Apple SpeechAnalyzer (macOS 26), inputAudioFile API |
-| L1 AlternativeSwap | 未启用（会议模式不走 L1） |
-| L2 Polish (ollama) | 未启用（会议模式不走 L2） |
-| 说话人分离 | FluidAudio performCompleteDiarization, offline, 默认 DiarizerConfig |
-| 对齐逻辑 | WE alignTranscriptionWithDiarization（时间重叠匹配）|
-| 导出 | WE MeetingExporter (Markdown) |
-| CER 评估工具 | jiwer 4.0.0（标准工具） |
-| DER 评估工具 | spyder 0.4.1 / fluidaudiocli 内置评估（标准工具） |
+| Transcription engine | Apple SpeechAnalyzer (macOS 26), inputAudioFile API |
+| L1 AlternativeSwap | Not enabled (meeting mode does not use L1) |
+| L2 Polish (ollama) | Not enabled (meeting mode does not use L2) |
+| Speaker diarization | FluidAudio performCompleteDiarization, offline, default DiarizerConfig |
+| Alignment logic | WE alignTranscriptionWithDiarization (time-overlap matching) |
+| Export | WE MeetingExporter (Markdown) |
+| CER evaluation tool | jiwer 4.0.0 (standard tool) |
+| DER evaluation tool | spyder 0.4.1 / fluidaudiocli built-in evaluation (standard tool) |
 
-## 测试一：WE 端到端会议模式 — 远场
+## Test 1: WE End-to-End Meeting Mode — Far-field
 
-- **链路**：MeetingSession.runFromFile() 完整链路
-- **数据集**：AliMeeting Eval 远场 ch0（8 通道阵列取单通道，无 beamforming）
-- **场次**：8 场中文会议，2-4 人，26-37 分钟/场，重叠率 >30%
+- **Pipeline**: MeetingSession.runFromFile() full pipeline
+- **Dataset**: AliMeeting Eval far-field ch0 (single channel taken from 8-channel array, no beamforming)
+- **Sessions**: 8 Chinese meetings, 2-4 speakers, 26-37 minutes/session, overlap rate >30%
 
-| ID | CER% | 分段数 | 说话人(检/实) | RTFx | 耗时 |
+| ID | CER% | Segments | Speakers (detected/actual) | RTFx | Duration |
 |---|---|---|---|---|---|
 | R8009_M8018 | 24.2 | 109 | 2/2 | 76.6 | 21.6s |
 | R8009_M8020 | 24.7 | 129 | 1/2 | 85.1 | 22.4s |
@@ -32,15 +32,15 @@
 | R8007_M8011 | 38.5 | 127 | 2/4 | 77.1 | 24.1s |
 | R8001_M8004 | 51.7 | 122 | 4/4 | 73.7 | 21.4s |
 | R8007_M8010 | 62.1 | 152 | 6/4 | 81.0 | 22.9s |
-| **整体** | **40.0** | | | | |
+| **Overall** | **40.0** | | | | |
 
-## 测试二：WE 端到端会议模式 — 近场
+## Test 2: WE End-to-End Meeting Mode — Near-field
 
-- **链路**：MeetingSession.runFromFile() 完整链路
-- **数据集**：AliMeeting Eval 近场（每人头戴麦，单说话人）
-- **场次**：25 个说话人文件，按会议分组
+- **Pipeline**: MeetingSession.runFromFile() full pipeline
+- **Dataset**: AliMeeting Eval near-field (one headset mic per person, single speaker)
+- **Sessions**: 25 speaker files, grouped by meeting
 
-| 会议 | 平均 CER% | 说话人数 |
+| Meeting | Average CER% | Speaker count |
 |---|---|---|
 | R8008_M8013 | 17.8 | 3 |
 | R8001_M8004 | 22.8 | 4 |
@@ -49,70 +49,70 @@
 | R8007_M8010 | 25.9 | 4 |
 | R8007_M8011 | 27.4 | 4 |
 | R8009_M8020 | 39.3 | 2 |
-| R8003_M8001 | 110.1 | 4（2 个说话人幻听严重，异常值）|
-| **整体** | **34.0** | |
-| **去异常值** | **~25%** | |
+| R8003_M8001 | 110.1 | 4 (severe hallucination for 2 speakers, outlier) |
+| **Overall** | **34.0** | |
+| **Outliers excluded** | **~25%** | |
 
-## 测试三：FluidAudio 组件级分离 — AMI
+## Test 3: FluidAudio Component-Level Diarization — AMI
 
-- **链路**：fluidaudiocli diarization-benchmark（非 WE 链路，组件基线）
-- **数据集**：AMI test set，16 场英文，3-4 人，14-50 分钟/场
-- **DER 评估**：fluidaudiocli 内置（collar=0.25s, ignoreOverlap=True）
+- **Pipeline**: fluidaudiocli diarization-benchmark (not the WE pipeline, component baseline)
+- **Dataset**: AMI test set, 16 English sessions, 3-4 speakers, 14-50 minutes/session
+- **DER evaluation**: fluidaudiocli built-in (collar=0.25s, ignoreOverlap=True)
 
-| 指标 | 值 |
+| Metric | Value |
 |---|---|
-| 平均 DER | 23.2% |
-| 平均 RTFx | 130.9x |
-| DER 范围 | 7.7% - 72.6% |
+| Average DER | 23.2% |
+| Average RTFx | 130.9x |
+| DER range | 7.7% - 72.6% |
 
-最佳 3 场：IS1009c(7.7%), IS1009b(7.7%), TS3003b(9.9%)
-最差 2 场：ES2004d(69.4%), EN2002a(72.6%)——speaker error 占主导（62%, 59%）
+Best 3 sessions: IS1009c (7.7%), IS1009b (7.7%), TS3003b (9.9%)
+Worst 2 sessions: ES2004d (69.4%), EN2002a (72.6%) — speaker error dominates (62%, 59%)
 
-## 测试四：FluidAudio 组件级分离 — AliMeeting
+## Test 4: FluidAudio Component-Level Diarization — AliMeeting
 
-- **链路**：fluidaudiocli process --mode offline → spyder DER（非 WE 链路，组件基线）
-- **数据集**：AliMeeting Eval 远场 ch0，8 场中文
+- **Pipeline**: fluidaudiocli process --mode offline → spyder DER (not the WE pipeline, component baseline)
+- **Dataset**: AliMeeting Eval far-field ch0, 8 Chinese sessions
 
-| 指标 | 值 |
+| Metric | Value |
 |---|---|
-| 整体 DER | 48.5% |
+| Overall DER | 48.5% |
 | Miss | 21.6% |
 | False Alarm | 2.7% |
 | Confusion | 24.1% |
 | RTFx | ~131x |
 
-## 测试五：内存占用
+## Test 5: Memory Usage
 
-30-40 分钟会议，diarization offline 进程级峰值：
+For a 30-40 minute meeting, diarization offline process-level peak:
 - RSS: ~500MB
 - Peak memory footprint: 730-930MB
-- 8GB 设备无压力
+- No pressure on 8GB devices
 
-## 对比总结
+## Comparison Summary
 
-| 条件 | 整体 CER | 说明 |
+| Condition | Overall CER | Notes |
 |---|---|---|
-| WE 远场 | 40.0% | 8ch 阵列 ch0，无 beamforming，高重叠 |
-| WE 近场 | 34.0%（去异常 ~25%）| 头戴麦，单说话人 |
-| 近场 vs 远场 | -6pp（去异常 -15pp）| 近场显著优于远场 |
+| WE far-field | 40.0% | 8ch array ch0, no beamforming, high overlap |
+| WE near-field | 34.0% (outliers excluded ~25%) | Headset mic, single speaker |
+| Near-field vs far-field | -6pp (outliers excluded -15pp) | Near-field significantly outperforms far-field |
 
-## 未测试项
+## Untested Items
 
-- [ ] L1 AlternativeSwap 对 CER 的影响（日常转录模式）
-- [ ] L2 Polish (ollama) 对 CER 的影响（日常转录模式）
-- [ ] 日常转录模式完整链路（短语音场景）
-- [ ] 英文转写 CER/WER
-- [ ] 5+ 说话人场景
-- [ ] 近场混合音频的 DER
-- [ ] 端到端 cpWER（meeteval）
+- [ ] Impact of L1 AlternativeSwap on CER (everyday transcription mode)
+- [ ] Impact of L2 Polish (ollama) on CER (everyday transcription mode)
+- [ ] Full everyday transcription mode pipeline (short audio scenarios)
+- [ ] English transcription CER/WER
+- [ ] 5+ speaker scenarios
+- [ ] DER for near-field mixed audio
+- [ ] End-to-end cpWER (meeteval)
 
-## 结果文件
+## Result Files
 
 ```
 results/
-├── ami_diarization/          # 测试三：AMI 16 场 JSON + summary
-├── alimeeting_diarization/   # 测试四：AliMeeting 8 场 JSON + RTTM + DER
-├── we_meeting_e2e/           # 测试一：WE 远场端到端 8 场 JSON + CER + 对比
-├── we_nearfield_transcription/ # 测试二：WE 近场 25 个 JSON + CER
-└── EVAL_RESULTS.md           # 本文件
+├── ami_diarization/          # Test 3: AMI 16 sessions JSON + summary
+├── alimeeting_diarization/   # Test 4: AliMeeting 8 sessions JSON + RTTM + DER
+├── we_meeting_e2e/           # Test 1: WE far-field end-to-end 8 sessions JSON + CER + comparison
+├── we_nearfield_transcription/ # Test 2: WE near-field 25 JSON + CER
+└── EVAL_RESULTS.md           # this file
 ```

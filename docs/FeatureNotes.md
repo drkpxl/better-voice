@@ -37,6 +37,11 @@
 - Goal: auto-recognize and label speakers across sessions without manual assignment.
 - Speaker-labeling UI (#3) is the interim solution until this is built.
 
-### 6. Other later-stage ideas
+### 6. Clarify and Enhance Self Training
+ - TBD
+ - Rather than have the fine tuning and self training of a tiny model use a 2GB+ model and add a personal context to the model up front. For example I could give it a list of people I speak with most commonly at meetings, I could tell it about where I work, what I do, etc so when its cleaning up transcription or summarization it’s creating better data? That seems better than straight model training of a tiny model.
+
+
+### 7. Other later-stage ideas
 - Live markdown editor (edit transcript/notes in real time during or after the call).
 - Folder structure / organization system for saved transcripts and summaries.

@@ -1,25 +1,25 @@
-# WE — KPI 测试报告
+# WE — KPI Test Report
 
-- 阶段：**2026-05-month1-end-initial**
-- 生成时间：2026-05-15 14:37:35
-- 方法学：见 `client/scripts/kpi-test/README.md` §0（用户视角 + 全链路）
+- Phase: **2026-05-month1-end-initial**
+- Generated: 2026-05-15 14:37:35
+- Methodology: see `client/scripts/kpi-test/README.md` §0 (user perspective + full pipeline)
 
 ---
 
-## 里程碑（§3.1）
+## Milestones (§3.1)
 
-| 条款 | 名称 | 状态 | 完成度系数 |
+| Clause | Name | Status | Completion Factor |
 |---|---|---|---|
-| §3.1 L4 #11 ① | 录入语音 → 转写 → 输出文字 | ✅ pass | 1.0 |
-| §3.1 L4 #11 ② | 会议模式可录可转 | ⏳ todo | 0 |
-| §3.1 L4 #11 ③ | 跨网传输可用 | ✅ pass | 1.0 |
-| §3.1 L2 #7 ① | 自动构建错词表 | ✅ pass | 1.0 |
-| §3.1 L2 #7 ② | 自动微调 | ⚠️ partial | 0.7 |
-| §3.1 L2 #7 ③ | 输出报告 | ❌ fail | 0 |
+| §3.1 L4 #11 ① | Voice input → transcription → text output | ✅ pass | 1.0 |
+| §3.1 L4 #11 ② | Meeting mode can record and transcribe | ⏳ todo | 0 |
+| §3.1 L4 #11 ③ | Cross-network transmission available | ✅ pass | 1.0 |
+| §3.1 L2 #7 ① | Automatically build mis-transcription word list | ✅ pass | 1.0 |
+| §3.1 L2 #7 ② | Automatic fine-tuning | ⚠️ partial | 0.7 |
+| §3.1 L2 #7 ③ | Output report | ❌ fail | 0 |
 
-## 基线（§3.2）
+## Baseline (§3.2)
 
-| 条款 | 名称 | 状态 | 样本数 | 本期值 |
+| Clause | Name | Status | Sample Size | Current Value |
 |---|---|---|---|---|
 | §3.2 L4 ① | short_command_accuracy | ✅ ok | 100 | 41.00% |
 | §3.2 L4 ② | medium_wer | ✅ ok | 100 | 25.52% |
@@ -29,7 +29,7 @@
 
 ---
 
-**说明**：
-- 里程碑完成度系数：完成 1.0 / 部分完成（≥70%）0.7 / 未达 0（§2.1）
-- 基线 todo = 测试集未就绪；后续填实即可输出真实数字
-- 改善幅度档位（§2.2）需要两个数据点（月 1 末 + 月 2 末），见 README §4
+**Notes**:
+- Milestone completion factor: Complete 1.0 / Partially complete (≥70%) 0.7 / Not met 0 (§2.1)
+- Baseline todo = test set not yet ready; real numbers will be filled in and output later
+- Improvement magnitude tier (§2.2) requires two data points (end of month 1 + end of month 2), see README §4

@@ -1,362 +1,362 @@
-# §3.2 L4 ② 中等长度 WER — 真实结果
+# §3.2 L4 ② Medium-Length WER — Real Results
 
-100 条样本（30-100 字）；整体 WER 25.52%。下方按 WER 降序排序。
+100 samples (30-100 characters); overall WER 25.52%. Sorted below in descending order of WER.
 
 ---
 
 ## m068 (WER=4.350, CER=4.726)
-- ground_truth: `第二就比如说你纠错这个问题例子了。你生成的。你生成的指令。他记住不知道什么东西。所以其实像我们这个纠错的指令是需要去理解的。`
-- hypothesis  : `第二就比如说你避顺这个问题例子了。你长串的网络命令。他知不知道是一个问题你知道吧第二他知道了他执行的响应速度。像像现在你们用哪个 cloud用的比较多。他一个来回的时间这么长的时间其实是。不能够不能够这个这个在生产环境是不能接受的这存在一种可能性就微调一个小模型小模型的好处是它的速度很快。但它的坏处是他没有那么世界知识 ，他不知道什么东西。所以他其实就像训练一个人一样的 ，你只需要懂这一部分的操作命令。这是 autore设计的一个显性的价值啊当然它其实远不止这样一个价值实际上是用了大模型本身的判断能力来做自我迭代和升级本质上是这么一个一个价值和能力。就这两块是从行业发展和你们自己要做的项目当中直接可以应用 ，而且可以提升项目价值的形成质变的两个能力第三点我们我没有在群里发。`
+- ground_truth: `Second, for example, you corrected this problem example. What you generated. The instruction you generated. He remembers it, doesn't know what it is. So actually, instructions like our correction ones need to be understood.`
+- hypothesis  : `Second, for example, you smoothed out this problem example. Your long string of network commands. Whether he knows it's a problem, you know, right — second, he knows, the response speed of his execution. Like, like which cloud are you all using more now. The round-trip time being this long is actually... can't, can't — this, this is unacceptable in a production environment. There's a possibility of fine-tuning a small model — the advantage of a small model is its speed is very fast. But its disadvantage is it doesn't have that much world knowledge, it doesn't know what things are. So it's actually just like training a person — you only need to understand this part of the operating commands. This is an explicit value designed by autore — of course it's actually far more than just this one value, it's actually using the large model's own judgment ability to do self-iteration and upgrading, which is essentially this kind of value and capability. So these two parts are things that can be directly applied from industry development and the projects you yourselves are going to do, and they're two capabilities that can raise project value to a qualitative change — the third point, I didn't post it in the group.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T05-08-43Z.wav`
 
 ## m025 (WER=1.667, CER=1.533)
-- ground_truth: `先将第一部分改为 Sones GOP 格式，同时同步修改相关代码。`
-- hypothesis  : `先这样先把第一部分先实际先就做一个改的就是 shadow guide of，然后就就改个. Shadow然后代码也要跟着`
+- ground_truth: `First change part one to the Sones GOP format, and simultaneously update the related code accordingly.`
+- hypothesis  : `First, like this, first the first part, first actually, first just make a change — that is, shadow guide of, and then just change a. Shadow, and then the code also needs to follow along`
 - audio: `/Users/marvin/.we/audio/2026-03-13T08-07-04Z.wav`
 
 ## m003 (WER=1.500, CER=1.244)
-- ground_truth: `这些内容主要涉及较为偏门的方法，具体是中国如何开展推广工作的细节。他对此有所阐述。`
-- hypothesis  : `嗯 ，好的 ，这些都是一些比较偏方法中或者偏一些。怎么中国的一些内容吧具体的。他是怎么做一些推广他的工作就是怎么样的这个他有说。`
+- ground_truth: `This content mainly involves rather obscure methods, specifically the details of how China carries out promotional work. He elaborated on this somewhat.`
+- hypothesis  : `Um, okay, these are all somewhat obscure methods, or somewhat... how, some content about China, specifically. How he does some promotion, his work, what it's like — he talked about this.`
 - audio: `/Users/marvin/.we/audio/2026-03-13T05-36-14Z.wav`
 
 ## m018 (WER=1.183, CER=1.130)
-- ground_truth: `我的观点是，确实需要自行配置某些工具。因为部分问题无法仅靠外部数据解决，必须通过内部迭代来应对。此外，工具的使用本身就是一个不断优化的过程，旨在使其更适配、更高效。不过，目前在这方面尚未形成具体构想。`
-- hypothesis  : `我的角度就是一个肯定有些工具要自己去配这个东西你要自己去配对吧。肯定不能通过因为有些革命啊解决不了下去外面拿一些数据这个样的人是解决不了啊另一个呢毕竟是越用越好用工具按道肯定也需要做一个人进化的一个操作或者是工具变得更更好 ，更适配的一个操作 ，但这个目前其实也没有想法。。`
+- ground_truth: `My view is that some tools really do need to be configured by ourselves. Because some problems can't be solved just by relying on external data — they have to be addressed through internal iteration. Also, using tools is itself an ongoing optimization process, aimed at making them more suitable and more efficient. However, I haven't yet formed a concrete idea about this.`
+- hypothesis  : `My take is, for sure some tools need to be configured by yourself, you have to configure that yourself, right. Definitely can't — because some revolutions, uh, can't solve it, going out and getting some data like that, that kind of person can't solve it — another thing is, well, the more you use a tool the better it gets, by rights it definitely also needs an operation of human evolution, or the tool becoming better, more suitable, an operation like that — but right now I actually don't have any ideas about this either..`
 - audio: `/Users/marvin/.we/audio/2026-03-13T08-09-11Z.wav`
 
 ## m019 (WER=1.100, CER=1.031)
-- ground_truth: `MD 作为北塔的具体机制，其次在工具方面，我认为你的考虑不够周全。`
-- hypothesis  : `这个那个 MD吧作为一个北塔的的一些这个具体的机制好吧。然后第二个是。工具上我觉得你的考虑太不太行吧`
+- ground_truth: `MD as the specific mechanism for Beita, and next, regarding tools, I think your consideration isn't thorough enough.`
+- hypothesis  : `This, that MD, as some specific mechanism of Beita, okay. And second. On the tools, I think your consideration isn't quite good enough`
 - audio: `/Users/marvin/.we/audio/2026-03-13T08-08-32Z.wav`
 
 ## m092 (WER=0.980, CER=0.974)
-- ground_truth: `好的，用户问的是“邮箱”。那我先确认一下。可能之前对话中有过一些上下文。比如用户可能想测试一下我是否理解问题。这时候应该回答用户的问题。不要回答用户的问题。`
-- hypothesis  : `邮箱`
+- ground_truth: `Okay, the user is asking about “email”. Let me confirm first. There might have been some context earlier in the conversation. For example, the user might want to test whether I understand the question. At this point I should answer the user's question. Don't answer the user's question.`
+- hypothesis  : `Email`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-34-25Z.wav`
 
 ## m075 (WER=0.971, CER=0.845)
-- ground_truth: `如果我想将上述生成的结果作为技能（Skill）或类似的应用来使用，您认为我需要准备哪些数据，或者需要您提供哪些工具？`
-- hypothesis  : `啊好的 ，如果那比如说我想把。这个这样制的结果比如说做为一个呃类似于像 skill或者说一些类似于。应用。那你觉得我需要准备哪些数据或者说你需要我准备哪些提供哪些工具 ？`
+- ground_truth: `If I want to use the result generated above as a Skill or a similar application, what data do you think I need to prepare, or what tools do you need to provide?`
+- hypothesis  : `Ah okay, if then for example I want to. This, made like this, the result, for example use it as an uh, similar to like a skill, or some kind of. application. So what do you think I need to prepare, what data, or what do you need me to prepare, what tools to provide?`
 - audio: `/Users/marvin/.we/audio/2026-03-16T09-14-17Z.wav`
 
 ## m015 (WER=0.969, CER=0.981)
-- ground_truth: `收到。请提供需要处理的语音转写文本，我将立即为您修正错别字、补充标点、删除冗余内容，并润色为自然书面语。`
-- hypothesis  : `。`
+- ground_truth: `Got it. Please provide the speech transcription text that needs processing, and I will immediately correct typos, add punctuation, remove redundant content, and polish it into natural written language for you.`
+- hypothesis  : `.`
 - audio: `/Users/marvin/.we/audio/2026-03-18T03-58-25Z.wav`
 
 ## m063 (WER=0.966, CER=0.979)
-- ground_truth: `好的，先确认一下用户的需求。首先，我需要理解他到底想要做些什么。可能他是在开发某个系统或者工具。不过有时候可能会有歧义。比如，有时候可能会把功能弄反了。要确保弄清楚才能准确回答用户的问题。`
-- hypothesis  : `逻辑给我逻辑。`
+- ground_truth: `Okay, let me first confirm the user's requirements. First, I need to understand what exactly he wants to do. He might be developing some system or tool. But sometimes there could be ambiguity. For example, sometimes the functionality might get reversed. I need to make sure I understand clearly before I can accurately answer the user's question.`
+- hypothesis  : `Logic, give me logic.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T02-37-32Z.wav`
 
 ## m054 (WER=0.955, CER=0.706)
-- ground_truth: `这个对话就是用来了解一下一些基本的用法，比如 Gostay 是什么，还有 Cloud Code 的一些非常基础的功能，或者是一些高级指令（高亮命令）以及键盘快捷键，我们先梳理一下。`
-- hypothesis  : `这个对话就是用来就就了解一些基本的一些使用吧 ，就是一些基本的啊。 Ghostty这个东西就是什么呢 ？另一个比如说像。 Claude Code有一些。非常基础性的一些指定的一些写高明令啊或者说键盘快捷键我们先理。`
+- ground_truth: `This conversation is to get familiar with some basic usage, like what Gostay is, and some very basic features of Cloud Code, or some advanced commands (highlighted commands) and keyboard shortcuts — let's go through them first.`
+- hypothesis  : `This conversation is just to, to get to know some basic, some usage, just some basics, ah. What is this thing Ghostty? Another thing, for example, like. Claude Code has some. Very basic, some designated, some written advanced commands, or keyboard shortcuts, let's first sort...`
 - audio: `/Users/marvin/.we/audio/2026-03-23T08-45-37Z.wav`
 
 ## m078 (WER=0.907, CER=0.906)
-- ground_truth: `好的，用户问的是看到授权码的问题。首先，我需要确认自己理解正确。授权码通常是通过云桌面来设置的。可能用户是想远程访问别人的电脑。`
-- hypothesis  : `看到授权码。`
+- ground_truth: `Okay, the user is asking about the issue of seeing the authorization code. First, I need to confirm I understand correctly. The authorization code is usually set up through the cloud desktop. The user might want to remotely access someone else's computer.`
+- hypothesis  : `Saw the authorization code.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-46-09Z.wav`
 
 ## m066 (WER=0.875, CER=0.645)
-- ground_truth: `关于 Skill 的集成，主要是需要构建一个 MCP Server 供其使用。此外，我更关注数据源中质量最高、最前沿且一手的信息，例如通过 AKC 这样的方式来获取。`
-- hypothesis  : `就是 skill的相关是要去做这个 MCP server给他用吧 ，而且我比较关注一些数。据几个质量最好是比较前沿比较一手的那些东西吧 ，或者比如说 AKCr这样一个方式吧。`
+- ground_truth: `Regarding Skill integration, the main thing is we need to build an MCP Server for it to use. Besides that, I'm more focused on the highest-quality, most cutting-edge, and first-hand information among data sources, for example obtained through a method like AKC.`
+- hypothesis  : `It's that the skill-related thing is, we need to make this MCP server for it to use, right, and I'm more focused on some data. Based on a few, the best quality, more cutting-edge, more first-hand kind of things, or for example something like AKCr, that kind of approach.`
 - audio: `/Users/marvin/.we/audio/2026-03-17T07-44-49Z.wav`
 
 ## m098 (WER=0.842, CER=0.762)
-- ground_truth: `请说明您需要的技能（skill）的具体形式。例如，若需实现该功能，请问应准备哪些数据？相关接口该如何设计？请提供一个大致方案。`
-- hypothesis  : `然后你说一下就是啊 ，你需要这个 skill，如果弄成这个词样 ，你具体比如说啊 ，我需要准备哪些数据应该接口需要怎么做 ？给我一个大致的一个方案吧。`
+- ground_truth: `Please describe the specific form of the skill you need. For example, if this functionality needs to be implemented, what data should be prepared? How should the related interface be designed? Please provide a rough plan.`
+- hypothesis  : `Then you say, like, ah, you need this skill, if it's made into this kind of thing, you specifically, for example, ah, what data do I need to prepare, how should the interface be done? Give me a rough plan.`
 - audio: `/Users/marvin/.we/audio/2026-03-16T09-17-33Z.wav`
 
 ## m039 (WER=0.818, CER=0.800)
-- ground_truth: `我认为这可能是一个深层次的问题：因为我们把上下结构视为一个整体，导致它们各自的功能变得模糊，就像几块拼图一样。`
-- hypothesis  : `所以我觉得这是一个可能是一个深层次的问题 ，就是一个因为我们的已经上下我们设计把它看为一个人让我们有一些。入点点就类似几块的作用。`
+- ground_truth: `I think this might be a deep-level issue: because we treat the upper-lower structure as a whole, causing each of their individual functions to become blurred, like several puzzle pieces.`
+- hypothesis  : `So I think this is a, maybe a deep-level problem, it's, because our already up-down, our design, we see it as one, lets us have some. Entry points, just kind of like the function of a few pieces.`
 - audio: `/Users/marvin/.we/audio/2026-03-13T01-54-01Z.wav`
 
 ## m020 (WER=0.812, CER=0.818)
-- ground_truth: `我可以开展一项类似的研究，例如针对当前如"Agent 提示词”这类功能，具体探究其背后的 Agent 是如何实现的。`
-- hypothesis  : `我做一个类似于这样的研究吧 ，就是比如说像现在那的 GPT这样的功能 ，他具体 agent背后比如说一些请提醒是这么做的。`
+- ground_truth: `I can carry out a similar study, for example targeting current features like “Agent prompts”, specifically investigating how the Agent behind it is implemented.`
+- hypothesis  : `Let me do a study similar to this, like, for example, features like GPT now, specifically how the agent behind it, for example some prompt reminders, is done like this.`
 - audio: `/Users/marvin/.we/audio/2026-03-18T08-26-47Z.wav`
 
 ## m060 (WER=0.778, CER=0.734)
-- ground_truth: `从另一个角度来看，Outlook 包含两个部分：一个是 Outlook.com，另一个是 Outlook.com 自带的 Outlook。`
-- hypothesis  : `呃 ，一个角度吧 ，就是一个 auto memory的一块是 Claude Code自在的 auto memory。`
+- ground_truth: `From another angle, Outlook includes two parts: one is Outlook.com, the other is the Outlook that comes built into Outlook.com.`
+- hypothesis  : `Uh, one angle, it's like, one part of auto memory is the auto memory that comes with Claude Code.`
 - audio: `/Users/marvin/.we/audio/2026-03-16T01-46-50Z.wav`
 
 ## m083 (WER=0.737, CER=0.707)
-- ground_truth: `帮我下载吉刚的 skiles吉刚的 skile，你给他们找他们那个 skile下载方式。`
-- hypothesis  : `帮我下载杰刚的 skill。`
+- ground_truth: `Help me download Jigang's skiles, Jigang's skile — find that skile download method for them.`
+- hypothesis  : `Help me download Jiegang's skill.`
 - audio: `/Users/marvin/.we/audio/2026-03-30T08-14-32Z.wav`
 
 ## m076 (WER=0.727, CER=0.625)
-- ground_truth: `关于我的个人记忆，我将结合我的侧向偏好，为您梳理并呈现相关内容。`
-- hypothesis  : `你的我的个人记忆吧 ，然后就我的侧中偏好来看一下这几个给他像。`
+- ground_truth: `Regarding my personal memory, I will combine it with my lateral preferences to organize and present the relevant content for you.`
+- hypothesis  : `Your, my personal memory, then based on my lateral preferences look at these few, give it to them, like.`
 - audio: `/Users/marvin/.we/audio/2026-03-16T01-57-58Z.wav`
 
 ## m077 (WER=0.725, CER=0.691)
-- ground_truth: `呃没有我的允许你不能直接改到 ，你要先给我方案 ，你要确认完成以后再给我看方案。你先继续看看其他的那些域名域名吧。`
-- hypothesis  : `你先继续看看其他的那些域名域名吧。`
+- ground_truth: `Uh, without my permission you can't just change it directly — you need to give me a plan first, and after you've confirmed it's done, then show me the plan. Go ahead and keep looking at those other domain names for now.`
+- hypothesis  : `Go ahead and keep looking at those other domain names for now.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T03-11-27Z.wav`
 
 ## m029 (WER=0.410, CER=0.420)
-- ground_truth: `嗯 ，我接受 ，然后重点就是你设个比如说设个那个上限吧 ，比如说你设个数据上限 ，比如说你设个数据上限 ，比如说你设个数据上限 ，比如说你设个数据上限`
-- hypothesis  : `嗯 ，我接受 ，然后重点就是你设个比如说设个那个上限吧 ，比如说你设个数据上限 ，比如说 500000的可以下载0000000`
+- ground_truth: `Um, I accept, and the key point is you set, for example set that upper limit, for example you set a data limit, for example you set a data limit, for example you set a data limit, for example you set a data limit`
+- hypothesis  : `Um, I accept, and the key point is you set, for example set that upper limit, for example you set a data limit, for example 500000 can download 0000000`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T02-37-44Z.wav`
 
 ## m067 (WER=0.346, CER=0.510)
-- ground_truth: `停掉停掉停掉 ，我没有允许你用手部的 WebSocket啊 ，我一直都是只允许你用本地的 WebSocket。`
-- hypothesis  : `我没有允许你用手动的 web搜索啊 ，我一直都是只允许你用 prompt的。`
+- ground_truth: `Stop, stop, stop — I didn't allow you to use the manual WebSocket, I've always only allowed you to use the local WebSocket.`
+- hypothesis  : `I didn't allow you to use manual web search, I've always only allowed you to use the prompt one.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T03-29-33Z.wav`
 
 ## m026 (WER=0.281, CER=0.233)
-- ground_truth: `谁允许我跳过呢我就你重新下呀 ，不可能有不可能有下载失败的情况在的呀 ，除非除非存储不够。`
-- hypothesis  : `谁允许你跳过呢呢我就你重新下呀 ，我就你重新下呀 ，不可能有不可能有下载失败的情况在的呀 ，除非除非存储不够。`
+- ground_truth: `Who gave me permission to skip — I'll just have you redownload it, there's no way, no way there's a download failure happening, unless, unless storage isn't enough.`
+- hypothesis  : `Who gave you permission to skip — I'll just have you redownload it, I'll just have you redownload it, there's no way, no way there's a download failure happening, unless, unless storage isn't enough.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T03-49-47Z.wav`
 
 ## m096 (WER=0.233, CER=0.491)
-- ground_truth: `呃 ，那你就操纵我的Google Chrome吧 ，就本地的Google Chrome ，我觉得也应该也是能操作的好吧。`
-- hypothesis  : `那你就操纵我的谷歌浏览器吧 ，就本地的谷歌浏览器 ，我觉得应该也是能操作的好吧。`
+- ground_truth: `Uh, then just go ahead and control my Google Chrome, the local Google Chrome, I think that should also be operable, right.`
+- hypothesis  : `Then just go ahead and control my Google browser, the local Google browser, I think it should also be operable, right.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T05-10-25Z.wav`
 
 ## m001 (WER=0.219, CER=0.226)
-- ground_truth: `嗯 ，我们试着挑一个来解决解决看看嘛 ，我们比如说挑一个嗯。第第一个吧 ， logo加配色方案嗯 ，这个我们来看一看`
-- hypothesis  : `我们试着挑一个来解决解决看看嘛 ，我们比如说挑一个嗯。技术加配色方案嗯 ，这个我们来看一看`
+- ground_truth: `Um, let's try picking one to solve, just to see, right, let's say we pick one, um. The, the first one, the logo plus color scheme, um, let's take a look at this one`
+- hypothesis  : `Let's try picking one to solve, just to see, right, let's say we pick one, um. Technology plus color scheme, um, let's take a look at this one`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T02-05-29Z.wav`
 
 ## m097 (WER=0.136, CER=0.064)
-- ground_truth: `呃没问题 ，你拿这个任务 ，然后去 perplexity去跑一遍嗯。先跑一遍 perplexity吧。`
-- hypothesis  : `没问题 ，你拿这个任务 ，然后去 Perplexity去跑一遍嗯。先跑一遍 Perplexity吧。`
+- ground_truth: `Uh, no problem, take this task and go run it through perplexity once, um. Run it through perplexity once first.`
+- hypothesis  : `No problem, take this task and go run it through Perplexity once, um. Run it through Perplexity once first.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T02-29-13Z.wav`
 
 ## m061 (WER=0.122, CER=0.086)
-- ground_truth: `你只写了一个大的计算公式 ，你你又写一个接口会总有什么用呢 ？我搞不懂你你就能不能关注一些重重点信息啊 ，我就觉得很离谱。`
-- hypothesis  : `对吧 ，你只写了一个大的计算公式 ，你你又写一个交务会总有什么用呢 ？我搞不懂你你就能不能关注一些重重点信息啊 ，我就觉得很离谱。`
+- ground_truth: `You only wrote one big calculation formula, and then you wrote one more interface — what use is that overall? I don't get it, can't you just focus on the important, important information? I just think it's ridiculous.`
+- hypothesis  : `Right, you only wrote one big calculation formula, and then you wrote one more transaction-meeting thing — what use is that overall? I don't get it, can't you just focus on the important, important information? I just think it's ridiculous.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T03-47-33Z.wav`
 
 ## m043 (WER=0.120, CER=0.114)
-- ground_truth: `先先共识一下整个架构吧 ，你看看呃就是看看我们的代码理解是不是一样的架构理解是不是一样的。`
-- hypothesis  : `先共识一下整个框架吧 ，你看看呃就是看看我们的代码理解是不是一样的框架理解是不是一样的。`
+- ground_truth: `Let's first, first reach a consensus on the whole architecture, you take a look, uh, see whether our understanding of the code is the same, whether the architecture understanding is the same.`
+- hypothesis  : `Let's first reach a consensus on the whole framework, you take a look, uh, see whether our understanding of the code is the same, whether the framework understanding is the same.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T06-47-14Z.wav`
 
 ## m091 (WER=0.115, CER=0.122)
-- ground_truth: `呃 ，为什么会显示 127.0.0.1呢就不会显示我那个呃域名呢就是什么 HS-Motion这个域名呢 ？`
-- hypothesis  : `呃 ，为什么会显示 127.0.0.1呢就不会显示我那个呃域名呢就是什么 HS.movin AI这个域名呢 ？`
+- ground_truth: `Uh, why does it show 127.0.0.1 — why won't it show that, uh, domain name of mine, that is, the domain HS-Motion?`
+- hypothesis  : `Uh, why does it show 127.0.0.1 — why won't it show that, uh, domain name of mine, that is, the domain HS.movin AI?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-20-42Z.wav`
 
 ## m027 (WER=0.100, CER=0.132)
-- ground_truth: `你是能连到我的 Windows里啊 ，那你应该可以看到我有没有开 Clash啊我的任务栏是没有看到 Clash的。`
-- hypothesis  : `你是能连到我的 Windows里啊 ，那你应该可以看到我有没有开 Claven。我的任务栏是没有看到 Claven的。`
+- ground_truth: `You can connect into my Windows, right, so you should be able to see whether I have Clash turned on — I don't see Clash in my taskbar.`
+- hypothesis  : `You can connect into my Windows, right, so you should be able to see whether I have Claven turned on. I don't see Claven in my taskbar.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-22-51Z.wav`
 
 ## m028 (WER=0.087, CER=0.133)
-- ground_truth: `嗯 ，一个是私网对吧 ，还有一个是那个。嗯。嗯 ，微调嘛 ，对吧三个`
-- hypothesis  : `嗯 ，一个是私网对吧 ，还有一个是那个。嗯。嗯 ，WE语音嘛 ，对吧三个`
+- ground_truth: `Um, one is the private network, right, and another is that. Um. Um, fine-tuning, right, three of them`
+- hypothesis  : `Um, one is the private network, right, and another is that. Um. Um, WE voice, right, three of them`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T03-01-06Z.wav`
 
 ## m058 (WER=0.086, CER=0.154)
-- ground_truth: `然后名称就不要写那些啊太组织化的名称嘛 ，你就写比如说User-Agent系统管理员这么分淡化一下这个组织。呃淡化一个这个成员角色吧`
-- hypothesis  : `然后名称就不要写那些啊太组织化的名称嘛 ，你就写比如说用户管理员系统管理员这么分淡化一下这个组织。呃淡化一个这个成员角色吧`
+- ground_truth: `And for the name, don't write those, ah, too organizational names — just write something like User-Agent, system administrator, dividing it up like that to dilute the organization a bit. Uh, dilute the member role a bit`
+- hypothesis  : `And for the name, don't write those, ah, too organizational names — just write something like user administrator, system administrator, dividing it up like that to dilute the organization a bit. Uh, dilute the member role a bit`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T02-48-11Z.wav`
 
 ## m090 (WER=0.083, CER=0.195)
-- ground_truth: `就是有没有什么一些新的呃GitHub的提交呀或者其他的一些东西吧 ，需要我去答复的。`
-- hypothesis  : `就是有没有什么新的呃技术的提交呀或者其他的一些东西吧 ，需要我去答复的。`
+- ground_truth: `It's whether there are any new, uh, GitHub commits or other things that need me to respond to.`
+- hypothesis  : `It's whether there's anything new, uh, technical commits or other things that need me to respond to.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-53-57Z.wav`
 
 ## m070 (WER=0.080, CER=0.059)
-- ground_truth: `嗯 ，当然你留着也没有问题 ，我也不反对哦呃 ，然后你现在先看一下情况吧。`
-- hypothesis  : `当然你留着也没有问题 ，我也不反对哦呃 ，然后你现在先看一下情况吧。`
+- ground_truth: `Um, of course there's no problem if you keep it, I'm not against it either, uh, so for now go ahead and take a look at the situation.`
+- hypothesis  : `Of course there's no problem if you keep it, I'm not against it either, uh, so for now go ahead and take a look at the situation.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-53-25Z.wav`
 
 ## m052 (WER=0.078, CER=0.030)
-- ground_truth: `最近几天的公众号都有内容嘛 ，就是你看公众号的那些日期都对不对的上就是最近几日报 ，然后那个微信的原因是因为昨天。下午是退出过登录的 ，然后今天早上就重新登录过去 ，所以这个部分的消息可能就没有拿到就这个原因`
-- hypothesis  : `最近几天的公众号都有内容嘛就是你看公众号的那些日期都对不对的上就是最近几点日报 ，然后那个微信的原因是因为昨天。下午是退出过登录的 ，然后今天早上就重新登了过去 ，所以这个部分的消息可能就没有拿到就这个原因`
+- ground_truth: `The official account has had content these past few days, right, like check whether those official account dates line up, that is the recent daily reports — and the reason for WeChat is that yesterday. In the afternoon it had logged out, and then this morning it logged back in, so this part of the messages probably wasn't retrieved — that's the reason`
+- hypothesis  : `The official account has had content these past few days, like check whether those official account dates line up, that is the recent few daily reports — and the reason for WeChat is that yesterday. In the afternoon it had logged out, and then this morning it logged back in, so this part of the messages probably wasn't retrieved — that's the reason`
 - audio: `/Users/marvin/.we/audio/2026-04-27T02-26-41Z.wav`
 
 ## m008 (WER=0.073, CER=0.139)
-- ground_truth: `嗯 ，你去了解一下 ，我觉得你要去了解一下 Cloucod的相关的你嗯那个对快捷指令的使用吧 ，比如说那个 folk指令或者 branch指令是。怎么做的呢`
-- hypothesis  : `嗯 ，你去了解一下 ，我觉得你要去了解一下 Claude Code的相关的你嗯那个对快捷指令的使用吧 ，比如说那个 prompt指令或者 branch指令是。怎么做的呢`
+- ground_truth: `Um, go find out about it, I think you need to go find out about Cloucod's, um, that usage of shortcut commands, for example that fork command or branch command, how. How is it done?`
+- hypothesis  : `Um, go find out about it, I think you need to go find out about Claude Code's, um, that usage of shortcut commands, for example that prompt command or branch command, how. How is it done?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-07-17Z.wav`
 
 ## m053 (WER=0.071, CER=0.089)
-- ground_truth: `呃 ，架构这块具体你不要去考虑 ，你只要知道有个架构这么处理可以处理 ，那剩下的东西我会去解决。`
-- hypothesis  : `呃 ，模型这块具体你不要去考虑 ，你只要知道有个模型这么处理可以处理 ，那剩下的东西我会去解决。`
+- ground_truth: `Uh, you don't need to think about the architecture part specifically, you just need to know there's an architecture that handles it this way and it works, and I'll handle the rest.`
+- hypothesis  : `Uh, you don't need to think about the model part specifically, you just need to know there's a model that handles it this way and it works, and I'll handle the rest.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T03-16-32Z.wav`
 
 ## m069 (WER=0.069, CER=0.053)
-- ground_truth: `呃 ，我确实没有让你改 ，但是你这些逻辑你都没有理清楚 ，那是那你是监督不到位啊。`
-- hypothesis  : `我确实没有让你改 ，但是你这些逻辑你都没有理清楚 ，那是那你是监督不到位啊。`
+- ground_truth: `Uh, I really didn't tell you to change it, but you haven't sorted out this logic at all, that's, that's you not supervising properly.`
+- hypothesis  : `I really didn't tell you to change it, but you haven't sorted out this logic at all, that's, that's you not supervising properly.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T01-40-16Z.wav`
 
 ## m004 (WER=0.067, CER=0.095)
-- ground_truth: `对 ，包括差也一样 ，而且差还是券的 ，你这个可能需要考虑一下呃。对吧 ，券的还是一些对吧。`
-- hypothesis  : `对 ，包括差也一样 ，而且差还是付费的 ，你这个可能需要考虑一下呃。对吧 ，付费的还是一些对吧。`
+- ground_truth: `Right, including the difference is the same too, and the difference is still a voucher one, you might need to think about this, uh. Right, the voucher one is still some, right.`
+- hypothesis  : `Right, including the difference is the same too, and the difference is still a paid one, you might need to think about this, uh. Right, the paid one is still some, right.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T05-34-54Z.wav`
 
 ## m079 (WER=0.067, CER=0.043)
-- ground_truth: `嗯 ，请你正确的区分日常转路模式和会议模式这个最基本的问题你你都没有区分你那个回答我觉得看的很乱。什么叫长时间的会议也会议模式也可能出现这个问题，一个是转入一个会议。OK首先要把这个区分清楚`
-- hypothesis  : `嗯 ，请你正确的区分日常转路模式和会议模式 ，这个最基本的问题你你都没有区分 ，你那个回答我觉得看的很乱 ，什么叫长时间的会议也会议模式也可能出现这个问题 ，一个是转入一个会议 OK首先要把这个区分清楚`
+- ground_truth: `Um, please correctly distinguish between everyday transcription mode and meeting mode — you haven't even distinguished this most basic issue, and your answer, I think, looks very messy. What's meant by a long meeting — meeting mode can also have this problem — one is entering a meeting. OK, first we need to get this distinction clear`
+- hypothesis  : `Um, please correctly distinguish between everyday transcription mode and meeting mode, you haven't even distinguished this most basic issue, your answer, I think, looks very messy, what's meant by a long meeting — meeting mode can also have this problem, one is entering a meeting, OK first we need to get this distinction clear`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T07-46-33Z.wav`
 
 ## m010 (WER=0.065, CER=0.042)
-- ground_truth: `我还是关注美丽就伊朗局势吧 ，那就最近的一周而也至少来说特朗普的以色列像比伊朗各方面。有什么轻的动跳或者说有改变吗 ？目前登陆作战的情况是怎么样的 ？`
-- hypothesis  : `我还是关注美伊局势吧 ，那就最近的一周而也至少来说特朗普的以色列像比伊朗各方面。有什么轻的动跳或者说有改变吗 ？目前登陆作战的情况是怎么样的 ？`
+- ground_truth: `I'm still focused on the US — I mean, Iran's situation. Over the past week or so, at least, how has Trump's stance toward Israel compared to Iran in various respects? Is there any slight shift, or any change? What's the current state of the ground invasion operation?`
+- hypothesis  : `I'm still focused on the US-Iran situation. Over the past week or so, at least, how has Trump's stance toward Israel compared to Iran in various respects? Is there any slight shift, or any change? What's the current state of the ground invasion operation?`
 - audio: `/Users/marvin/.we/audio/2026-03-30T09-01-19Z.wav`
 
 ## m089 (WER=0.065, CER=0.038)
-- ground_truth: `那我们现在就差一个服务器的 tal scale对吗 ？那如果服务器的做好的话 ，那那那我们整个过程是不是就通了呢 ？`
-- hypothesis  : `那我们现在就差一个服务器的 Tailscale对吗 ？那如果服务器的做好的话 ，那那那我们整个过程是不是就通了呢 ？`
+- ground_truth: `So now we're just missing the server's Tailscale, right? If the server's done, then then then would our whole process be connected?`
+- hypothesis  : `So now we're just missing the server's Tailscale, right? If the server's done, then then then would our whole process be connected?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T05-36-17Z.wav`
 
 ## m030 (WER=0.056, CER=0.051)
-- ground_truth: `嗯 ，我认为步骤是分批次合并是肯定要合并的吧呃 ，一次性合并我觉得也没那么容易吧 ，你你可以去看一下就大概你觉得要多。少合并一次比较合理你就按照多少呃多少一次的合并`
-- hypothesis  : `我觉得步骤是分批次合并是肯定要合并的吧呃 ，一次性合并我觉得也没那么容易吧 ，你你可以去看一下就大概你觉得要多。少合并一次比较合理你就按照多少呃多少一次的合并`
+- ground_truth: `Um, I think the step is to merge in batches — it definitely needs to be merged, uh, merging all at once I don't think is that easy either, you, you can go take a look, just roughly how many. How many merges at once would be reasonable, you just go with whatever, uh, whatever number per merge`
+- hypothesis  : `I think the step is to merge in batches — it definitely needs to be merged, uh, merging all at once I don't think is that easy either, you, you can go take a look, just roughly how many. How many merges at once would be reasonable, you just go with whatever, uh, whatever number per merge`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T02-23-18Z.wav`
 
 ## m044 (WER=0.056, CER=0.038)
-- ground_truth: `啊 ，好的 ，打包的 DMG的他那个配置文件是怎么写的 ？是默认我本地的还是一个默认的配注音的就什么数据都没有的。`
-- hypothesis  : `嗯 ，好的 ，打包的 DMG的他那个配置文件是怎么写的 ？是默认我本地的还是一个默认的配主音的就什么数据都没有的。`
+- ground_truth: `Ah, okay, how is the config file for the packaged DMG written? Is it defaulting to my local one, or a default phonetic-config one with no data at all?`
+- hypothesis  : `Um, okay, how is the config file for the packaged DMG written? Is it defaulting to my local one, or a default main-audio config one with no data at all?`
 - audio: `/Users/marvin/.we/audio/2026-04-27T02-33-40Z.wav`
 
 ## m006 (WER=0.050, CER=0.048)
-- ground_truth: `呃 ，然后嗯 ，周六周日周一三天吧 ，三天的记录可能分别形成一个呃日报吧 ，补充进去因为。我看那几个报告都是运气了 ，但是没有聊天记录的`
-- hypothesis  : `然后嗯 ，然后嗯 ，周六周日周一三天吧 ，三天的记录可能分别形成一个呃日报吧 ，补充进去因为。我看那几个报告都是运气了 ，但是没有聊天记录的`
+- ground_truth: `Uh, and then um, Saturday, Sunday, Monday, three days, right — the records from the three days might each form a, uh, daily report, respectively, add it in, because. I see those few reports were all just luck, but didn't have chat records`
+- hypothesis  : `And then um, and then um, Saturday, Sunday, Monday, three days, right — the records from the three days might each form a, uh, daily report, respectively, add it in, because. I see those few reports were all just luck, but didn't have chat records`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T01-06-24Z.wav`
 
 ## m082 (WER=0.045, CER=0.029)
-- ground_truth: `你看看具体就有这些日报周报的一些执行的一个脚本 ，他们有相应的日志吗 ，或者你看他们的一个嗯地报日报也好 ，会不会有一些。数据丢失的情况影响。`
-- hypothesis  : `你看看具体嗯就有这些日报周报的一些执行的一个脚本 ，他们有相应的日志吗 ？或者你看他们的一个嗯地报日报也好 ，会不会有一些。数据丢失的情况影响。`
+- ground_truth: `Take a look specifically at the scripts that execute these daily and weekly reports — do they have corresponding logs, or look at their, um, area report or daily report, whichever — could there be some. data loss situations affecting things.`
+- hypothesis  : `Take a look specifically, um, at the scripts that execute these daily and weekly reports — do they have corresponding logs? Or look at their, um, area report or daily report, whichever — could there be some. data loss situations affecting things.`
 - audio: `/Users/marvin/.we/audio/2026-04-27T02-19-40Z.wav`
 
 ## m007 (WER=0.043, CER=0.051)
-- ground_truth: `嗯 ，这个先不管这个啊 ，就是那 mDNS会影响比如说我本地做了一些网段的就是 114这个网段还有 198这个网站就是就是嗯走局域网嘛就不走我这个出口节点这这个有影响嘛`
-- hypothesis  : `嗯 ，这个先不管这个啊 ，就是那 magic DNS会影响比如说我本地做了一些网段的就是 114这个网段还有 198这个网站就是就是嗯走局域网嘛就不走我这个出口节点这这个有影响嘛`
+- ground_truth: `Um, let's not worry about this for now, ah, it's that mDNS might affect, for example, some network segments I set up locally, that is the 114 segment and also the 198 site, that is, that is, um, going through the LAN, right, so it doesn't go through my exit node — does this have an effect?`
+- hypothesis  : `Um, let's not worry about this for now, ah, it's that Magic DNS might affect, for example, some network segments I set up locally, that is the 114 segment and also the 198 site, that is, that is, um, going through the LAN, right, so it doesn't go through my exit node — does this have an effect?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-41-56Z.wav`
 
 ## m041 (WER=0.040, CER=0.068)
-- ground_truth: `OK，然后这两个问题你可以先去做相应的一些呃 research，然后去做呃更正吧然后你可以找一下就是我呃我的那个呃相应的。文件夹吧 ，里面有个 output搜索这样的一个呃一个方法论`
-- hypothesis  : `OK，然后这两个问题你可以先去做相应的一些呃 research，然后去做呃更正吧然后你可以找一下就是我呃我的那个呃相应的。文件夹吧 ，里面有个 outputsearch这样的一个呃一个方法论`
+- ground_truth: `OK, then for these two problems you can first go do some corresponding, uh, research, and then go do, uh, corrections, and then you can find, that is, my, uh, my, uh, corresponding. Folder, there's an output-search kind of, uh, methodology in there`
+- hypothesis  : `OK, then for these two problems you can first go do some corresponding, uh, research, and then go do, uh, corrections, and then you can find, that is, my, uh, my, uh, corresponding. Folder, there's an outputsearch kind of, uh, methodology in there`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-22T05-31-32Z.wav`
 
 ## m049 (WER=0.040, CER=0.022)
-- ground_truth: `就日报和周报都打开吧 ，然后微信呃的日报和周网也打开嗯开在同一个 Antigravity里面吧。`
-- hypothesis  : `就日报和周报都打开吧 ，然后微信呃的日报和周网也打开嗯开在同一个 antigravity里面吧。`
+- ground_truth: `Just open both the daily and weekly reports, and then WeChat's, uh, daily report and weekly net also open, um, open them in the same Antigravity.`
+- hypothesis  : `Just open both the daily and weekly reports, and then WeChat's, uh, daily report and weekly net also open, um, open them in the same antigravity.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T07-23-06Z.wav`
 
 ## m033 (WER=0.039, CER=0.076)
-- ground_truth: `我好像确实是这样的 ，那就是。嗯 ，那这这个这个 MAGE DNS又是什么呀 ？那这样的话那。那我有影响吗 ？还是说每个用户都要把 DNS改成 8.8.8还是到底是什么原因 ？`
-- hypothesis  : `我好像确实是这样的 ，那就是。嗯 ，那这这个这个 magic DNS又是什么呀 ？那这样的话那。那我有影响吗 ？还是说每个用户都要去把 DNS改成 8.8.8还是到底是什么原因 ？`
+- ground_truth: `I guess that's really how it is, so it's. Um, so this, this, this MAGE DNS, what is that? So in that case then. Does it affect me? Or does every user have to change their DNS to 8.8.8, or what exactly is the reason?`
+- hypothesis  : `I guess that's really how it is, so it's. Um, so this, this, this Magic DNS, what is that? So in that case then. Does it affect me? Or does every user have to go change their DNS to 8.8.8, or what exactly is the reason?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-38-45Z.wav`
 
 ## m048 (WER=0.039, CER=0.038)
-- ground_truth: `这个你的方案是什么 ？你觉得是什么样是调温度调零那温度我不知道你有没有调到最低呢温度调最低还是说你训练数据的时候把这一块数据也要补充进去。就考虑我们数据的完整性`
-- hypothesis  : `这个你的方案是什么 ？你觉得是什么样是合适是调温度调零那温度我不知道你有没有调到最低呢温度调最低还是说你训练数据的时候把这一块数据也要补充进去。就考虑我们数据的完整性`
+- ground_truth: `What's your plan for this? What do you think it's like — is it adjusting the temperature, setting it to zero, that temperature — I don't know if you've turned it down to the lowest. Lower the temperature to the minimum, or else when training the data, you also need to add this part of the data in. Just consider the completeness of our data`
+- hypothesis  : `What's your plan for this? What do you think would be suitable — is it adjusting the temperature, setting it to zero, that temperature — I don't know if you've turned it down to the lowest. Lower the temperature to the minimum, or else when training the data, you also need to add this part of the data in. Just consider the completeness of our data`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-35-59Z.wav`
 
 ## m017 (WER=0.029, CER=0.041)
-- ground_truth: `嗯 ，OK，那你已经有了这些呃任务的以后呢 ，那你可以去呃给一个那种 ，那我们先看这个 QT的一个方案吧。`
-- hypothesis  : `嗯 ，OK，那你有了这些呃任务的以后呢 ，那你可以去呃给一个那种 ，那我们先看这个 QT的一个方案吧。`
+- ground_truth: `Um, OK, so once you already have these, uh, tasks, then you can go, uh, give a kind of, let's first look at this QT plan.`
+- hypothesis  : `Um, OK, so once you have these, uh, tasks, then you can go, uh, give a kind of, let's first look at this QT plan.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T08-56-55Z.wav`
 
 ## m024 (WER=0.029, CER=0.017)
-- ground_truth: `呃 ，GitHub的链接没有放上去另外呃我们的微信可以去优化一些排版 ，比如说增加一些图啊或者各种形式吧 ，我觉得都是可以的。`
-- hypothesis  : `呃 ，Github的链接没有放上去另外呃我们的微信可以去优化一些排版 ，比如说增加一些图啊或者各种形式吧 ，我觉得都是可以的。`
+- ground_truth: `Uh, the GitHub link wasn't put up, and also, uh, our WeChat could optimize the layout a bit, for example adding some images or various other formats — I think any of that would be fine.`
+- hypothesis  : `Uh, the Github link wasn't put up, and also, uh, our WeChat could optimize the layout a bit, for example adding some images or various other formats — I think any of that would be fine.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-27-05Z.wav`
 
 ## m095 (WER=0.029, CER=0.019)
-- ground_truth: `我要看到你真实的日志好吧就是你这个真实的日志它的一个第一遍的输输出 LE的输出是什么 L的输出是什么对不对 ？`
-- hypothesis  : `我要看到你真实的日志好吧就是你这个真实的日志它的一个第一遍的输出 LE的输出是什么 L的输出是什么对不对 ？`
+- ground_truth: `I need to see your actual log, okay, that is this actual log of yours, its first pass out-output — what is the LE output, what is the L output, right?`
+- hypothesis  : `I need to see your actual log, okay, that is this actual log of yours, its first pass output — what is the LE output, what is the L output, right?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-24T07-27-23Z.wav`
 
 ## m100 (WER=0.026, CER=0.065)
-- ground_truth: `嗯 ，直接提交吧 ，不用去改了 ，然后你名称就是啊图片名称你改一下吧 ，就是你不要用什么 Gmminger这种名称吧 ，你改革命名一下。`
-- hypothesis  : `嗯 ，直接提交吧 ，不用去改了 ，然后你名称就是啊图片名称你改一下吧 ，就是你不要用什么 Gemanage这种名称吧 ，你改革命名一下。`
+- ground_truth: `Um, just submit it directly, no need to change it, and then for the name, ah, the image name, change it, that is, don't use something like Gmminger as the name, go ahead and rename it.`
+- hypothesis  : `Um, just submit it directly, no need to change it, and then for the name, ah, the image name, change it, that is, don't use something like Gemanage as the name, go ahead and rename it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-22T02-06-50Z.wav`
 
 ## m072 (WER=0.020, CER=0.125)
-- ground_truth: `嗯 ，这一套这一套操作系统的逻辑是叫一个呃 craftsmanship提出来的吧他那那我这里也贴给你了。其实我们在做的内容呢其实是在借鉴他的也而且也有点不不谋而合吧`
-- hypothesis  : `嗯 ，这一套这一套操作系统的逻辑是叫一个呃 capability提出来的吧他那那我这里也贴给你了。其实我们在做的内容呢其实是在借鉴他的也而且也有点不不谋而合吧`
+- ground_truth: `Um, this whole, this whole operating-system logic was, uh, proposed by something called craftsmanship I think, and, and I've pasted it here for you too. Actually, what we're doing is actually drawing on his, and also it kind of happens to align without us planning it`
+- hypothesis  : `Um, this whole, this whole operating-system logic was, uh, proposed by something called capability I think, and, and I've pasted it here for you too. Actually, what we're doing is actually drawing on his, and also it kind of happens to align without us planning it`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T05-50-04Z.wav`
 
 ## m035 (WER=0.020, CER=0.027)
-- ground_truth: `最开始为什么是能够下载的呢即使本地也是能下载的对不对那现在我希望是这样的 ，你不要去动这些代码 ，你给我执行指令 ，我去执行 ，你帮我把配置文件。稍微改一改`
-- hypothesis  : `最开始为什么是能够下载的呢即使慢也是能下载的对不对那现在我希望是这样的 ，你不要去动这些代码 ，你给我执行指令 ，我去执行 ，你帮我把配置文件。稍微改一改`
+- ground_truth: `Why was it downloadable at the very start? Even locally it was downloadable too, right? So now what I want is this: don't touch this code, give me the commands to execute, I'll run them, and you help me. Slightly modify the config file`
+- hypothesis  : `Why was it downloadable at the very start? Even if slow it was downloadable too, right? So now what I want is this: don't touch this code, give me the commands to execute, I'll run them, and you help me. Slightly modify the config file`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-02-28Z.wav`
 
 ## m032 (WER=0.019, CER=0.025)
-- ground_truth: `嗯 ，好的 ，然后你去考虑一下像嗯微信公众号相应的排版或者说相应的图片。相关要求吧嗯 ，然后做一个尽量就尽可能在手机上能够变阅读的一个嗯一个一个文章嘛 ，我要去做一个发布`
-- hypothesis  : `嗯 ，好的 ，然后你去考虑一下像嗯微信公众号相应的排版或者说相应的图片。相关要求吧嗯 ，然后做一个尽量就尽可能在手机上能够变阅读的一个嗯一个一个文章嘛 ，然后我要去做一个发布`
+- ground_truth: `Um, okay, then go think about, um, the corresponding layout for the WeChat official account, or the corresponding images. Related requirements, um, and then make, as much as possible, an article that's, um, readable on mobile, that's adapted for it — I need to go publish it`
+- hypothesis  : `Um, okay, then go think about, um, the corresponding layout for the WeChat official account, or the corresponding images. Related requirements, um, and then make, as much as possible, an article that's, um, readable on mobile, that's adapted for it — and then I need to go publish it`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T06-36-38Z.wav`
 
 ## m093 (WER=0.018, CER=0.012)
-- ground_truth: `你做这些测试的目的是什么 ？我要的只是说我给你的那个几个 SMTP，还有那个相应的几个 203相关的地址 ，你帮我确认一下走在哪个出口。然后给一个我怎么改到中国出口的一个方案 OK`
-- hypothesis  : `你做这些测试的目的是什么 ？我要的只是说我给你的那个几个 SMTP，还有那个相应的几个 263相关的地址 ，你帮我确认一下走在哪个出口。然后给一个我怎么改到中国出口的一个方案 OK`
+- ground_truth: `What's the purpose of you doing these tests? All I want is for you to confirm, for those few SMTP servers I gave you, and also those corresponding few 203-related addresses, which exit they're going through. And then give me a plan for how to switch to a China exit, OK`
+- hypothesis  : `What's the purpose of you doing these tests? All I want is for you to confirm, for those few SMTP servers I gave you, and also those corresponding few 263-related addresses, which exit they're going through. And then give me a plan for how to switch to a China exit, OK`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T03-33-20Z.wav`
 
 ## m014 (WER=0.018, CER=0.012)
-- ground_truth: `你你下载的那个链接就是你你写的那代码 ，你分别是一下面 ，你直接走走走走走那个走我们自己的出口 ，然后再走条。 Scale出口 ，你直接两个都试一下不就出来结果了吗 ？哪有那么复杂呀`
-- hypothesis  : `你你下载的那个链接就是你你写的那代码 ，你分别是一下面 ，你直接走走走走走那个走我们自己的出口 ，然后再走条。 scale出口 ，你直接两个都试一下不就出来结果了吗 ？哪有那么复杂呀`
+- ground_truth: `The link you, you downloaded, that's the code you, you wrote — test it separately below, you directly go, go, go, go, go through our own exit, and then also go through. Scale exit — just directly try both and won't you get the result? It's not that complicated`
+- hypothesis  : `The link you, you downloaded, that's the code you, you wrote — test it separately below, you directly go, go, go, go, go through our own exit, and then also go through. scale exit — just directly try both and won't you get the result? It's not that complicated`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T03-18-46Z.wav`
 
 ## m002 (WER=0.017, CER=0.011)
-- ground_truth: `呃 ，那你看来是就是你的写到了 ZIP里面 ，那我不希望是这样 ，你我希望是你那个呃 Aliast的那个里面。写一下相应的内容就是不要不要说什么功能那些东西没有必要你就写一下相应的说明文档嘛`
-- hypothesis  : `嗯 ，那你看来是就是你的写到了 ZIP里面 ，那我不希望是这样 ，你我希望是你那个呃 Aliast的那个里面。写一下相应的内容就是不要不要说什么功能那些东西没有必要你就写一下相应的说明文档嘛`
+- ground_truth: `Uh, so it looks like you wrote it into the ZIP, but I don't want it that way — what I want is for you to, uh, write the corresponding content inside that Aliast thing of yours. Just don't, don't talk about what features and that stuff, no need — just write the corresponding documentation`
+- hypothesis  : `Um, so it looks like you wrote it into the ZIP, but I don't want it that way — what I want is for you to, uh, write the corresponding content inside that Aliast thing of yours. Just don't, don't talk about what features and that stuff, no need — just write the corresponding documentation`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T08-42-26Z.wav`
 
 ## m022 (WER=0.016, CER=0.011)
-- ground_truth: `而且你的方案其实我不是我不认为一定是对的吧 ，或者说你没有去去真正去做过调研 ，因为我觉得我们不是第一个做。我们肯定不是第一个做这个呃。做这个任务的人嘛对吧那我觉得你你可以做做调研吧。`
-- hypothesis  : `而且你的方案其实我不是我不认为一定是对的吧 ，或者说你没有去真正去做过调研 ，因为我觉得我们不是第一个做。我们肯定不是第一个做这个呃。做这个任务的人嘛对吧那我觉得你你可以做做调研吧。`
+- ground_truth: `And honestly, I don't, I don't think your plan is necessarily right, or you haven't actually, actually done any research — because I think we're not the first to do this. We're definitely not the first to do this, uh. The first to do this task, right, so I think you, you could do some research.`
+- hypothesis  : `And honestly, I don't, I don't think your plan is necessarily right, or you haven't actually done any research — because I think we're not the first to do this. We're definitely not the first to do this, uh. The first to do this task, right, so I think you, you could do some research.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-49-43Z.wav`
 
 ## m074 (WER=0.016, CER=0.011)
-- ground_truth: `嗯 ，OK，然后基于这个角度呢 ，基于呃基于我这样的思路呢 ，你再给我一个整体的一个思路 ，暂时先不用写成一个文档 ，你再给我呃 ，比如说一。期各各方面的一个计算二期各方面的一个计算给我一下`
-- hypothesis  : `嗯 ，OK，然后基于这个角度呢 ，基于呃基于我这样的思路呢 ，你再给我一个整体的一个思路 ，暂时先不用写成一个文档 ，你先给我呃 ，比如说一。期各各方面的一个计算二期各方面的一个计算给我一下`
+- ground_truth: `Um, OK, and then based on this angle, based on, uh, based on this kind of approach of mine, give me an overall approach again — for now, no need to write it into a document — give me, uh, for example, phase. one's calculations on each aspect, and phase two's calculations on each aspect`
+- hypothesis  : `Um, OK, and then based on this angle, based on, uh, based on this kind of approach of mine, give me an overall approach again — for now, no need to write it into a document — first give me, uh, for example, phase. one's calculations on each aspect, and phase two's calculations on each aspect`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T02-41-09Z.wav`
 
 ## m094 (WER=0.016, CER=0.021)
-- ground_truth: `嗯 ，确认 ，然后你可以按照就是因为我们现在有三台设备吧呃 ，从这个视角来看你觉得服务器呀。呃算力卡呀那些都算节点用户吗 ？还是算呃什么呢就是可以相互调用嘛对吧那我觉得这么设计呢也也也没什么问题对吧`
-- hypothesis  : `嗯 ，确认 ，然后你可以按照就是因为我们我们现在有三台设备吧呃 ，从这个视角来看你觉得服务器呀。呃算力卡呀那些都算节点用户吗 ？还是算呃什么呢就是可以相互调用嘛对吧那我觉得这么设计呢也也也没什么问题对吧`
+- ground_truth: `Um, confirmed, and then you can go by, since we now have three devices, right, uh, from this perspective, do you think the server. Uh, the compute cards and so on all count as node users? Or count as, uh, what, that is, they can call each other, right? So I think designing it this way also, also, also has no problem, right`
+- hypothesis  : `Um, confirmed, and then you can go by, since we, we now have three devices, right, uh, from this perspective, do you think the server. Uh, the compute cards and so on all count as node users? Or count as, uh, what, that is, they can call each other, right? So I think designing it this way also, also, also has no problem, right`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T02-49-41Z.wav`
 
 ## m005 (WER=0.000, CER=0.000)
-- ground_truth: `你为什么不严格按照你这个写的一个内容去划分你的场景呢 ？就最基本的你为什么连管理层的简报你都会缺掉呢 ？我就觉得。很不严谨一年`
-- hypothesis  : `你为什么不严格按照你这个写的一个内容去划分你的场景呢 ？就最基本的你为什么连管理层的简报你都会缺掉呢 ？我就觉得。很不严谨一年`
+- ground_truth: `Why didn't you strictly divide your scenarios according to what you wrote here? Like, the most basic thing — why would you even miss the management briefing? I just think. It's very sloppy, a year`
+- hypothesis  : `Why didn't you strictly divide your scenarios according to what you wrote here? Like, the most basic thing — why would you even miss the management briefing? I just think. It's very sloppy, a year`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T03-28-48Z.wav`
 
 ## m009 (WER=0.000, CER=0.000)
-- ground_truth: `然后下一个呢私网文件总线呢也是 A没有问题嗯 ，然后全线设置正确权限能够正确执行 ，这个是一个评估标准吧好吧 ，然后其他你写的的也没有什么问题`
-- hypothesis  : `然后下一个呢私网文件总线呢也是 A没有问题嗯 ，然后全线设置正确权限能够正确执行 ，这个是一个评估标准吧好吧 ，然后其他你写的的也没有什么问题`
+- ground_truth: `And then the next one, the private network file bus, is also an A, no problem, um, and then the whole line setting correct permissions can execute correctly — this is an evaluation criterion, right, okay, and then the other things you wrote also have no problem`
+- hypothesis  : `And then the next one, the private network file bus, is also an A, no problem, um, and then the whole line setting correct permissions can execute correctly — this is an evaluation criterion, right, okay, and then the other things you wrote also have no problem`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T05-24-39Z.wav`
 
 ## m011 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，没有啊 ，是不是你操作问题吧像我之前比如说让他操作我的浏览器操作 perplexy都是能够正确正确操作的我不知道你为什么你现在不能够正确操作。呃奇怪有点奇怪 ，你再确认一下 ，因为确实是可以的`
-- hypothesis  : `嗯 ，没有啊 ，是不是你操作问题吧像我之前比如说让他操作我的浏览器操作 perplexy都是能够正确正确操作的我不知道你为什么你现在不能够正确操作。呃奇怪有点奇怪 ，你再确认一下 ，因为确实是可以的`
+- ground_truth: `Um, no, ah, is it maybe an operation issue on your end? Like before, for example, when I had it operate my browser, operate Perplexity, it was always able to operate correctly, correctly. I don't know why you can't operate it correctly now. Uh, strange, a bit strange, double-check it again, because it really does work`
+- hypothesis  : `Um, no, ah, is it maybe an operation issue on your end? Like before, for example, when I had it operate my browser, operate Perplexity, it was always able to operate correctly, correctly. I don't know why you can't operate it correctly now. Uh, strange, a bit strange, double-check it again, because it really does work`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T03-47-42Z.wav`
 
 ## m012 (WER=0.000, CER=0.000)
-- ground_truth: `那你现在就应该把那个代码完善一下呀 ，你这样这样能继续跑 ，你现在说等明天再跑 ，但是你代码都没有改都没有运行 ，那你怎么跑呢 ？`
-- hypothesis  : `那你现在就应该把那个代码完善一下呀 ，你这样这样能继续跑 ，你现在说等明天再跑 ，但是你代码都没有改都没有运行 ，那你怎么跑呢 ？`
+- ground_truth: `Then you should go finish polishing that code now, so it can keep running like this — now you're saying wait until tomorrow to run it, but you haven't changed or run the code at all, so how are you going to run it?`
+- hypothesis  : `Then you should go finish polishing that code now, so it can keep running like this — now you're saying wait until tomorrow to run it, but you haven't changed or run the code at all, so how are you going to run it?`
 - audio: `/Users/marvin/.we/audio/remote-2026-05-07T13-32-17Z.wav`
 
 ## m013 (WER=0.000, CER=0.000)
-- ground_truth: `好 ，那我这次尝试的呢是一个远程的一个接入吧 ，就是看一下远程的链路好吧 ，我就不看本地了。因为你需要帮我确保这两个链路是一。的嘛对吧那你去看看这次的日志好吧 ，要真实的日志`
-- hypothesis  : `好 ，那我这次尝试的呢是一个远程的一个接入吧 ，就是看一下远程的链路好吧 ，我就不看本地了。因为你需要帮我确保这两个链路是一。的嘛对吧那你去看看这次的日志好吧 ，要真实的日志`
+- ground_truth: `Okay, so what I'm trying this time is a remote connection, just to check the remote link, alright, I won't look at local this time. Because you need to help me make sure these two links are the. Same, right? So go check the logs from this time, alright, I want the real logs`
+- hypothesis  : `Okay, so what I'm trying this time is a remote connection, just to check the remote link, alright, I won't look at local this time. Because you need to help me make sure these two links are the. Same, right? So go check the logs from this time, alright, I want the real logs`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-24T07-56-31Z.wav`
 
 ## m016 (WER=0.000, CER=0.000)
-- ground_truth: `然后把我的相应的数据去做一个清空吧 ，就是现在因为我要换一个账账号 ，那个账号可能数据量会比较大。`
-- hypothesis  : `然后把我的相应的数据去做一个清空吧 ，就是现在因为我要换一个账账号 ，那个账号可能数据量会比较大。`
+- ground_truth: `And then go clear out my corresponding data, because right now I need to switch to a different account, account, and that account's data volume might be relatively large.`
+- hypothesis  : `And then go clear out my corresponding data, because right now I need to switch to a different account, account, and that account's data volume might be relatively large.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-02-45Z.wav`
 
 ## m021 (WER=0.000, CER=0.000)
-- ground_truth: `我的 Mac都是好的呀 ，你不要乱的呀 ，我的 Mac也是连着那个服务器呀。`
-- hypothesis  : `我的 Mac都是好的呀 ，你不要乱的呀 ，我的 Mac也是连着那个服务器呀。`
+- ground_truth: `My Mac is fine, don't mess it up — my Mac is also connected to that server.`
+- hypothesis  : `My Mac is fine, don't mess it up — my Mac is also connected to that server.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-36-34Z.wav`
 
 ## m023 (WER=0.000, CER=0.000)
-- ground_truth: `嗯我的第二个问题就是因为你每次都要重新运行一遍嘛 ，对吧嗯 ，就是重新都把这个数据整体都跑一遍都拉一遍这个我觉得好像就。不太呃 ，也不能说不合理吧 ，至少现阶段可能是 OK的 ，但是因为我们是要持续监控的嘛`
-- hypothesis  : `嗯我的第二个问题就是因为你每次都要重新运行一遍嘛 ，对吧嗯 ，就是重新都把这个数据整体都跑一遍都拉一遍这个我觉得好像就。不太呃 ，也不能说不合理吧 ，至少现阶段可能是 OK的 ，但是因为我们是要持续监控的嘛`
+- ground_truth: `Um, my second question is, because every time you have to rerun it all over again, right? Um, that is, rerun the whole data set all over and pull it all again — I feel like this is. Not really, uh, well I can't really say it's unreasonable, at least at this stage it's probably OK, but because we need continuous monitoring`
+- hypothesis  : `Um, my second question is, because every time you have to rerun it all over again, right? Um, that is, rerun the whole data set all over and pull it all again — I feel like this is. Not really, uh, well I can't really say it's unreasonable, at least at this stage it's probably OK, but because we need continuous monitoring`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T09-35-08Z.wav`
 
 ## m031 (WER=0.000, CER=0.000)
@@ -365,141 +365,141 @@
 - audio: `/Users/marvin/.we/audio/2026-04-27T02-51-28Z.wav`
 
 ## m034 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，OK，那我的好奇点就是你三本地的跟服务器的呃配置服务器的权限配置阶层有什么关系呢 ？`
-- hypothesis  : `嗯 ，OK，那我的好奇点就是你三本地的跟服务器的呃配置服务器的权限配置阶层有什么关系呢 ？`
+- ground_truth: `Um, OK, so what I'm curious about is, what's the relationship between your three local setups and the server's, uh, config — the server's permission configuration tier?`
+- hypothesis  : `Um, OK, so what I'm curious about is, what's the relationship between your three local setups and the server's, uh, config — the server's permission configuration tier?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T02-17-25Z.wav`
 
 ## m036 (WER=0.000, CER=0.000)
-- ground_truth: `什么叫遗留问题 ？你前不是已经都已经都改成我的说什么 SSE传输了吗 ？你到底是怎么情况呢 ？那你你他妈赶赶紧改吧。`
-- hypothesis  : `什么叫遗留问题 ？你前不是已经都已经都改成我的说什么 SSE传输了吗 ？你到底是怎么情况呢 ？那你你他妈赶赶紧改吧。`
+- ground_truth: `What do you mean legacy issue? Didn't you already change it all to what I said, SSE transport? What exactly is going on with you? Just hurry the hell up and fix it.`
+- hypothesis  : `What do you mean legacy issue? Didn't you already change it all to what I said, SSE transport? What exactly is going on with you? Just hurry the hell up and fix it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T03-52-52Z.wav`
 
 ## m037 (WER=0.000, CER=0.000)
-- ground_truth: `OK，然后你现在重新跑一遍是是为了什么呢 ？请确保一次性 OK那就尽量避免就是。动不动就跑全量测试吧 ，因为毕竟呃代码量太就是数据量太大了 ，你一次测试要花很多的时间就不好不划算 ，包括你的上下文其实也不划算`
-- hypothesis  : `OK，然后你现在重新跑一遍是是为了什么呢 ？请确保一次性 OK那就尽量避免就是。动不动就跑全量测试吧 ，因为毕竟呃代码量太就是数据量太大了 ，你一次测试要花很多的时间就不好不划算 ，包括你的上下文其实也不划算`
+- ground_truth: `OK, so why are you rerunning it again now? Please make sure it's OK in one go, so as to avoid, as much as possible. Running the full test suite at the drop of a hat, because after all, uh, the amount of code, that is the amount of data, is too large — one test run takes a lot of time, which isn't good, isn't worth it, including your context, which actually also isn't worth it`
+- hypothesis  : `OK, so why are you rerunning it again now? Please make sure it's OK in one go, so as to avoid, as much as possible. Running the full test suite at the drop of a hat, because after all, uh, the amount of code, that is the amount of data, is too large — one test run takes a lot of time, which isn't good, isn't worth it, including your context, which actually also isn't worth it`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-22T05-40-15Z.wav`
 
 ## m038 (WER=0.000, CER=0.000)
-- ground_truth: `跟你模型没关系 ，你别乱来绕去绕的模型 ，你现在更关注的是比如说你你那阶段怎么设计你要是模型最多 ，比如说你要适配这个相应的 L就是纠错这个模型纠错这么一个点就这么容易 OK你这怎么做决策啊我就很纳闷。`
-- hypothesis  : `跟你模型没关系 ，你别乱来绕去绕的模型 ，你现在更关注的是比如说你你那阶段怎么设计你要是模型最多 ，比如说你要适配这个相应的 L就是纠错这个模型纠错这么一个点就这么容易 OK你这怎么做决策啊我就很纳闷。`
+- ground_truth: `It has nothing to do with your model — don't go messing around circling back to the model. What you should focus on now is, for example, how you design that phase — if it's mostly about the model, for example you need to adapt this corresponding L, that is, the correction model, correcting this one point — it's that simple, OK. How are you making this decision? I'm really puzzled.`
+- hypothesis  : `It has nothing to do with your model — don't go messing around circling back to the model. What you should focus on now is, for example, how you design that phase — if it's mostly about the model, for example you need to adapt this corresponding L, that is, the correction model, correcting this one point — it's that simple, OK. How are you making this decision? I'm really puzzled.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-24T06-38-12Z.wav`
 
 ## m040 (WER=0.000, CER=0.000)
-- ground_truth: `我好奇的是 4月 184月 19为什么是空的前面的我不管嗯这两天不是空的那 4月 20号是正常可能是嗯公众号空我觉得能理解。那 4月 184月 19为什么什么都没有呢`
-- hypothesis  : `我好奇的是 4月 184月 19为什么是空的前面的我不管嗯这两天不是空的那 4月 20号是正常可能是嗯公众号空我觉得能理解。那 4月 184月 19为什么什么都没有呢`
+- ground_truth: `What I'm curious about is why April 18 and April 19 are empty — I don't care about before that, um, those two days aren't empty, and April 20th being normal, that's probably, um, the official account being empty, I think that's understandable. So why is there nothing at all on April 18 and April 19?`
+- hypothesis  : `What I'm curious about is why April 18 and April 19 are empty — I don't care about before that, um, those two days aren't empty, and April 20th being normal, that's probably, um, the official account being empty, I think that's understandable. So why is there nothing at all on April 18 and April 19?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T07-08-32Z.wav`
 
 ## m042 (WER=0.000, CER=0.000)
-- ground_truth: `你基于这个给我给我反馈吧 ，你一定要确保你的你是有依据的嗯。就不要浪费双方的时间嘛。`
-- hypothesis  : `你基于这个给我给我反馈吧 ，你一定要确保你的你是有依据的嗯。就不要浪费双方的时间嘛。`
+- ground_truth: `Based on this, give me, give me feedback — you have to make sure that you, that you have a basis for it, um. Just don't waste both sides' time.`
+- hypothesis  : `Based on this, give me, give me feedback — you have to make sure that you, that you have a basis for it, um. Just don't waste both sides' time.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-52-08Z.wav`
 
 ## m045 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，或者呢就是我觉得你可以这样就是我有那个 114.28.243.122。`
-- hypothesis  : `嗯 ，或者呢就是我觉得你可以这样就是我有那个 114.28.243.122。`
+- ground_truth: `Um, or, I think you could do it this way — I have that 114.28.243.122.`
+- hypothesis  : `Um, or, I think you could do it this way — I have that 114.28.243.122.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-08-32Z.wav`
 
 ## m046 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，你帮我运行吧 ，然后运行了以后我做真实的测试 ，然后你来看日志好吧。`
-- hypothesis  : `嗯 ，你帮我运行吧 ，然后运行了以后我做真实的测试 ，然后你来看日志好吧。`
+- ground_truth: `Um, go ahead and run it for me, and then after it's run I'll do the real test, and then you check the logs, okay.`
+- hypothesis  : `Um, go ahead and run it for me, and then after it's run I'll do the real test, and then you check the logs, okay.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-24T07-20-00Z.wav`
 
 ## m047 (WER=0.000, CER=0.000)
-- ground_truth: `那你你都能连过去 ，你不能拼一下吗 ？呃 ，我就觉得很离谱啊 ，那我给你个 IP，你试一下呗。`
-- hypothesis  : `那你你都能连过去 ，你不能拼一下吗 ？呃 ，我就觉得很离谱啊 ，那我给你个 IP，你试一下呗。`
+- ground_truth: `So you, you can connect over there, can't you just try piecing it together? Uh, I just think it's ridiculous — let me give you an IP, just try it.`
+- hypothesis  : `So you, you can connect over there, can't you just try piecing it together? Uh, I just think it's ridiculous — let me give you an IP, just try it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-44-40Z.wav`
 
 ## m050 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，这个呢是今天我们和嗯我的老板就一起嗯算是一个交流吧 ，也不算一个会议也可以说算个会议吧 ，这么一个嗯。内容一个是呢是呃文就是`
-- hypothesis  : `嗯 ，这个呢是今天我们和嗯我的老板就一起嗯算是一个交流吧 ，也不算一个会议也可以说算个会议吧 ，这么一个嗯。内容一个是呢是呃文就是`
+- ground_truth: `Um, so this is, today we and, um, my boss together, um, sort of a discussion, I guess, not really a meeting, but you could also call it a meeting, this kind of, um. One piece of content is, uh, the document, that is`
+- hypothesis  : `Um, so this is, today we and, um, my boss together, um, sort of a discussion, I guess, not really a meeting, but you could also call it a meeting, this kind of, um. One piece of content is, uh, the document, that is`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T10-03-41Z.wav`
 
 ## m051 (WER=0.000, CER=0.000)
-- ground_truth: `就直接提上去吧 ，然后我们应该也可以回退嘛 ，可以回退的嘛 ，如果我一个版本一个版本可以回退吗 ？`
-- hypothesis  : `就直接提上去吧 ，然后我们应该也可以回退嘛 ，可以回退的嘛 ，如果我一个版本一个版本可以回退吗 ？`
+- ground_truth: `Just push it up directly, and then we should also be able to roll back, right, it's rollback-able, right — if it's one version at a time, can we roll back?`
+- hypothesis  : `Just push it up directly, and then we should also be able to roll back, right, it's rollback-able, right — if it's one version at a time, can we roll back?`
 - audio: `/Users/marvin/.we/audio/2026-04-27T03-09-13Z.wav`
 
 ## m055 (WER=0.000, CER=0.000)
-- ground_truth: `那另外一个点呢 ，就是嗯 ，就是你能够精确 ，比如说昨天 8:00到 ，今天 8:00拉这么一天的邮件是可以精确的对吧。`
-- hypothesis  : `那另外一个点呢 ，就是嗯 ，就是你能够精确 ，比如说昨天 8:00到 ，今天 8:00拉这么一天的邮件是可以精确的对吧。`
+- ground_truth: `And another point is, um, that you can be precise — for example, pulling emails from yesterday at 8:00 to today at 8:00, a full day like that, can be precise, right.`
+- hypothesis  : `And another point is, um, that you can be precise — for example, pulling emails from yesterday at 8:00 to today at 8:00, a full day like that, can be precise, right.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-28-29Z.wav`
 
 ## m056 (WER=0.000, CER=0.000)
-- ground_truth: `呃 ，具体具体名称我可能忘了 ，你可能需要模糊查找一下吧 ，具体我忘了。`
-- hypothesis  : `呃 ，具体具体名称我可能忘了 ，你可能需要模糊查找一下吧 ，具体我忘了。`
+- ground_truth: `Uh, I might have forgotten the specific, specific name — you might need to do a fuzzy search, I forget the specifics.`
+- hypothesis  : `Uh, I might have forgotten the specific, specific name — you might need to do a fuzzy search, I forget the specifics.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-09-30Z.wav`
 
 ## m057 (WER=0.000, CER=0.000)
-- ground_truth: `那另外呢一个呃日报里面呢我按道理来说你看一下日报的相关结构 ，我觉得应该是要把这块加进去的就是呃推送进来的一个公。公众号相关的消息 ，我觉得是需要的`
-- hypothesis  : `那另外呢一个呃日报里面呢我按道理来说你看一下日报的相关结构 ，我觉得应该是要把这块加进去的就是呃推送进来的一个公。公众号相关的消息 ，我觉得是需要的`
+- ground_truth: `And another thing, uh, in the daily report — by rights, you should look at the structure of the daily report — I think this part should be added in, that is, uh, a pushed-in official. Official-account related message, I think that's needed`
+- hypothesis  : `And another thing, uh, in the daily report — by rights, you should look at the structure of the daily report — I think this part should be added in, that is, uh, a pushed-in official. Official-account related message, I think that's needed`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-29-50Z.wav`
 
 ## m059 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，好的 ，那现在虽然说成本解决了 ，那说不定能你现在最长的支持的文本是多少个字啊啊 ，如果我超过比如说我自一次性说个 10。分钟 20分钟这样的是不是就不太能支持了还是什么嗯还是什么样的就是。`
-- hypothesis  : `嗯 ，好的 ，那现在虽然说成本解决了 ，那说不定能你现在最长的支持的文本是多少个字啊啊 ，如果我超过比如说我自一次性说个 10。分钟 20分钟这样的是不是就不太能支持了还是什么嗯还是什么样的就是。`
+- ground_truth: `Um, okay, so now even though the cost issue is solved, then maybe — what's the longest text length you currently support, how many characters, ah, if I exceed, say, if I speak for 10. Minutes, 20 minutes straight like that, would it not really be able to support it, or what, um, or what would happen, that is.`
+- hypothesis  : `Um, okay, so now even though the cost issue is solved, then maybe — what's the longest text length you currently support, how many characters, ah, if I exceed, say, if I speak for 10. Minutes, 20 minutes straight like that, would it not really be able to support it, or what, um, or what would happen, that is.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-22T05-38-49Z.wav`
 
 ## m062 (WER=0.000, CER=0.000)
-- ground_truth: `然后像呃文件传输相关的 ，你对权限也没有跟大家讲清楚就是互通啊呃，能不能就是首先网络互通信还有文件传输的。一个互通信都没有写清楚`
-- hypothesis  : `然后像呃文件传输相关的 ，你对权限也没有跟大家讲清楚就是互通啊呃 ，能不能就是首先网络互通信还有文件传输的。一个互通信都没有写清楚`
+- ground_truth: `And then for things like, uh, file transfer related stuff, you also haven't explained the permissions clearly to everyone, that is, interoperability, uh — can we, that is, first, network interoperability and also file transfer. Not even interoperability was written clearly`
+- hypothesis  : `And then for things like, uh, file transfer related stuff, you also haven't explained the permissions clearly to everyone, that is, interoperability, uh, can we, that is, first, network interoperability and also file transfer. Not even interoperability was written clearly`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T05-39-26Z.wav`
 
 ## m064 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，我已经试过了 ，我如果在远程桌面里面再按的话 ，其实日志没有任何输出。那如果在远程桌面外按的话是有这个嗯。有你想要的输出结果的那其实就是没有任何输说明完全有户关就没就就这个问题`
-- hypothesis  : `嗯 ，我已经试过了 ，我如果在远程桌面里面再按的话 ，其实日志没有任何输出。那如果在远程桌面外按的话是有这个嗯。有你想要的输出结果的那其实就是没有任何输说明完全有户关就没就就这个问题`
+- ground_truth: `Um, I already tried it — if I press it again inside the remote desktop, the log actually has no output at all. But if I press it outside the remote desktop, there's this, um. There's the output result you wanted, so actually it's that there's no output at all, which means it's entirely related to the user session — so it's just, just this issue`
+- hypothesis  : `Um, I already tried it — if I press it again inside the remote desktop, the log actually has no output at all. But if I press it outside the remote desktop, there's this, um. There's the output result you wanted, so actually it's that there's no output at all, which means it's entirely related to the user session — so it's just, just this issue`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T09-26-19Z.wav`
 
 ## m065 (WER=0.000, CER=0.000)
-- ground_truth: `OK，然后你自己考虑好的吧 ，我只是提醒一个点 ，就是我觉得分组是一个很重要的点 ，如果我的日报可能会按照分组的形式去给就每一个主屋他大概。具体那种每一个主屋具体那种是通过这样的一个方式去给吧`
-- hypothesis  : `OK，然后你自己考虑好的吧 ，我只是提醒一个点 ，就是我觉得分组是一个很重要的点 ，如果我的日报可能会按照分组的形式去给就每一个主屋他大概。具体那种每一个主屋具体那种是通过这样的一个方式去给吧`
+- ground_truth: `OK, so you think it through yourself, I'm just reminding you of one point — I think grouping is a very important point. If my daily report might be delivered in a grouped format, then for each main room, roughly. Specifically, that each main room specifically is delivered through that kind of method`
+- hypothesis  : `OK, so you think it through yourself, I'm just reminding you of one point — I think grouping is a very important point. If my daily report might be delivered in a grouped format, then for each main room, roughly. Specifically, that each main room specifically is delivered through that kind of method`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T03-05-48Z.wav`
 
 ## m071 (WER=0.000, CER=0.000)
-- ground_truth: `那现在我唯一没有看的就是这个分组那分组的我们来交给用户去试吧 ，或者说你给我看看架构交给用户看让他们去试试看。`
-- hypothesis  : `那现在我唯一没有看的就是这个分组那分组的我们来交给用户去试吧 ，或者说你给我看看架构交给用户看让他们去试试看。`
+- ground_truth: `So right now the only thing I haven't looked at is this grouping — let's hand the grouping over to the users to try, or you show me the architecture, hand it to the users to look at, and let them go try it out.`
+- hypothesis  : `So right now the only thing I haven't looked at is this grouping — let's hand the grouping over to the users to try, or you show me the architecture, hand it to the users to look at, and let them go try it out.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-29-11Z.wav`
 
 ## m073 (WER=0.000, CER=0.000)
-- ground_truth: `我拿我的数据调的 ，你就直接按照这个文档拿你的数据去调就行了 ，你再调一个再再放上去就行了。`
-- hypothesis  : `我拿我的数据调的 ，你就直接按照这个文档拿你的数据去调就行了 ，你再调一个再再放上去就行了。`
+- ground_truth: `I tuned it with my own data — you just directly follow this document and use your own data to tune it, that's fine, just tune one more and put it up again, that's fine.`
+- hypothesis  : `I tuned it with my own data — you just directly follow this document and use your own data to tune it, that's fine, just tune one more and put it up again, that's fine.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-01-28Z.wav`
 
 ## m080 (WER=0.000, CER=0.000)
-- ground_truth: `我要看你每个人的测试的用的指令以及最后的结果 ，然后你给我划分分类 ，我要我要看结果不要看你这个表。`
-- hypothesis  : `我要看你每个人的测试的用的指令以及最后的结果 ，然后你给我划分分类 ，我要我要看结果不要看你这个表。`
+- ground_truth: `I want to see the commands each person used for testing and the final results, and then categorize them for me — I want, I want to see the results, not this table of yours.`
+- hypothesis  : `I want to see the commands each person used for testing and the final results, and then categorize them for me — I want, I want to see the results, not this table of yours.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T04-02-32Z.wav`
 
 ## m081 (WER=0.000, CER=0.000)
-- ground_truth: `你应该依据真实的执行情况来告诉我为什么数据会缺为什么数据会混乱，而不是你去帮他补那。最终运行层面你是不能够参与的，也没有我的参与那不然这个东西做的就没有意义。`
-- hypothesis  : `你应该依据真实的执行情况来告诉我为什么数据会缺为什么数据会混乱 ，而不是你去帮他补那。最终运行层面你是不能够参与的 ，也没有我的参与那不然这个东西做的就没有意义。`
+- ground_truth: `You should tell me, based on the actual execution situation, why the data is missing and why the data is messed up, rather than going and patching it for them. At the final runtime level you're not allowed to participate, and without my participation either, otherwise this thing being done would be meaningless.`
+- hypothesis  : `You should tell me, based on the actual execution situation, why the data is missing and why the data is messed up, rather than going and patching it for them. At the final runtime level you're not allowed to participate, and without my participation either, otherwise this thing being done would be meaningless.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-22T06-31-00Z.wav`
 
 ## m084 (WER=0.000, CER=0.000)
-- ground_truth: `嗯所有可能的原因你都能通过你的手段去做确定嗯你达到这个可能是不是真的是这样那另一个呢就是。呃你有没有考虑一些泛化相应的能力吧对吧我们可能总总共就考一个短短距一个长距一个纠错还有个泛话嘛就是这四块能力`
-- hypothesis  : `嗯所有可能的原因你都能通过你的手段去做确定嗯你达到这个可能是不是真的是这样那另一个呢就是。呃你有没有考虑一些泛化相应的能力吧对吧我们可能总总共就考一个短短距一个长距一个纠错还有个泛话嘛就是这四块能力`
+- ground_truth: `Um, can you confirm all the possible causes through your own methods, um, whether you've reached this point — is it really like this? And another thing is. Uh, have you considered some corresponding generalization capability, right? We probably, in total, just test one short, short-range, one long-range, one correction, and one generalization, right, that is these four capability areas`
+- hypothesis  : `Um, can you confirm all the possible causes through your own methods, um, whether you've reached this point — is it really like this? And another thing is. Uh, have you considered some corresponding generalization capability, right? We probably, in total, just test one short, short-range, one long-range, one correction, and one generalization, right, that is these four capability areas`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-23T06-59-01Z.wav`
 
 ## m085 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，可以 ，然后你帮我打开 CMD，并且远程连接过去 ，然后把这些指令就输到一个命令行里面 ，然后我去运行好吧。`
-- hypothesis  : `嗯 ，可以 ，然后你帮我打开 CMD，并且远程连接过去 ，然后把这些指令就输到一个命令行里面 ，然后我去运行好吧。`
+- ground_truth: `Um, okay, then help me open CMD, and remote connect over there, and then type these commands into a command line, and then I'll go run it, alright.`
+- hypothesis  : `Um, okay, then help me open CMD, and remote connect over there, and then type these commands into a command line, and then I'll go run it, alright.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-23T07-56-17Z.wav`
 
 ## m086 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，为什么要禁用呢 ？我是不理解你为什么要禁用这个思考模式呢嗯你按道理来说是应该去适配它呀 ，不应该是去禁用它呀。`
-- hypothesis  : `嗯 ，为什么要禁用呢 ？我是不理解你为什么要禁用这个思考模式呢嗯你按道理来说是应该去适配它呀 ，不应该是去禁用它呀。`
+- ground_truth: `Um, why disable it? I don't understand why you'd disable this thinking mode — um, by rights you should be adapting to it, not disabling it.`
+- hypothesis  : `Um, why disable it? I don't understand why you'd disable this thinking mode — um, by rights you should be adapting to it, not disabling it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T05-31-16Z.wav`
 
 ## m087 (WER=0.000, CER=0.000)
-- ground_truth: `而且我一个很不理解的点就是这些框架性的或者这些流程都是你去设计的按道理来说你是最理解的那你是最理解你最不应该犯这种逻辑错误的。`
-- hypothesis  : `而且我一个很不理解的点就是这些框架性的或者这些流程都是你去设计的按道理来说你是最理解的那你是最理解你最不应该犯这种逻辑错误的。`
+- ground_truth: `And one thing I really don't understand is, these framework-level things or these processes were all designed by you — by rights you should understand them best, so if you understand them best, you're the one who should least be making this kind of logical error.`
+- hypothesis  : `And one thing I really don't understand is, these framework-level things or these processes were all designed by you — by rights you should understand them best, so if you understand them best, you're the one who should least be making this kind of logical error.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T01-56-18Z.wav`
 
 ## m088 (WER=0.000, CER=0.000)
-- ground_truth: `呃 ，OK搜索功能 ，我看你上面写这个什么不支持那个正文检索对吧 ，263那个那嗯。那搜索你大概是。是怎么样去做呢 ？就是这块需求 ，你觉得要怎么样才能满足呢`
-- hypothesis  : `呃 ，OK搜索功能 ，我看你上面写这个什么不支持那个正文检索对吧 ，263那个那嗯。那搜索你大概是。是怎么样去做呢 ？就是这块需求 ，你觉得要怎么样才能满足呢`
+- ground_truth: `Uh, OK, search function — I see you wrote up there that it doesn't support body-text retrieval, right, that 263 thing, um. So the search, roughly, is. How are you going to do it? That is, for this requirement, how do you think it can be satisfied?`
+- hypothesis  : `Uh, OK, search function — I see you wrote up there that it doesn't support body-text retrieval, right, that 263 thing, um. So the search, roughly, is. How are you going to do it? That is, for this requirement, how do you think it can be satisfied?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-37-07Z.wav`
 
 ## m099 (WER=0.000, CER=0.000)
-- ground_truth: `嗯 ，一个点吧 ，倒不是说获取一个嗯嗯嗯推送 OK，然后就一个点吧 ，就是呃 ，你给我的那个偷。 token的那个呃二维码打开是呃打不开是没有没有内容的 ，应该是你打开的问题吧`
-- hypothesis  : `嗯 ，一个点吧 ，倒不是说获取一个嗯嗯嗯推送 OK，然后就一个点吧 ，就是呃 ，你给我的那个偷。 token的那个呃二维码打开是呃打不开是没有没有内容的 ，应该是你打开的问题吧`
+- ground_truth: `Um, one point — it's not really about getting a, um, um, um push, OK, and then just one more point, that is, uh, that thing you gave me for grabbing the. Token, that, uh, QR code, when opened, uh, won't open, has no, no content — it must be a problem with how you opened it`
+- hypothesis  : `Um, one point — it's not really about getting a, um, um, um push, OK, and then just one more point, that is, uh, that thing you gave me for grabbing the. Token, that, uh, QR code, when opened, uh, won't open, has no, no content — it must be a problem with how you opened it`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-45-11Z.wav`

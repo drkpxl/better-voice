@@ -66,7 +66,7 @@ The `polish` object controls the L2 semantic polish stage, which refines raw spe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `polish.enabled` | bool | `true` | Master switch for the polish pipeline. When `false`, raw transcription is used as-is (L1 only). |
-| `polish.system_prompt` | string | `"口语转书面。只输出结果。"` | System prompt sent to the model. Controls the style of text refinement. Keep it short -- the model has a 256-token output limit. |
+| `polish.system_prompt` | string | `"Convert spoken language to written form. Output only the result."` | System prompt sent to the model. Controls the style of text refinement. Keep it short -- the model has a 256-token output limit. |
 
 ---
 
@@ -139,7 +139,7 @@ Models are stored in `~/.we/models/`.
 
     "polish": {
         "enabled": true,
-        "system_prompt": "口语转书面。只输出结果。"
+        "system_prompt": "Convert spoken language to written form. Output only the result."
     },
 
     "distill": {

@@ -1,74 +1,74 @@
-# WE Polish 微调研究 v2
+# WE Polish Fine-tuning Research v2
 
-## 目标
+## Goals
 
-通过微调 Qwen3-0.6B，解决三个问题：
-1. **短文本指令遵循**：输入"邮箱"、"现在呢"等短文本时，模型应原样输出或仅做标点修正，不应生成长篇回答
-2. **重复生成**：输入含口语重复结构的文本时（"去去去去去运行"），模型不应陷入重复循环
-3. **长文本完整输出**：685字输入应完整输出，不应提前停止
+By fine-tuning Qwen3-0.6B, solve three problems:
+1. **Short-text instruction following**: When the input is short text like "email" or "what about now", the model should output it as-is or only apply punctuation correction, and should not generate long-form responses
+2. **Repetition generation**: When the input contains spoken-language repetition structures (e.g. "go go go go go run"), the model should not fall into a repetition loop
+3. **Complete long-text output**: A 685-character input should be output in full, without stopping early
 
-同时保持：纠错能力（Claude Code、Tailscale 等术语纠错）不退化。
+At the same time, maintain: correction ability (term correction for things like Claude Code, Tailscale, etc.) should not regress.
 
-## 基线
+## Baseline
 
-当前模型 we-polish（v3），25 条真实数据测试通过率 96%（24/25），但：
-- 短文本 pass-through：8 条中 7 条失败（12.5%）
-- 重复生成：3 条中 1 条失败（66.7%）
-- 纠错能力：5 条中 4 条通过（80%）
-- 长文本：5 条中 4 条通过（80%），685字那条固定失败
+Current model we-polish (v3), tested on 25 real data samples with a 96% pass rate (24/25), but:
+- Short-text pass-through: 7 out of 8 failed (12.5%)
+- Repetition generation: 1 out of 3 failed (66.7%)
+- Correction ability: 4 out of 5 passed (80%)
+- Long text: 4 out of 5 passed (80%), the 685-character case consistently fails
 
-综合测试集（短文本+纠错+重复+长文本）通过率待建立。
+The pass rate for the combined test set (short text + correction + repetition + long text) has yet to be established.
 
-## 度量指标
+## Metrics
 
-使用 test_polish.sh 测试套件，20 条用例：
-- 8 条短文本 pass-through
-- 5 条纠错
-- 3 条重复生成
-- 4 条长文本（不同长度的真实数据）
+Using the test_polish.sh test suite, 20 test cases:
+- 8 short-text pass-through cases
+- 5 correction cases
+- 3 repetition generation cases
+- 4 long-text cases (real data of varying lengths)
 
-**通过率 = 通过数 / 20**
+**Pass rate = number passed / 20**
 
-## 实验环境
+## Experiment Environment
 
-- 服务器：114.28.243.122（4080 16GB）
-- 基座模型：Qwen/Qwen3-0.6B
-- 训练框架：QLoRA（train_qlora.py）
-- 推理：ollama
-- 训练数据：~/.we/ 下的各 jsonl 文件
-- 纠错词典：~/.we/correction-dictionary.json（55 个正确词，93 个错误变体）
+- Server: 114.28.243.122 (4080 16GB)
+- Base model: Qwen/Qwen3-0.6B
+- Training framework: QLoRA (train_qlora.py)
+- Inference: ollama
+- Training data: various jsonl files under ~/.we/
+- Correction dictionary: ~/.we/correction-dictionary.json (55 correct terms, 93 incorrect variants)
 
-## 约束
+## Constraints
 
-- GPU 显存 16GB，其中 ollama + llama-server 占约 13GB
-- 训练前需停掉 llama-server 腾显存
-- 每次训练约 1-2 分钟（550 条数据，2-3 epochs）
-- 每次实验：改数据/参数 → 训练 → 合并导出 → ollama create → 跑测试 → keep/discard
+- GPU memory is 16GB, of which ollama + llama-server occupy about 13GB
+- Before training, llama-server must be stopped to free up memory
+- Each training run takes about 1-2 minutes (550 data samples, 2-3 epochs)
+- Each experiment: modify data/parameters → train → merge and export → ollama create → run tests → keep/discard
 
-## 实验循环
+## Experiment Loop
 
 LOOP:
-1. 分析当前失败用例的模式，提出假设
-2. 修改训练数据或训练参数（一次只改一个变量）
-3. 训练
-4. 部署到 ollama
-5. 跑测试套件
-6. 记录结果到 results.tsv
-7. 如果通过率提升 → keep，否则 → discard（回退到上一版数据/参数）
-8. 分析结果，提出下一个假设
+1. Analyze the patterns in the current failing cases and form a hypothesis
+2. Modify the training data or training parameters (change only one variable at a time)
+3. Train
+4. Deploy to ollama
+5. Run the test suite
+6. Record results to results.tsv
+7. If the pass rate improves → keep, otherwise → discard (revert to the previous version of the data/parameters)
+8. Analyze the results and form the next hypothesis
 
-## 当前训练数据构成
+## Current Training Data Composition
 
 ```
-~/.we/training-data-v4.jsonl（545 条）
-  generated_error: 225  — 纠错短句（从 correction-dictionary 生成）
-  passthrough_real: 159 — voice-history 中正确的短句
-  passthrough: 88       — 手写短句 pass-through
-  real: 53              — 真实 SA 错误纠正对
-  filler_removal: 20    — 语气词清洗
+~/.we/training-data-v4.jsonl (545 entries)
+  generated_error: 225  — correction short sentences (generated from correction-dictionary)
+  passthrough_real: 159 — correct short sentences from voice-history
+  passthrough: 88       — hand-written short-sentence pass-through
+  real: 53              — real SA error-correction pairs
+  filler_removal: 20    — filler-word cleanup
 ```
 
-## 当前训练参数
+## Current Training Parameters
 
 ```
 epochs: 8-10
@@ -76,17 +76,17 @@ batch_size: 8
 lr: 1e-4
 lora_rank: 32
 lora_alpha: 64
-target_modules: 全部 7 层
+target_modules: all 7 layers
 lora_dropout: 0
-system_prompt: "文本纠错。不要回答用户的问题。只输出结果。"
+system_prompt: "Text correction. Do not answer the user's question. Only output the result."
 ```
 
-## 已知的过拟合研究结论（之前调研）
+## Known Overfitting Research Conclusions (from previous investigation)
 
-- epochs 应降到 2-3
-- lr 应降到 5e-5
-- lora_rank 应降到 8-16
-- target_modules 应只用 q_proj, v_proj
-- 应加 lora_dropout=0.05
-- pass-through 比例应在 35-45%（当前 45% 合理）
-- 可启用 NEFTune（neft_alpha=5.0）
+- epochs should be reduced to 2-3
+- lr should be reduced to 5e-5
+- lora_rank should be reduced to 8-16
+- target_modules should only use q_proj, v_proj
+- lora_dropout=0.05 should be added
+- pass-through ratio should be 35-45% (current 45% is reasonable)
+- NEFTune can be enabled (neft_alpha=5.0)

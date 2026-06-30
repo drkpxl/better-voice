@@ -1,299 +1,299 @@
-# §3.2 L4 ① 短句指令准确率 — 真实结果
+# §3.2 L4 ① Short Command Accuracy — Actual Results
 
-100 条样本；41 条完全正确，59 条不一致。下方按「失败 → CER 降序」排序。
+100 samples; 41 fully correct, 59 inconsistent. Sorted below by "failures → CER descending".
 
-注意：ground_truth 来自 voice-history.finalText（历史 L2 输出），与今天 L2 输出的差异同时包含 ① 真实识别错误 ② 旧 L2 与新 L2 的漂移。
+Note: ground_truth comes from voice-history.finalText (historical L2 output); the differences from today's L2 output include both ① actual recognition errors and ② drift between the old L2 and the new L2.
 
 ---
 
 ## [FAIL] s054 (CER=14.357)
-- ground_truth: `嗯 ，好的 ，帮我安装一下看看。`
-- hypothesis  : `好的 ，让我仔细看看用户的需求。用户说，“嗯 ，好的 ，帮我安装一下看看。”这句话看起来像是在询问如何安装某个软件。但修正后的最终文本需要去掉语气词，去掉修正标点符号。原句中的语气词“嗯”是多余的，去掉之后变成“嗯 ，好的 ，帮我安装一下看看。”标点符号修正了逗号的位置。用户之前的历史记录显示，之前的回复都是直接执行命令，但这次可能用户是测试一下语音识别纠错功能，所以不需要改变原意，只修正语法错误。确认没有问题后，输出修正后的最终文本。`
+- ground_truth: `Um, okay, help me install it and see.`
+- hypothesis  : `Okay, let me carefully look at the user's request. The user said, "Um, okay, help me install it and see." This sentence looks like it's asking how to install some piece of software. But the corrected final text needs to remove the filler words and fix the punctuation. The filler word "um" in the original sentence is redundant; after removing it, it becomes "Um, okay, help me install it and see." The punctuation fix adjusted the position of the comma. The user's prior history shows that previous replies all directly executed commands, but this time the user may be testing the speech recognition correction feature, so the original meaning should not be changed — only grammar errors should be fixed. After confirming there are no issues, output the corrected final text.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-21-27Z.wav`
 
 ## [FAIL] s063 (CER=5.100)
-- ground_truth: `嗯 ，好的 ，开始做吧。`
-- hypothesis  : `好的 ，我修正语音识别错误。原句是“嗯 ，好的 ，开始做吧。”，修正后的最终文本是“好的 ，开始做吧。”去掉语气词，修正标点符号。`
+- ground_truth: `Um, okay, let's get started.`
+- hypothesis  : `Okay, I'll correct the speech recognition error. The original sentence is "Um, okay, let's get started." The corrected final text is "Okay, let's get started." Filler words removed, punctuation corrected.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T02-22-43Z.wav`
 
 ## [FAIL] s047 (CER=2.000)
-- ground_truth: `哈喽。`
-- hypothesis  : `哈喽哈喽哈喽哈喽。`
+- ground_truth: `Hello.`
+- hypothesis  : `Hello hello hello hello.`
 - audio: `/Users/marvin/.we/audio/2026-03-12T06-31-34Z.wav`
 
 ## [FAIL] s081 (CER=1.350)
-- ground_truth: `此外，还有心跳机制以及学习类等类似功能。`
-- hypothesis  : `然后还有就是。还有一些心跳机制吧 ，还有一些比如说嗯。学习的类这样的类似的`
+- ground_truth: `In addition, there's also the heartbeat mechanism and similar features like the learning class.`
+- hypothesis  : `And then there's also. There's also some heartbeat mechanism, and some, like, um. The learning class and things like that, similar to that`
 - audio: `/Users/marvin/.we/audio/2026-03-17T08-25-12Z.wav`
 
 ## [FAIL] s007 (CER=1.095)
-- ground_truth: `我会针对以下三项内容制作卡片式可视化展示。`
-- hypothesis  : `这个这个我肯定下面三个站去做一个可视化。用卡片的展示给我`
+- ground_truth: `I will create a card-style visualization display for the following three items.`
+- hypothesis  : `This, this, I'll definitely do a visualization for the next three sections. Show it to me in a card display`
 - audio: `/Users/marvin/.we/audio/2026-03-23T06-09-03Z.wav`
 
 ## [FAIL] s005 (CER=1.000)
-- ground_truth: `嗯 ，这个跟具体怎么做有什么关系呢。`
-- hypothesis  : `登录密码`
+- ground_truth: `Um, what does this have to do with how exactly it's done.`
+- hypothesis  : `Login password`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-48-19Z.wav`
 
 ## [FAIL] s011 (CER=1.000)
-- ground_truth: `您好，请问有什么可以帮您？`
-- hypothesis  : `我想测试一下你的准确性。`
+- ground_truth: `Hello, how can I help you?`
+- hypothesis  : `I want to test your accuracy.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T06-33-46Z.wav`
 
 ## [FAIL] s076 (CER=1.000)
-- ground_truth: `我们用的是降值。`
-- hypothesis  : `现在呢现在呢 ？`
+- ground_truth: `What we're using is the reduced value.`
+- hypothesis  : `Now, now?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T05-52-55Z.wav`
 
 ## [FAIL] s078 (CER=0.962)
-- ground_truth: `嗯 ，我先测试一下。如果连通正常的话 ，那我再测试一下。`
-- hypothesis  : `我执行好了`
+- ground_truth: `Um, let me test it first. If the connection is normal, then I'll test it again.`
+- hypothesis  : `I've finished executing it`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T02-16-06Z.wav`
 
 ## [FAIL] s009 (CER=0.913)
-- ground_truth: `嗯 ，这个 TQTQ的具体实现可能需要进一步确认。`
-- hypothesis  : `就是 Tailscale。`
+- ground_truth: `Um, the specific implementation of this TQTQ may need further confirmation.`
+- hypothesis  : `It's Tailscale.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T08-57-02Z.wav`
 
 ## [FAIL] s057 (CER=0.846)
-- ground_truth: `这话没关系，先放一放再说。`
-- hypothesis  : `这这种先放好多话没有关系。`
+- ground_truth: `That doesn't matter, let's set it aside for now.`
+- hypothesis  : `This, this kind, set aside, lots of talk, doesn't matter.`
 - audio: `/Users/marvin/.we/audio/2026-03-13T08-10-41Z.wav`
 
 ## [FAIL] s067 (CER=0.824)
-- ground_truth: `OK ，呃 ，看看真亮抓去有API吗 ？`
-- hypothesis  : `OK，看看Tailscale抓去有邮件吗 ？`
+- ground_truth: `OK, uh, let's see if zhēnliàng zhuāqù has an API?`
+- hypothesis  : `OK, let's see if Tailscale grab has mail?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T05-17-45Z.wav`
 
 ## [FAIL] s016 (CER=0.750)
-- ground_truth: `帮我看一下我有没有刚切在`
-- hypothesis  : `帮我看一下我有没有刚 Clyton这个 s在`
+- ground_truth: `Help me check whether I just switched to`
+- hypothesis  : `Help me check whether I just Clyton this s at`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T08-31-09Z.wav`
 
 ## [FAIL] s035 (CER=0.750)
-- ground_truth: `还要考虑编辑的设定，比如因素要更重一些。`
-- hypothesis  : `嗯 ，就照顾有那些编辑要设置好比因素要越重。`
+- ground_truth: `We also need to consider the editing settings, for example the factors need to be weighted more heavily.`
+- hypothesis  : `Um, just take care of those editing settings, like the factors need to be heavier and heavier.`
 - audio: `/Users/marvin/.we/audio/2026-03-17T05-30-38Z.wav`
 
 ## [FAIL] s058 (CER=0.750)
-- ground_truth: `好了好了`
-- hypothesis  : `好的`
+- ground_truth: `Okay okay`
+- hypothesis  : `Okay`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-42-13Z.wav`
 
 ## [FAIL] s084 (CER=0.750)
-- ground_truth: `请查阅官方文档。`
-- hypothesis  : `请去了解一下官方的文档。`
+- ground_truth: `Please refer to the official documentation.`
+- hypothesis  : `Please go learn about the official documentation.`
 - audio: `/Users/marvin/.we/audio/2026-03-23T08-46-18Z.wav`
 
 ## [FAIL] s092 (CER=0.739)
-- ground_truth: `我不仅要看具体的数据结果，还要关注其执行效果。`
-- hypothesis  : `流程吧就是我不仅要看一些具体的一些数据结果 ，我要看他的一些执行结果和。`
+- ground_truth: `I not only need to look at the specific data results, but also pay attention to the execution effectiveness.`
+- hypothesis  : `The process, well, I not only need to look at some specific data results, I need to look at some of its execution results and.`
 - audio: `/Users/marvin/.we/audio/2026-03-18T06-01-27Z.wav`
 
 ## [FAIL] s018 (CER=0.722)
-- ground_truth: `你好，我尝试了转换功能，但未能成功。`
-- hypothesis  : `哈喽我再试一下能不能转。`
+- ground_truth: `Hello, I tried the conversion feature, but it was unsuccessful.`
+- hypothesis  : `Hello, let me try again to see if it can convert.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T06-13-37Z.wav`
 
 ## [FAIL] s021 (CER=0.700)
-- ground_truth: `我猜者你不是执行者。`
-- hypothesis  : `我说过你是检查者 ，你不是执行者。`
+- ground_truth: `I guess you're not the executor.`
+- hypothesis  : `I said you are the checker, not the executor.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-00-58Z.wav`
 
 ## [FAIL] s013 (CER=0.625)
-- ground_truth: `我来测试一下是否有屏幕录制功能。`
-- hypothesis  : `我试一下有没有screen录制功能。`
+- ground_truth: `Let me test whether there is a screen recording feature.`
+- hypothesis  : `Let me try whether there's a screen recording feature.`
 - audio: `/Users/marvin/.we/audio/2026-03-12T03-06-03Z.wav`
 
 ## [FAIL] s040 (CER=0.591)
-- ground_truth: `使用 Cloud Console 的 Spin 功能。`
-- hypothesis  : `用肯定是用 Claude Code的 spin。`
+- ground_truth: `Use the Spin feature of Cloud Console.`
+- hypothesis  : `Use, definitely use, Claude Code's spin.`
 - audio: `/Users/marvin/.we/audio/2026-03-16T09-16-51Z.wav`
 
 ## [FAIL] s002 (CER=0.474)
-- ground_truth: `测试一下，您现在是否有用户交错的情况？`
-- hypothesis  : `测试一下你现在有用户并发吗 ？`
+- ground_truth: `Let's test it — do you currently have a situation of overlapping users?`
+- hypothesis  : `Let's test it, do you currently have user concurrency?`
 - audio: `/Users/marvin/.we/audio/2026-03-10T08-41-38Z.wav`
 
 ## [FAIL] s012 (CER=0.429)
-- ground_truth: `你好，我想去试试你的 KQ 语。`
-- hypothesis  : `嗨 ，我想去试一下你的 KE语我。`
+- ground_truth: `Hello, I'd like to try your KQ language.`
+- hypothesis  : `Hi, I'd like to try your KE language I.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T06-33-31Z.wav`
 
 ## [FAIL] s053 (CER=0.429)
-- ground_truth: `尝试一下，现在有没有用错字？`
-- hypothesis  : `尝试一下你现在有用无纠错。`
+- ground_truth: `Let's try it, is there a wrong character used right now?`
+- hypothesis  : `Let's try it, do you currently have error correction or not.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T08-41-24Z.wav`
 
 ## [FAIL] s097 (CER=0.429)
-- ground_truth: `嗯 ，放在一个目录下就放在 AndyTarget目录下面吧。`
-- hypothesis  : `放在一个目录下就放在 GitHub仓库目录下面吧。`
+- ground_truth: `Um, put it in one directory, just put it under the AndyTarget directory.`
+- hypothesis  : `Put it in one directory, just put it under the GitHub repository directory.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-21-35Z.wav`
 
 ## [FAIL] s008 (CER=0.412)
-- ground_truth: `我来测试一下这个数据链接是否有效。`
-- hypothesis  : `我试一下这个数据链接能不能通过。`
+- ground_truth: `Let me test whether this data link is valid.`
+- hypothesis  : `Let me try whether this data link can pass.`
 - audio: `/Users/marvin/.we/audio/2026-03-19T03-10-50Z.wav`
 
 ## [FAIL] s044 (CER=0.400)
-- ground_truth: `现实问题。`
-- hypothesis  : `现实的问题吧。`
+- ground_truth: `A practical problem.`
+- hypothesis  : `A practical problem, I guess.`
 - audio: `/Users/marvin/.we/audio/2026-03-13T02-03-42Z.wav`
 
 ## [FAIL] s004 (CER=0.364)
-- ground_truth: `呃 ，他可以做成那个飞轮`
-- hypothesis  : `他可以做成那个`
+- ground_truth: `Uh, he can turn it into that flywheel`
+- hypothesis  : `He can turn it into that`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T07-36-17Z.wav`
 
 ## [FAIL] s023 (CER=0.364)
-- ground_truth: `嗯 ，我没有让你去执行。`
-- hypothesis  : `我没有让你去执行 OK。`
+- ground_truth: `Um, I didn't tell you to execute it.`
+- hypothesis  : `I didn't tell you to execute it, OK.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T05-09-03Z.wav`
 
 ## [FAIL] s071 (CER=0.333)
-- ground_truth: `OK，我试一下这个这样行不行 ？`
-- hypothesis  : `OK，我试一下这个方法 ？`
+- ground_truth: `OK, let me try this and see if it works like this?`
+- hypothesis  : `OK, let me try this method?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T08-32-12Z.wav`
 
 ## [FAIL] s072 (CER=0.267)
-- ground_truth: `二开 tale scele杠主线。`
-- hypothesis  : `二开 Tailscale杠主线。`
+- ground_truth: `Secondary dev tale scele branch off main line.`
+- hypothesis  : `Secondary dev Tailscale branch off main line.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-13-17Z.wav`
 
 ## [FAIL] s033 (CER=0.263)
-- ground_truth: `嗯 ，agent肯定是不能不能打折的吧。`
-- hypothesis  : `嗯 ，27肯定是不能不能打折的吧。`
+- ground_truth: `Um, the agent definitely can't, can't be discounted, right.`
+- hypothesis  : `Um, 27 definitely can't, can't be discounted, right.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T09-29-02Z.wav`
 
 ## [FAIL] s075 (CER=0.235)
-- ground_truth: `喂，我试一下能不能听到自己的声音。`
-- hypothesis  : `我试一下能不能听到我的声音。`
+- ground_truth: `Hey, let me try whether I can hear my own voice.`
+- hypothesis  : `Let me try whether I can hear my voice.`
 - audio: `/Users/marvin/.we/audio/2026-03-12T08-24-03Z.wav`
 
 ## [FAIL] s003 (CER=0.222)
-- ground_truth: `嗯 ，会影响其他的部署吗 ？如果影响部署`
-- hypothesis  : `嗯 ，会影响其他的配置吗 ？如果影响其。`
+- ground_truth: `Um, will it affect other deployments? If it affects deployment`
+- hypothesis  : `Um, will it affect other configurations? If it affects its.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-27-02Z.wav`
 
 ## [FAIL] s038 (CER=0.222)
-- ground_truth: `嗯看一下今天的 gitup项目状态吧。`
-- hypothesis  : `看一下今天的 GitHub项目状态吧。`
+- ground_truth: `Um, let's check today's gitup project status.`
+- hypothesis  : `Let's check today's GitHub project status.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-58-18Z.wav`
 
 ## [FAIL] s069 (CER=0.222)
-- ground_truth: `嗯 ，给我现在的配置`
-- hypothesis  : `嗯 ，给我现在的状态`
+- ground_truth: `Um, give me the current configuration`
+- hypothesis  : `Um, give me the current status`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T05-05-34Z.wav`
 
 ## [FAIL] s080 (CER=0.200)
-- ground_truth: `改一下吧 ，改一下吧。`
-- hypothesis  : `改一下 ，改一下。`
+- ground_truth: `Let's change it, let's change it.`
+- hypothesis  : `Change it, change it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-31-12Z.wav`
 
 ## [FAIL] s087 (CER=0.200)
-- ground_truth: `嗯，先共识我们的理解`
-- hypothesis  : `先共识我们的理解`
+- ground_truth: `Um, let's first align on our understanding`
+- hypothesis  : `First align on our understanding`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T03-04-47Z.wav`
 
 ## [FAIL] s006 (CER=0.185)
-- ground_truth: `然后我用的是 remote deser top destop。`
-- hypothesis  : `然后我用的是 remote desktop top desktop。`
+- ground_truth: `And then what I'm using is remote deser top destop.`
+- hypothesis  : `And then what I'm using is remote desktop top desktop.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T02-46-40Z.wav`
 
 ## [FAIL] s028 (CER=0.182)
-- ground_truth: `就生成我一个输出内容。`
-- hypothesis  : `就整理我一个输出内容。`
+- ground_truth: `Just generate an output content for me.`
+- hypothesis  : `Just organize an output content for me.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T06-18-35Z.wav`
 
 ## [FAIL] s019 (CER=0.154)
-- ground_truth: `MCP改为CLI是否可行 ？`
-- hypothesis  : `MC升级为CLI是否可行 ？`
+- ground_truth: `Is it feasible to change MCP to CLI?`
+- hypothesis  : `Is it feasible to upgrade MC to CLI?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T03-14-53Z.wav`
 
 ## [FAIL] s037 (CER=0.133)
-- ground_truth: `第三个我觉得确定 ，你可以拟定。`
-- hypothesis  : `第三个我觉得你确定你可以拟定。`
+- ground_truth: `The third one, I think it's settled, you can draft it.`
+- hypothesis  : `The third one, I think you confirm, you can draft it.`
 - audio: `/Users/marvin/.we/audio/2026-04-27T03-59-41Z.wav`
 
 ## [FAIL] s051 (CER=0.133)
-- ground_truth: `嗯 ，我先试试看这样能不能成功。`
-- hypothesis  : `我先试试看这样能不能成功。`
+- ground_truth: `Um, let me try first and see if this works.`
+- hypothesis  : `Let me try first and see if this works.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T02-40-04Z.wav`
 
 ## [FAIL] s061 (CER=0.133)
-- ground_truth: `呃 ，打开昨天的日报 ，我看一下。`
-- hypothesis  : `打开昨天的日报 ，我看一下。`
+- ground_truth: `Uh, open yesterday's daily report, let me take a look.`
+- hypothesis  : `Open yesterday's daily report, let me take a look.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-15-03Z.wav`
 
 ## [FAIL] s089 (CER=0.125)
-- ground_truth: `在测试水下模块。`
-- hypothesis  : `在测水下模块。`
+- ground_truth: `Testing the underwater module.`
+- hypothesis  : `Testing underwater module.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T08-55-06Z.wav`
 
 ## [FAIL] s055 (CER=0.111)
-- ground_truth: `嗯 ，如果出问题的话 ，恢复指令是什么 ？`
-- hypothesis  : `嗯 ，如果出问题的话 ，复原指令是什么 ？`
+- ground_truth: `Um, if something goes wrong, what's the recovery command?`
+- hypothesis  : `Um, if something goes wrong, what's the restore command?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T02-20-31Z.wav`
 
 ## [FAIL] s059 (CER=0.105)
-- ground_truth: `我试试看你这个。选确率如何能不能成功 ？`
-- hypothesis  : `我试试看你这个。识别率如何能不能成功 ？`
+- ground_truth: `Let me try this of yours. How's the selection rate, can it succeed?`
+- hypothesis  : `Let me try this of yours. How's the recognition rate, can it succeed?`
 - audio: `/Users/marvin/.we/audio/2026-03-12T02-11-04Z.wav`
 
 ## [FAIL] s083 (CER=0.091)
-- ground_truth: `嗯 ，这些功能逻辑我不知道你和我是不是共识的。`
-- hypothesis  : `这些功能逻辑我不知道你和我是不是共识的。`
+- ground_truth: `Um, I don't know whether you and I are aligned on this feature logic.`
+- hypothesis  : `I don't know whether you and I are aligned on this feature logic.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-13-08Z.wav`
 
 ## [FAIL] s034 (CER=0.087)
-- ground_truth: `呃 ，状态定时向我更新状态 ，5分钟更新一次状态。`
-- hypothesis  : `状态定时向我更新状态 ，5分钟更新一次状态。`
+- ground_truth: `Uh, send me status updates on a schedule, update the status every 5 minutes.`
+- hypothesis  : `Send me status updates on a schedule, update the status every 5 minutes.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T03-39-29Z.wav`
 
 ## [FAIL] s093 (CER=0.083)
-- ground_truth: `嗯 ，我已经做过一点修改的 ，你按照我最终的结果来。`
-- hypothesis  : `我已经做过一点修改的 ，你按照我最终的结果来。`
+- ground_truth: `Um, I've already made a few modifications, go with my final result.`
+- hypothesis  : `I've already made a few modifications, go with my final result.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T10-07-28Z.wav`
 
 ## [FAIL] s060 (CER=0.080)
-- ground_truth: `嗯 ，好的 ，看一下最近的项目情况 ，看看有没有更新吧。`
-- hypothesis  : `好的 ，看一下最近的项目情况 ，看看有没有更新吧。`
+- ground_truth: `Um, okay, let's check the recent project status, see if there are any updates.`
+- hypothesis  : `Okay, let's check the recent project status, see if there are any updates.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-53-47Z.wav`
 
 ## [FAIL] s049 (CER=0.077)
-- ground_truth: `嗯 ，你帮我看一下我 windows本地的这个呃版本吧。`
-- hypothesis  : `嗯 ，你帮我看一下我 Windows本地的这个版本吧。`
+- ground_truth: `Um, help me check this, uh, version on my local Windows machine.`
+- hypothesis  : `Um, help me check this version on my local Windows machine.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T05-35-01Z.wav`
 
 ## [FAIL] s073 (CER=0.074)
-- ground_truth: `嗯 ，先停一下 ，先停一下 ，等我再跑 ，等我再跑容易 OM了。`
-- hypothesis  : `嗯 ，先停一下 ，先停一下 ，等我再跑 ，等会儿再跑容易 OM了。`
+- ground_truth: `Um, stop for a moment, stop for a moment, wait for me to run it again, if I run it again it'll easily OOM.`
+- hypothesis  : `Um, stop for a moment, stop for a moment, wait for me to run it again, running it again in a bit will easily OOM.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T02-58-27Z.wav`
 
 ## [FAIL] s024 (CER=0.053)
-- ground_truth: `然后项目名称应该是 autoemail。`
-- hypothesis  : `然后项目名称应该是 auto-mail。`
+- ground_truth: `And then the project name should be autoemail.`
+- hypothesis  : `And then the project name should be auto-mail.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-09-22Z.wav`
 
 ## [FAIL] s020 (CER=0.043)
-- ground_truth: `帮我本地的一个 AS解释之后件帮我加一辆下一个。`
-- hypothesis  : `帮我本地的一个 AR解释之后件帮我加一辆下一个。`
+- ground_truth: `Help me with a local AS interpretation, after the file help me add one to the next.`
+- hypothesis  : `Help me with a local AR interpretation, after the file help me add one to the next.`
 - audio: `/Users/marvin/.we/audio/2026-03-23T05-48-59Z.wav`
 
 ## [FAIL] s036 (CER=0.043)
-- ground_truth: `呃这个才是嗯理解了这个才真正理解我说的话 OK。`
-- hypothesis  : `这个才是嗯理解了这个才真正理解我说的话 OK。`
+- ground_truth: `Uh, this is, um, only after understanding this do you truly understand what I said, OK.`
+- hypothesis  : `This is, um, only after understanding this do you truly understand what I said, OK.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T05-07-57Z.wav`
 
 ## [FAIL] s095 (CER=0.038)
-- ground_truth: `嗯 ，或者说把一些事情做得更加的好 ，更加的呃深刻度吧。`
-- hypothesis  : `嗯 ，或者说把一些事情做得更加的好 ，更加的呃深度吧。`
+- ground_truth: `Um, or rather, do some things even better, with more, uh, depth/profundity.`
+- hypothesis  : `Um, or rather, do some things even better, with more, uh, depth.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T06-11-09Z.wav`
 
 ## [FAIL] s065 (CER=0.036)
-- ground_truth: `就你不要老是想着啊 ，有 A就 B就结合 AB这完全是错误的呀。`
-- hypothesis  : `就不要老是想着啊 ，有 A就 B就结合 AB这完全是错误的呀。`
+- ground_truth: `It's just that you shouldn't keep thinking, ah, that having A means B, and combining them into AB — that's completely wrong.`
+- hypothesis  : `Just don't keep thinking, ah, that having A means B, and combining them into AB — that's completely wrong.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T05-04-19Z.wav`
 
 ## [FAIL] s043 (CER=0.000)
@@ -302,206 +302,206 @@
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T03-51-53Z.wav`
 
 ## [PASS] s001 (CER=0.000)
-- ground_truth: `OK，我试一下这个窗口最小化了还行不行 ？`
-- hypothesis  : `OK，我试一下这个窗口最小化了还行不行 ？`
+- ground_truth: `OK, let me try minimizing this window and see if it still works?`
+- hypothesis  : `OK, let me try minimizing this window and see if it still works?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T08-31-51Z.wav`
 
 ## [PASS] s010 (CER=0.000)
-- ground_truth: `你为什么会连不上呢这是一个问题啊就是你连不上才是问题啊。`
-- hypothesis  : `你为什么会连不上呢这是一个问题啊就是你连不上才是问题啊。`
+- ground_truth: `Why can't you connect, that's a problem — the fact that you can't connect is the problem.`
+- hypothesis  : `Why can't you connect, that's a problem — the fact that you can't connect is the problem.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-28-06Z.wav`
 
 ## [PASS] s014 (CER=0.000)
-- ground_truth: `OK，那我再试一下你这次测试能不能成功吧。`
-- hypothesis  : `OK，那我再试一下你这次测试能不能成功吧。`
+- ground_truth: `OK, then let me try again and see if this test can succeed.`
+- hypothesis  : `OK, then let me try again and see if this test can succeed.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T08-31-12Z.wav`
 
 ## [PASS] s015 (CER=0.000)
-- ground_truth: `就是教程吧或者教程文档吧。`
-- hypothesis  : `就是教程吧或者教程文档吧。`
+- ground_truth: `It's a tutorial, or maybe tutorial documentation.`
+- hypothesis  : `It's a tutorial, or maybe tutorial documentation.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T08-38-01Z.wav`
 
 ## [PASS] s017 (CER=0.000)
-- ground_truth: `嗯 ，其他没有什么问题。`
-- hypothesis  : `嗯 ，其他没有什么问题。`
+- ground_truth: `Um, no other issues.`
+- hypothesis  : `Um, no other issues.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T09-03-00Z.wav`
 
 ## [PASS] s022 (CER=0.000)
-- ground_truth: `嗯 ，先共识一下 ，不要先急着写 ，先共识一下看看。`
-- hypothesis  : `嗯 ，先共识一下 ，不要先急着写 ，先共识一下看看。`
+- ground_truth: `Um, let's align first, don't rush to write yet, let's align first and see.`
+- hypothesis  : `Um, let's align first, don't rush to write yet, let's align first and see.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T09-46-46Z.wav`
 
 ## [PASS] s025 (CER=0.000)
-- ground_truth: `嗯 ，还是打不开网页。`
-- hypothesis  : `嗯 ，还是打不开网页。`
+- ground_truth: `Um, the webpage still won't open.`
+- hypothesis  : `Um, the webpage still won't open.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T08-25-59Z.wav`
 
 ## [PASS] s026 (CER=0.000)
-- ground_truth: `嗯 ，挺好的 ，那我继续测试 ，我看有没有什么其他的问题。`
-- hypothesis  : `嗯 ，挺好的 ，那我继续测试 ，我看有没有什么其他的问题。`
+- ground_truth: `Um, that's pretty good, so I'll keep testing, see if there are any other issues.`
+- hypothesis  : `Um, that's pretty good, so I'll keep testing, see if there are any other issues.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T08-31-20Z.wav`
 
 ## [PASS] s027 (CER=0.000)
-- ground_truth: `试一下能不能转路。`
-- hypothesis  : `试一下能不能转路。`
+- ground_truth: `Try it and see if it can reroute.`
+- hypothesis  : `Try it and see if it can reroute.`
 - audio: `/Users/marvin/.we/audio/remote-2026-05-15T02-07-39Z.wav`
 
 ## [PASS] s029 (CER=0.000)
-- ground_truth: `试一下能不能转路。`
-- hypothesis  : `试一下能不能转路。`
+- ground_truth: `Try it and see if it can reroute.`
+- hypothesis  : `Try it and see if it can reroute.`
 - audio: `/Users/marvin/.we/audio/remote-2026-05-14T08-28-11Z.wav`
 
 ## [PASS] s030 (CER=0.000)
-- ground_truth: `你不要可能你不可能出现会有可能这样的回复的你嗯。`
-- hypothesis  : `你不要可能你不可能出现会有可能这样的回复的你嗯。`
+- ground_truth: `You shouldn't, you couldn't possibly have a reply like that, you, um.`
+- hypothesis  : `You shouldn't, you couldn't possibly have a reply like that, you, um.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T03-41-13Z.wav`
 
 ## [PASS] s031 (CER=0.000)
-- ground_truth: `呃 ，WEWE而不是微调 WE。`
-- hypothesis  : `呃 ，WEWE而不是微调 WE。`
+- ground_truth: `Uh, WEWE, not fine-tuned WE.`
+- hypothesis  : `Uh, WEWE, not fine-tuned WE.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-20T03-01-14Z.wav`
 
 ## [PASS] s032 (CER=0.000)
-- ground_truth: `我认为我在休息没有回事。`
-- hypothesis  : `我认为我在休息没有回事。`
+- ground_truth: `I think I'm resting, nothing's wrong.`
+- hypothesis  : `I think I'm resting, nothing's wrong.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T05-51-03Z.caf`
 
 ## [PASS] s039 (CER=0.000)
-- ground_truth: `呃 ，你可以继续往下了 ，可以继续往下。`
-- hypothesis  : `呃 ，你可以继续往下了 ，可以继续往下。`
+- ground_truth: `Uh, you can keep going, you can keep going.`
+- hypothesis  : `Uh, you can keep going, you can keep going.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-24T08-21-30Z.wav`
 
 ## [PASS] s041 (CER=0.000)
-- ground_truth: `我更换了一个Tailscale应该可以的吧。`
-- hypothesis  : `我更换了一个Tailscale应该可以的吧。`
+- ground_truth: `I switched to a Tailscale, that should work, right.`
+- hypothesis  : `I switched to a Tailscale, that should work, right.`
 - audio: `/Users/marvin/.we/audio/2026-04-27T03-48-47Z.wav`
 
 ## [PASS] s042 (CER=0.000)
-- ground_truth: `嗯 ，继续吧 ，嗯 ，然后呢 ，你数据获取层面呢 ，你你先继续写吧。`
-- hypothesis  : `嗯 ，继续吧 ，嗯 ，然后呢 ，你数据获取层面呢 ，你你先继续写吧。`
+- ground_truth: `Um, keep going, um, and then, for the data acquisition layer, you, you keep writing first.`
+- hypothesis  : `Um, keep going, um, and then, for the data acquisition layer, you, you keep writing first.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-17T01-35-57Z.wav`
 
 ## [PASS] s045 (CER=0.000)
-- ground_truth: `嗯 ，这样应该也能听到的吧 ，这样应该也没什么问题吧。`
-- hypothesis  : `嗯 ，这样应该也能听到的吧 ，这样应该也没什么问题吧。`
+- ground_truth: `Um, this way it should be audible too, this way there shouldn't be any issue either.`
+- hypothesis  : `Um, this way it should be audible too, this way there shouldn't be any issue either.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-27T03-52-17Z.wav`
 
 ## [PASS] s046 (CER=0.000)
-- ground_truth: `OK，那你先上线试一下看看。`
-- hypothesis  : `OK，那你先上线试一下看看。`
+- ground_truth: `OK, then go live first and give it a try.`
+- hypothesis  : `OK, then go live first and give it a try.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-45-43Z.wav`
 
 ## [PASS] s048 (CER=0.000)
-- ground_truth: `嗯 ，帮我打开。`
-- hypothesis  : `嗯 ，帮我打开。`
+- ground_truth: `Um, help me open it.`
+- hypothesis  : `Um, help me open it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-21-26Z.wav`
 
 ## [PASS] s050 (CER=0.000)
-- ground_truth: `试试不行 ，我试一下这样能不能够识别到并且执行。`
-- hypothesis  : `试试不行 ，我试一下这样能不能够识别到并且执行。`
+- ground_truth: `Try it, if not, let me see whether it can recognize and execute this way.`
+- hypothesis  : `Try it, if not, let me see whether it can recognize and execute this way.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-27T03-43-48Z.wav`
 
 ## [PASS] s052 (CER=0.000)
-- ground_truth: `然后嗯 ，那你帮我写一个哦 ，你已经写了是吧那你打开。`
-- hypothesis  : `然后嗯 ，那你帮我写一个哦 ，你已经写了是吧那你打开。`
+- ground_truth: `And then, um, write one for me — oh, you've already written it, right, then open it.`
+- hypothesis  : `And then, um, write one for me — oh, you've already written it, right, then open it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-23T07-29-55Z.wav`
 
 ## [PASS] s056 (CER=0.000)
-- ground_truth: `嗯 ，合理的 ，我觉得你最后的筛选维度是合理的。`
-- hypothesis  : `嗯 ，合理的 ，我觉得你最后的筛选维度是合理的。`
+- ground_truth: `Um, reasonable, I think your final filtering dimension is reasonable.`
+- hypothesis  : `Um, reasonable, I think your final filtering dimension is reasonable.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-05-50Z.wav`
 
 ## [PASS] s062 (CER=0.000)
-- ground_truth: `嗯。对 ，那就用那个语距离吧 ，通过语距离来重新评估。`
-- hypothesis  : `嗯。对 ，那就用那个语距离吧 ，通过语距离来重新评估。`
+- ground_truth: `Um. Right, then let's use that semantic distance, re-evaluate via semantic distance.`
+- hypothesis  : `Um. Right, then let's use that semantic distance, re-evaluate via semantic distance.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T05-52-40Z.wav`
 
 ## [PASS] s064 (CER=0.000)
-- ground_truth: `嗯 ，帮我用 Antigravity打开。`
-- hypothesis  : `嗯 ，帮我用 Antigravity打开。`
+- ground_truth: `Um, help me open it with Antigravity.`
+- hypothesis  : `Um, help me open it with Antigravity.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-21-56Z.wav`
 
 ## [PASS] s066 (CER=0.000)
-- ground_truth: `下面不是不开配置是你本机解析不了这。个 IP地址`
-- hypothesis  : `下面不是不开配置是你本机解析不了这。个 IP地址`
+- ground_truth: `It's not that the configuration isn't enabled below, it's that your local machine can't resolve this. IP address`
+- hypothesis  : `It's not that the configuration isn't enabled below, it's that your local machine can't resolve this. IP address`
 - audio: `/Users/marvin/.we/audio/2026-03-23T05-48-33Z.wav`
 
 ## [PASS] s068 (CER=0.000)
-- ground_truth: `测试一下修改功能。`
-- hypothesis  : `测试一下修改功能。`
+- ground_truth: `Test the modify feature.`
+- hypothesis  : `Test the modify feature.`
 - audio: `/Users/marvin/.we/audio/2026-03-10T08-54-56Z.wav`
 
 ## [PASS] s070 (CER=0.000)
-- ground_truth: `嗯 ，不要去跑验证 ，不要去跑验证。`
-- hypothesis  : `嗯 ，不要去跑验证 ，不要去跑验证。`
+- ground_truth: `Um, don't run verification, don't run verification.`
+- hypothesis  : `Um, don't run verification, don't run verification.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T01-52-34Z.wav`
 
 ## [PASS] s074 (CER=0.000)
-- ground_truth: `试试这样能不能行。`
-- hypothesis  : `试试这样能不能行。`
+- ground_truth: `Try this and see if it works.`
+- hypothesis  : `Try this and see if it works.`
 - audio: `/Users/marvin/.we/audio/2026-04-27T03-46-00Z.wav`
 
 ## [PASS] s077 (CER=0.000)
-- ground_truth: `嗯 ，继续吧 ，继续。`
-- hypothesis  : `嗯 ，继续吧 ，继续。`
+- ground_truth: `Um, keep going, keep going.`
+- hypothesis  : `Um, keep going, keep going.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-22T02-49-48Z.wav`
 
 ## [PASS] s079 (CER=0.000)
-- ground_truth: `嗯 ，不是用的 Docker吗 ？`
-- hypothesis  : `嗯 ，不是用的 Docker吗 ？`
+- ground_truth: `Um, isn't Docker being used?`
+- hypothesis  : `Um, isn't Docker being used?`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T06-01-38Z.wav`
 
 ## [PASS] s082 (CER=0.000)
-- ground_truth: `嗯 ，继续继续。`
-- hypothesis  : `嗯 ，继续继续。`
+- ground_truth: `Um, keep going, keep going.`
+- hypothesis  : `Um, keep going, keep going.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T07-32-31Z.wav`
 
 ## [PASS] s085 (CER=0.000)
-- ground_truth: `嗯 ，没有问题就先这么做吧。`
-- hypothesis  : `嗯 ，没有问题就先这么做吧。`
+- ground_truth: `Um, if there's no problem, let's go with this for now.`
+- hypothesis  : `Um, if there's no problem, let's go with this for now.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T01-58-26Z.wav`
 
 ## [PASS] s086 (CER=0.000)
-- ground_truth: `你看看要怎么帮我找一下原因吧。`
-- hypothesis  : `你看看要怎么帮我找一下原因吧。`
+- ground_truth: `Take a look and help me find out the reason.`
+- hypothesis  : `Take a look and help me find out the reason.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T02-40-47Z.wav`
 
 ## [PASS] s088 (CER=0.000)
-- ground_truth: `嗯 ，不急着先训练 ，确保你先理完整理解了我的架构。`
-- hypothesis  : `嗯 ，不急着先训练 ，确保你先理完整理解了我的架构。`
+- ground_truth: `Um, no rush to train first, make sure you fully understand my architecture first.`
+- hypothesis  : `Um, no rush to train first, make sure you fully understand my architecture first.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T08-56-48Z.wav`
 
 ## [PASS] s090 (CER=0.000)
-- ground_truth: `嗯 ，好像直接复制一些那种 HDML代码好像是不行的。`
-- hypothesis  : `嗯 ，好像直接复制一些那种 HDML代码好像是不行的。`
+- ground_truth: `Um, it seems directly copying some of that HDML code doesn't work.`
+- hypothesis  : `Um, it seems directly copying some of that HDML code doesn't work.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T09-04-33Z.wav`
 
 ## [PASS] s091 (CER=0.000)
-- ground_truth: `嗯 ，你能创建吗 ？你如果能创建的话就你帮我创建。`
-- hypothesis  : `嗯 ，你能创建吗 ？你如果能创建的话就你帮我创建。`
+- ground_truth: `Um, can you create it? If you can create it, then help me create it.`
+- hypothesis  : `Um, can you create it? If you can create it, then help me create it.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-16T08-13-29Z.wav`
 
 ## [PASS] s094 (CER=0.000)
-- ground_truth: `嗯 ，好 ，那这个任务就圆满完成了。`
-- hypothesis  : `嗯 ，好 ，那这个任务就圆满完成了。`
+- ground_truth: `Um, good, then this task is successfully completed.`
+- hypothesis  : `Um, good, then this task is successfully completed.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-09T09-04-12Z.wav`
 
 ## [PASS] s096 (CER=0.000)
-- ground_truth: `嗯 ，确认确认`
-- hypothesis  : `嗯 ，确认确认`
+- ground_truth: `Um, confirm confirm`
+- hypothesis  : `Um, confirm confirm`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-13T03-25-04Z.wav`
 
 ## [PASS] s098 (CER=0.000)
-- ground_truth: `嗯 ，我测试一下测试一下`
-- hypothesis  : `嗯 ，我测试一下测试一下`
+- ground_truth: `Um, let me test it, test it`
+- hypothesis  : `Um, let me test it, test it`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-10T02-44-02Z.wav`
 
 ## [PASS] s099 (CER=0.000)
-- ground_truth: `呃 ，包括你标准的选取就是你评估标准的选取也可以。`
-- hypothesis  : `呃 ，包括你标准的选取就是你评估标准的选取也可以。`
+- ground_truth: `Uh, including your selection of standards, that is, the selection of your evaluation criteria is fine too.`
+- hypothesis  : `Uh, including your selection of standards, that is, the selection of your evaluation criteria is fine too.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-15T06-08-21Z.wav`
 
 ## [PASS] s100 (CER=0.000)
-- ground_truth: `然后第一个问题你确认一下我的 Xcode版本是什么。`
-- hypothesis  : `然后第一个问题你确认一下我的 Xcode版本是什么。`
+- ground_truth: `And then for the first question, confirm what my Xcode version is.`
+- hypothesis  : `And then for the first question, confirm what my Xcode version is.`
 - audio: `/Users/marvin/.we/audio/remote-2026-04-14T02-57-12Z.wav`

@@ -1,21 +1,21 @@
-# WE 远程语音架构方案
+# WE Remote Voice Architecture Plan
 
-## 一、问题
+## 1. Problem
 
-Windows PC 通过远程桌面操作 Mac Mini。屏幕是 Mac Mini 的，麦克风在 Windows 侧。WE 依赖 Apple SpeechAnalyzer，只能跑在 macOS。需要把 Windows 的音频传到 Mac Mini 的 WE，文字直接注入焦点窗口。
+The Windows PC controls the Mac Mini via Remote Desktop. The screen belongs to the Mac Mini, but the microphone is on the Windows side. WE depends on Apple's SpeechAnalyzer, which only runs on macOS. We need to get the audio from Windows over to WE on the Mac Mini, with the resulting text injected directly into the focused window.
 
-## 二、设计原则：参照 Taildrop
+## 2. Design Principle: Modeled on Taildrop
 
-Taildrop（文件传输）是 Tailscale 的一等公民功能：
-- `ipnext.Extension` 注册到 `tailscaled`，随 daemon 默认启用
-- **PeerAPI** 做节点间传输（接收端 HTTP handler）
-- **LocalAPI** 做本地客户端到 daemon 的通信（发送端）
-- **CLI** `tailscale file cp` 是发送的薄客户端
-- 编译开关 `ts_omit_taildrop` 可移除
+Taildrop (file transfer) is a first-class citizen feature of Tailscale:
+- `ipnext.Extension` registers with `tailscaled` and is enabled by default along with the daemon
+- **PeerAPI** handles node-to-node transfer (receiving-side HTTP handler)
+- **LocalAPI** handles communication from the local client to the daemon (sending side)
+- **CLI** `tailscale file cp` is the thin client for sending
+- The build flag `ts_omit_taildrop` can remove it
 
-VoiceRelay 完全复刻这个模式。语音就是一种特殊的"文件传输"——发送的是 WAV，接收端写到 WE 的目录里。
+VoiceRelay fully replicates this pattern. Voice is essentially a special kind of "file transfer" — what's sent is a WAV file, and the receiving side writes it into WE's directory.
 
-## 三、系统拓扑
+## 3. System Topology
 
 ```
 Windows PC                                        Mac Mini (mac-dev)
@@ -27,56 +27,56 @@ Windows PC                                        Mac Mini (mac-dev)
 │  │                          │  │   Tailnet      │  │                          │    │
 │  │ LocalAPI:                │  │   WireGuard    │  │ PeerAPI:                 │    │
 │  │ POST /voice-send/{node} │  │                │  │ PUT /v0/voice/{file}     │    │
-│  │  ↑ 收 WAV → 转发 PeerAPI │  │                │  │  → ~/.we/remote-inbox/   │    │
+│  │  ↑ recv WAV → fwd PeerAPI│  │                │  │  → ~/.we/remote-inbox/   │    │
 │  └──────────────────────────┘  │                │  └──────────────────────────┘    │
-│           ↑ LocalAPI                            │             │ 写文件              │
+│           ↑ LocalAPI                            │             │ write file          │
 │  ┌────────┴───────────────┐    │                │  ┌──────────▼─────────────────┐  │
 │  │ tailscale voice        │    │                │  │ WE App                     │  │
-│  │ (CLI，用户态持久进程)   │    │                │  │                            │  │
-│  │                        │    │                │  │ FSEvents 监听              │  │
-│  │ • 全局快捷键 (RAlt)    │    │                │  │ ~/.we/remote-inbox/        │  │
-│  │ • 麦克风录音 (WASAPI)  │    │                │  │   ↓                        │  │
-│  │ • WAV → LocalAPI POST  │    │                │  │ SpeechAnalyzer (文件输入)  │  │
+│  │ (CLI, persistent       │    │                │  │                            │  │
+│  │  user-mode process)    │    │                │  │ FSEvents watcher           │  │
+│  │ • Global hotkey (RAlt) │    │                │  │ ~/.we/remote-inbox/        │  │
+│  │ • Mic recording(WASAPI)│    │                │  │   ↓                        │  │
+│  │ • WAV → LocalAPI POST  │    │                │  │ SpeechAnalyzer (file input)│  │
 │  └────────────────────────┘    │                │  │   ↓                        │  │
 │                                │                │  │ VoicePipeline (L1+L2)      │  │
-│  远程桌面客户端               │                │  │   ↓                        │  │
-│  (看到 Mac Mini 屏幕)          │ ◄── 屏幕画面 ── │  │ TextInjector → 焦点窗口    │  │
+│  Remote Desktop client        │                │  │   ↓                        │  │
+│  (sees Mac Mini screen)       │ ◄── screen ──── │  │ TextInjector → focused win │  │
 │                                │                │  │   ↓                        │  │
-│                                │                │  │ VoiceHistory (数据飞轮)    │  │
+│                                │                │  │ VoiceHistory (data flywheel)│ │
 └────────────────────────────────┘                └──────────────────────────────────┘
 ```
 
-## 四、数据流
+## 4. Data Flow
 
 ```
-1. 用户按住 RAlt（tailscale voice 进程监听 Win32 全局热键）
-2. Windows 麦克风开始录音（WASAPI，16kHz/16bit/mono PCM）
-3. 用户松开 RAlt
-4. 录音停止，WAV 数据 POST 到 LocalAPI:
+1. User holds down RAlt (the tailscale voice process listens for the Win32 global hotkey)
+2. Windows microphone starts recording (WASAPI, 16kHz/16bit/mono PCM)
+3. User releases RAlt
+4. Recording stops, WAV data is POSTed to LocalAPI:
    POST /localapi/v0/voice-send/{mac-dev-stableID}
    Body: WAV binary
-5. tailscaled Extension 收到 → 通过 PeerAPI 转发:
+5. tailscaled Extension receives it → forwards via PeerAPI:
    PUT {mac-dev-PeerAPI}/v0/voice/{timestamp}.wav
-   （和 Taildrop 的 PUT /v0/put/{filename} 完全对称）
-6. Mac Mini tailscaled Extension 收到 → 写入 ~/.we/remote-inbox/{timestamp}.wav
-7. WE App FSEvents 检测到新文件
+   (exactly symmetric to Taildrop's PUT /v0/put/{filename})
+6. Mac Mini's tailscaled Extension receives it → writes to ~/.we/remote-inbox/{timestamp}.wav
+7. WE App's FSEvents detects the new file
 8. SpeechAnalyzer.start(inputAudioFile:, finishAfterFile: true)
-9. VoicePipeline → L1 + L2 → TextInjector → 焦点窗口出字
-10. VoiceHistory 落盘（和本地语音格式一致，进蒸馏飞轮）
-11. 处理完毕，删除 remote-inbox 中的 WAV
+9. VoicePipeline → L1 + L2 → TextInjector → text appears in the focused window
+10. VoiceHistory persists the result (same format as local voice, feeding the distillation flywheel)
+11. Once processing is done, the WAV in remote-inbox is deleted
 ```
 
-## 五、Tailscale 侧：voicerelay Extension
+## 5. Tailscale Side: voicerelay Extension
 
-### 5.1 文件结构
+### 5.1 File Structure
 
 ```
 client/feature/voicerelay/
-├── ext.go                    Extension 注册 + 生命周期（参照 taildrop/ext.go）
+├── ext.go                    Extension registration + lifecycle (modeled on taildrop/ext.go)
 ├── peerapi.go                PeerAPI handler: PUT /v0/voice/{filename}
 ├── localapi.go               LocalAPI handler: POST /localapi/v0/voice-send/{stableID}
-├── voicerelay.go             核心逻辑（接收存文件、发送转发）
-└── paths.go                  接收目录路径（~/.we/remote-inbox/）
+├── voicerelay.go             Core logic (receive & save file, send & forward)
+└── paths.go                  Inbox directory path (~/.we/remote-inbox/)
 
 client/feature/buildfeatures/
 ├── feature_voicerelay_enabled.go     const HasVoiceRelay = true
@@ -87,10 +87,10 @@ client/feature/condregister/
                                       import _ "tailscale.com/feature/voicerelay"
 
 client/cmd/tailscale/cli/
-└── voice.go                          tailscale voice 子命令
+└── voice.go                          tailscale voice subcommand
 ```
 
-### 5.2 Extension 核心 (ext.go)
+### 5.2 Extension Core (ext.go)
 
 ```go
 package voicerelay
@@ -103,80 +103,81 @@ func init() {
 
 type extension struct {
     host   ipnext.Host
-    inboxDir string  // ~/.we/remote-inbox/ (Mac) 或空 (其他平台)
+    inboxDir string  // ~/.we/remote-inbox/ (Mac) or empty (other platforms)
 }
 
 func newExtension(h ipnext.Host) (ipnext.Extension, error) {
     ext := &extension{host: h}
     
-    // 注册 PeerAPI handler（接收端）
+    // Register the PeerAPI handler (receiving side)
     h.RegisterPeerAPIHandler("/v0/voice/", ext.handlePeerVoice)
     
-    // 注册 LocalAPI handler（发送端）
+    // Register the LocalAPI handler (sending side)
     h.RegisterLocalAPIHandler("voice-send/", ext.serveVoiceSend)
     
     return ext, nil
 }
 ```
 
-### 5.3 接收端 PeerAPI (peerapi.go)
+### 5.3 Receiving Side: PeerAPI (peerapi.go)
 
 ```go
-// Mac Mini 的 tailscaled 收到来自 Windows 的音频
+// The Mac Mini's tailscaled receives audio from Windows
 // PUT {PeerAPI}/v0/voice/{timestamp}.wav
 
 func (ext *extension) handlePeerVoice(w http.ResponseWriter, r *http.Request) {
     filename := path.Base(r.URL.Path)
     
-    // 写入 ~/.we/remote-inbox/
+    // Write to ~/.we/remote-inbox/
     dst := filepath.Join(ext.inboxDir, filename)
     f, _ := os.Create(dst + ".partial")
     io.Copy(f, r.Body)
     f.Close()
-    os.Rename(dst+".partial", dst)  // 原子重命名，WE 只看完整文件
+    os.Rename(dst+".partial", dst)  // Atomic rename, WE only ever sees complete files
     
     w.WriteHeader(http.StatusOK)
 }
 ```
 
-和 Taildrop 的 `handlePeerPut` 同样的 partial → rename 模式。
+Same partial → rename pattern as Taildrop's `handlePeerPut`.
 
-### 5.4 发送端 LocalAPI (localapi.go)
+### 5.4 Sending Side: LocalAPI (localapi.go)
 
 ```go
-// Windows 的 tailscale voice CLI 调用本地 daemon
+// The Windows tailscale voice CLI calls the local daemon
 // POST /localapi/v0/voice-send/{stableID}
 // Body: WAV binary
 
 func (ext *extension) serveVoiceSend(w http.ResponseWriter, r *http.Request) {
     stableID := extractStableID(r.URL.Path)
     
-    // 查找目标节点的 PeerAPI URL
+    // Look up the target node's PeerAPI URL
     targetURL := ext.host.PeerAPIURL(stableID)
     
-    // 构造 PeerAPI 请求转发
+    // Build the forwarded PeerAPI request
     filename := time.Now().Format("20060102-150405") + ".wav"
     req, _ := http.NewRequest("PUT", targetURL+"/v0/voice/"+filename, r.Body)
     
-    resp, _ := ext.host.DoHTTPRequest(req)  // 通过 Tailnet 发送
+    resp, _ := ext.host.DoHTTPRequest(req)  // Send over the Tailnet
     w.WriteHeader(resp.StatusCode)
 }
 ```
 
-和 Taildrop 的 `serveFilePut` 同样的 LocalAPI → PeerAPI 转发模式。
+Same LocalAPI → PeerAPI forwarding pattern as Taildrop's `serveFilePut`.
 
-### 5.5 CLI 命令 (voice.go)
+### 5.5 CLI Command (voice.go)
 
 ```go
 // cmd/tailscale/cli/voice.go
 
 // tailscale voice --target mac-dev --hotkey RAlt
 // 
-// 持久运行，监听全局快捷键，录音后通过 LocalAPI 发送。
-// 类似 tailscale file cp 但是：
-//   - 持久进程（不是一次性命令）
-//   - 自带录音能力（不读文件）
-//   - 快捷键触发（不是命令行参数）
+// Runs persistently, listens for the global hotkey, and sends the
+// recording via LocalAPI once captured.
+// Similar to tailscale file cp, but:
+//   - A persistent process (not a one-shot command)
+//   - Has built-in recording capability (doesn't read a file)
+//   - Triggered by a hotkey (not a command-line argument)
 
 var voiceCmd = &cobra.Command{
     Use:   "voice",
@@ -188,21 +189,21 @@ func runVoice(ctx context.Context, args []string) error {
     target := voiceArgs.target     // mac-dev
     hotkey := voiceArgs.hotkey     // RAlt
     
-    // 1. 解析目标节点
+    // 1. Resolve the target node
     st, _ := localClient.Status(ctx)
     peer := findPeer(st, target)
     
-    // 2. 注册全局热键（平台相关）
+    // 2. Register the global hotkey (platform-specific)
     hk := registerHotkey(hotkey)
     
-    // 3. 事件循环
+    // 3. Event loop
     for {
         select {
         case <-hk.Down:
             recorder.Start()
         case <-hk.Up:
             wav := recorder.Stop()
-            // 通过 LocalAPI 发送
+            // Send via LocalAPI
             localClient.VoiceSend(ctx, peer.ID, wav)
         case <-ctx.Done():
             return nil
@@ -211,14 +212,14 @@ func runVoice(ctx context.Context, args []string) error {
 }
 ```
 
-### 5.6 Windows 开机自启
+### 5.6 Windows Auto-Start at Boot
 
-Extension 在初始化时注册 Windows 计划任务或 Run 注册表项（和 Taildrop 注册 shell extension 类似）：
+When initialized, the Extension registers a Windows scheduled task or Run registry key (similar to how Taildrop registers a shell extension):
 
 ```go
-// ext.go 中
+// In ext.go
 func (ext *extension) Init(h ipnext.Host) error {
-    // Windows: 注册开机自启 "tailscale voice --target mac-dev"
+    // Windows: register auto-start for "tailscale voice --target mac-dev"
     if runtime.GOOS == "windows" {
         registerAutoStart("tailscale voice --target " + ext.defaultTarget)
     }
@@ -226,41 +227,41 @@ func (ext *extension) Init(h ipnext.Host) error {
 }
 ```
 
-用户首次配置 `tailscale voice --target mac-dev`，之后随系统自动启动。
+The user configures `tailscale voice --target mac-dev` once, and afterward it starts automatically with the system.
 
 ---
 
-## 六、WE 侧：目录监听
+## 6. WE Side: Directory Watching
 
-### 6.1 设计选择
+### 6.1 Design Choice
 
-| 方案 | 说明 |
+| Option | Notes |
 |------|------|
-| ~~WE 开 HTTP 端口~~ | WE 要变成网络服务器，增加攻击面和复杂度 |
-| **WE 监听本地目录** | tailscaled 写文件，WE 读文件。两者通过文件系统解耦 |
+| ~~WE opens an HTTP port~~ | WE would become a network server, increasing attack surface and complexity |
+| **WE watches a local directory** | tailscaled writes the file, WE reads it. The two are decoupled via the filesystem |
 
-目录监听方案和 Taildrop 的"中转模式"完全一致：daemon 写文件到本地目录，上层应用消费。
+The directory-watching approach is exactly the same as Taildrop's "relay pattern": the daemon writes files to a local directory, and the upper-level app consumes them.
 
-### 6.2 文件结构
+### 6.2 File Structure
 
 ```
-client/Sources/              (WE 项目)
-├── RemoteInbox.swift        (新增：FSEvents 目录监听 + SA 处理)
-├── WEApp.swift              (改动：AppDelegate 启动 RemoteInbox)
-├── StatusBarController.swift (改动：菜单显示远程状态)
-└── ... 其他文件不动
+client/Sources/              (WE project)
+├── RemoteInbox.swift        (new: FSEvents directory watcher + SA processing)
+├── WEApp.swift              (changed: AppDelegate starts RemoteInbox)
+├── StatusBarController.swift (changed: menu shows remote status)
+└── ... other files untouched
 ```
 
-只新增一个文件，改动两个文件。不需要 RemoteServer、不需要 NWListener、不需要 HTTP。
+Only one new file is added, and two files are modified. No RemoteServer, no NWListener, no HTTP needed.
 
-### 6.3 RemoteInbox 设计
+### 6.3 RemoteInbox Design
 
 ```swift
 // Sources/RemoteInbox.swift
 
-/// 监听 ~/.we/remote-inbox/ 目录
-/// tailscaled voicerelay Extension 会往这里写 WAV 文件
-/// 检测到新 WAV → SpeechAnalyzer → Pipeline → TextInjector
+/// Watches the ~/.we/remote-inbox/ directory
+/// The tailscaled voicerelay Extension writes WAV files here
+/// On detecting a new WAV → SpeechAnalyzer → Pipeline → TextInjector
 @MainActor
 final class RemoteInbox {
     private let inboxURL = WEDataDir.url.appendingPathComponent("remote-inbox")
@@ -268,10 +269,10 @@ final class RemoteInbox {
     private let pipeline = VoicePipeline()
     
     func start() {
-        // 确保目录存在
+        // Make sure the directory exists
         try? FileManager.default.createDirectory(at: inboxURL, withIntermediateDirectories: true)
         
-        // FSEvents 监听（和 RuntimeConfig 的 config.json 监听方式一致）
+        // FSEvents watch (same approach used for watching RuntimeConfig's config.json)
         let fd = open(inboxURL.path, O_EVTONLY)
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd, eventMask: .write, queue: .main
@@ -282,7 +283,7 @@ final class RemoteInbox {
     }
     
     private func processInbox() {
-        // 扫描目录，处理所有 .wav 文件（跳过 .partial）
+        // Scan the directory and process all .wav files (skip .partial)
         let files = try? FileManager.default.contentsOfDirectory(at: inboxURL, ...)
         for file in files where file.pathExtension == "wav" {
             Task { await processWAV(file) }
@@ -290,140 +291,140 @@ final class RemoteInbox {
     }
     
     private func processWAV(_ url: URL) async {
-        // 复用 MeetingSession 已验证的文件输入 API
+        // Reuse the file-input API already validated by MeetingSession
         let transcriber = SpeechTranscriber(locale: bestLocale, ...)
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         let inputFile = try AVAudioFile(forReading: url)
         try await analyzer.start(inputAudioFile: inputFile, finishAfterFile: true)
         
-        // 收集结果 → Pipeline（L1 + L2 + TextInjector + VoiceHistory）
+        // Collect results → Pipeline (L1 + L2 + TextInjector + VoiceHistory)
         let result = collectResults(from: transcriber)
         await pipeline.process(transcription: result, targetApp: .current())
         
-        // 处理完毕，删除或移动到 audio/ 归档
+        // Once processing is done, delete or move to the audio/ archive
         try? FileManager.default.moveItem(at: url, to: audioArchiveURL)
     }
 }
 ```
 
-### 6.4 为什么不需要 RemoteServer 了
+### 6.4 Why RemoteServer Is No Longer Needed
 
-| 之前方案 | 现在方案 |
+| Previous approach | Current approach |
 |---------|---------|
-| WE 开 NWListener HTTP 端口 | WE 不开任何端口 |
-| Windows 直连 WE 的 :9800 | Windows → tailscaled → PeerAPI → tailscaled → 文件 → WE |
-| WE 要自己做认证 | Tailscale 已认证（PeerAPI 有 capability 检查） |
-| WE 变成网络服务 | WE 保持纯本地应用 |
-| 绕过 Tailscale | 用 Tailscale 原生传输 |
+| WE opens an NWListener HTTP port | WE opens no ports at all |
+| Windows connects directly to WE's :9800 | Windows → tailscaled → PeerAPI → tailscaled → file → WE |
+| WE has to do its own authentication | Already authenticated by Tailscale (PeerAPI does capability checks) |
+| WE becomes a network service | WE stays a purely local app |
+| Bypasses Tailscale | Uses Tailscale's native transport |
 
-**WE 唯一新增的就是一个目录监听器。** 网络传输完全交给 Tailscale。
+**The only thing WE adds is a directory watcher.** Network transport is handled entirely by Tailscale.
 
 ---
 
-## 七、整体架构位置
+## 7. Overall Architecture Placement
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                      Tailscale 私域网络 (Headscale)               │
+│                  Tailscale Private Network (Headscale)            │
 │                                                                   │
 │  ┌────────┐  ┌────────┐  ┌─────────┐  ┌───────────────────────┐ │
 │  │ hs-vm  │  │  v100  │  │ jp-4080 │  │ mac-dev               │ │
-│  │Headscale│  │千问3.5 │  │纠错训练 │  │                       │ │
-│  │Portal  │  │Ollama  │  │QLoRA    │  │ tailscaled            │ │
-│  │NanoClaw│  │        │  │         │  │  ├ taildrop (文件传输) │ │
-│  │        │  │        │  │         │  │  └ voicerelay (语音)◄──┼─┼── PeerAPI
-│  └────────┘  └────────┘  └─────────┘  │       ↓ 写文件         │ │
+│  │Headscale│  │Qwen3.5 │  │Error-corr│ │                       │ │
+│  │Portal  │  │Ollama  │  │training │  │ tailscaled            │ │
+│  │NanoClaw│  │        │  │QLoRA    │  │  ├ taildrop (file xfer)│ │
+│  │        │  │        │  │         │  │  └ voicerelay (voice)◄─┼─┼── PeerAPI
+│  └────────┘  └────────┘  └─────────┘  │       ↓ write file     │ │
 │                                        │ ~/.we/remote-inbox/   │ │
 │                                        │       ↓ FSEvents      │ │
 │                                        │ WE App               │ │
-│                                        │  ├ 本地语音 (热键)    │ │
-│                                        │  ├ 远程语音 (inbox)   │ │
-│                                        │  ├ 会议录音           │ │
-│                                        │  └ 数据飞轮           │ │
+│                                        │  ├ Local voice (hotkey)│ │
+│                                        │  ├ Remote voice (inbox)│ │
+│                                        │  ├ Meeting recording  │ │
+│                                        │  └ Data flywheel      │ │
 │                                        └───────────────────────┘ │
 │                                                                   │
 │  Win PC ──────────────────────────────────────────────────────── │
 │  ┌─────────────────────────────────┐                             │
 │  │ tailscaled (Windows Service)    │                             │
-│  │  ├ taildrop (文件传输)          │ ── PeerAPI ──►              │
-│  │  └ voicerelay (语音转发)        │                             │
+│  │  ├ taildrop (file transfer)     │ ── PeerAPI ──►              │
+│  │  └ voicerelay (voice forwarding)│                             │
 │  │       ↑ LocalAPI                │                             │
-│  │ tailscale voice (用户态)        │                             │
-│  │  ├ 全局快捷键 (RAlt)            │                             │
-│  │  └ WASAPI 录音 → WAV           │                             │
+│  │ tailscale voice (user-mode)     │                             │
+│  │  ├ Global hotkey (RAlt)         │                             │
+│  │  └ WASAPI recording → WAV       │                             │
 │  └─────────────────────────────────┘                             │
 │                                                                   │
-│  数据飞轮（本地/远程一致）                                         │
+│  Data flywheel (consistent local/remote)                         │
 │  voice-history.jsonl + audio/*.wav                               │
-│   → Whisper 蒸馏 (jp-4080) + Gemini Flash 纠正                  │
-│   → QLoRA → 0.6B adapter → WE 润色升级                          │
+│   → Whisper distillation (jp-4080) + Gemini Flash correction    │
+│   → QLoRA → 0.6B adapter → WE polish/upgrade                    │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## 八、改动总览
+## 8. Summary of Changes
 
-### Tailscale 客户端 (Go)
+### Tailscale Client (Go)
 
-| 文件 | 类型 | 参照 |
+| File | Type | Modeled on |
 |------|------|------|
-| `feature/voicerelay/ext.go` | 新增 | `feature/taildrop/ext.go` |
-| `feature/voicerelay/peerapi.go` | 新增 | `feature/taildrop/peerapi.go` |
-| `feature/voicerelay/localapi.go` | 新增 | `feature/taildrop/localapi.go` |
-| `feature/voicerelay/voicerelay.go` | 新增 | `feature/taildrop/taildrop.go` |
-| `feature/voicerelay/paths.go` | 新增 | `feature/taildrop/paths.go` |
-| `feature/buildfeatures/feature_voicerelay_*.go` | 新增 | 编译开关 |
-| `feature/condregister/maybe_voicerelay.go` | 新增 | 自动注册 |
-| `cmd/tailscale/cli/voice.go` | 新增 | 参照 `cli/file.go` |
-| `cmd/tailscale/cli/voice_windows.go` | 新增 | 热键 + WASAPI 录音 |
+| `feature/voicerelay/ext.go` | New | `feature/taildrop/ext.go` |
+| `feature/voicerelay/peerapi.go` | New | `feature/taildrop/peerapi.go` |
+| `feature/voicerelay/localapi.go` | New | `feature/taildrop/localapi.go` |
+| `feature/voicerelay/voicerelay.go` | New | `feature/taildrop/taildrop.go` |
+| `feature/voicerelay/paths.go` | New | `feature/taildrop/paths.go` |
+| `feature/buildfeatures/feature_voicerelay_*.go` | New | Build flag |
+| `feature/condregister/maybe_voicerelay.go` | New | Auto-registration |
+| `cmd/tailscale/cli/voice.go` | New | Modeled on `cli/file.go` |
+| `cmd/tailscale/cli/voice_windows.go` | New | Hotkey + WASAPI recording |
 
 ### WE (Swift)
 
-| 文件 | 类型 | 说明 |
+| File | Type | Notes |
 |------|------|------|
-| `Sources/RemoteInbox.swift` | 新增 | FSEvents 目录监听 + SA 文件处理 |
-| `Sources/WEApp.swift` | 改动 | AppDelegate 启动 RemoteInbox |
-| `Sources/StatusBarController.swift` | 改动 | 菜单显示远程状态 |
+| `Sources/RemoteInbox.swift` | New | FSEvents directory watcher + SA file processing |
+| `Sources/WEApp.swift` | Changed | AppDelegate starts RemoteInbox |
+| `Sources/StatusBarController.swift` | Changed | Menu shows remote status |
 
-### 不改的
+### Unchanged
 
-| 组件 | 为什么不改 |
+| Component | Why it's unchanged |
 |------|----------|
-| VoiceSession / VoicePipeline / TextInjector / VoiceHistory | 完全复用 |
-| Headscale server / Portal / ACL | 网络层已就绪 |
-| tailscale-gui | 不在 GUI 里，在 daemon + CLI 里 |
-| go.mod (Tailscale) | `tailscale voice` 的录音用 Windows syscall，不加新依赖；或加 portaudio 一个 |
+| VoiceSession / VoicePipeline / TextInjector / VoiceHistory | Reused as-is |
+| Headscale server / Portal / ACL | Network layer is already in place |
+| tailscale-gui | Not part of the GUI, lives in the daemon + CLI |
+| go.mod (Tailscale) | `tailscale voice`'s recording uses Windows syscalls, adding no new dependency; or at most adds portaudio |
 
-## 九、实施顺序
+## 9. Implementation Order
 
 ```
-Phase 1: Tailscale Extension 骨架
-  ├── feature/voicerelay/ 照搬 taildrop 结构
-  ├── ext.go: 注册 + PeerAPI handler（接收写文件）
-  ├── localapi.go: LocalAPI handler（转发）
-  ├── 编译开关 + condregister
-  └── 验证: curl 调 LocalAPI → Mac Mini 的 ~/.we/remote-inbox/ 出现 WAV
+Phase 1: Tailscale Extension skeleton
+  ├── feature/voicerelay/ copies the taildrop structure
+  ├── ext.go: registration + PeerAPI handler (receive and write file)
+  ├── localapi.go: LocalAPI handler (forwarding)
+  ├── Build flag + condregister
+  └── Verify: curl the LocalAPI → a WAV appears in the Mac Mini's ~/.we/remote-inbox/
 
 Phase 2: WE RemoteInbox
-  ├── RemoteInbox.swift: FSEvents 目录监听
-  ├── 检测 WAV → SA 文件输入 → Pipeline → TextInjector
-  ├── AppDelegate 集成
-  └── 验证: 手动放一个 WAV 到 remote-inbox/ → 文字出现在焦点窗口
+  ├── RemoteInbox.swift: FSEvents directory watcher
+  ├── Detect WAV → SA file input → Pipeline → TextInjector
+  ├── AppDelegate integration
+  └── Verify: manually drop a WAV into remote-inbox/ → text appears in the focused window
 
 Phase 3: CLI tailscale voice
-  ├── cli/voice.go: 命令框架 + LocalAPI 调用
-  ├── voice_windows.go: Win32 RegisterHotKey + WASAPI 录音
-  └── 验证: 完整链路——按快捷键说话 → 文字出现在 Mac Mini 远程桌面
+  ├── cli/voice.go: command framework + LocalAPI calls
+  ├── voice_windows.go: Win32 RegisterHotKey + WASAPI recording
+  └── Verify: full chain — press hotkey, speak → text appears on the Mac Mini's remote desktop
 
-Phase 4: 自启与体验
-  ├── Windows 开机自启注册
-  ├── 录音/发送/就绪状态反馈（声音提示或 Windows Toast）
-  └── WE StatusBar 显示远程连接数
+Phase 4: Auto-start and experience polish
+  ├── Windows auto-start registration
+  ├── Recording/sending/ready status feedback (sound cue or Windows Toast)
+  └── WE StatusBar shows remote connection count
 ```
 
-## 十、设计原则
+## 10. Design Principles
 
-1. **照搬 Taildrop 模式** — Extension + PeerAPI + LocalAPI + CLI，不发明新模式
-2. **WE 不开端口** — 通过文件系统解耦，WE 保持纯本地应用
-3. **默认开启** — Extension 随 tailscaled 自动加载，和 Taildrop 一样
-4. **不改已有代码** — VoiceSession/Pipeline/TextInjector/VoiceHistory 全复用
-5. **编译可移除** — `ts_omit_voicerelay` 标签可完全去除此功能
+1. **Copy the Taildrop pattern** — Extension + PeerAPI + LocalAPI + CLI, no new pattern invented
+2. **WE opens no ports** — decoupled via the filesystem, WE stays a purely local app
+3. **Enabled by default** — the Extension auto-loads with tailscaled, just like Taildrop
+4. **No changes to existing code** — VoiceSession/Pipeline/TextInjector/VoiceHistory are fully reused
+5. **Removable at build time** — the `ts_omit_voicerelay` tag can fully strip this feature out

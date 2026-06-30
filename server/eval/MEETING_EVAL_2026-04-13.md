@@ -1,247 +1,249 @@
-# WE 会议模式实测评估报告
+# WE Meeting Mode Field Evaluation Report
 
-> 评估日期：2026-04-15
-> 会议录音：2026-04-13，时长 1小时32分31秒，多人会议
-> 对标系统：通义听悟（阿里云，商业级 ASR）
-> 评估方法：同一段录音分别经 WE 和通义听悟转写，交叉对比
+> Evaluation date: 2026-04-15
+> Meeting recording: 2026-04-13, duration 1 hour 32 minutes 31 seconds, multi-person meeting
+> Benchmark system: Tongyi Tingwu (Alibaba Cloud, commercial-grade ASR)
+> Evaluation method: the same recording transcribed separately by WE and Tongyi Tingwu, then cross-compared
 
-## 一、评估方法说明
+## I. Evaluation Method Description
 
-### 1.1 数据来源
+### 1.1 Data Source
 
-- **录音文件**：`meeting-2026-04-13T04-59-30Z.wav`，169MB，16kHz，单声道
-- **WE 转写**：WE 会议模式实时转写，SpeechAnalyzer 流式输入 + FluidAudio 说话人分离
-- **通义听悟**：Web 端上传，选择"中文 + 多人讨论"模式，导出原文 docx
+- **Recording file**: `meeting-2026-04-13T04-59-30Z.wav`, 169MB, 16kHz, mono
+- **WE transcription**: WE Meeting Mode real-time transcription, SpeechAnalyzer streaming input + FluidAudio speaker diarization
+- **Tongyi Tingwu**: uploaded via the web client, "Chinese + multi-person discussion" mode selected, original text exported as docx
 
-### 1.2 对齐方式
+### 1.2 Alignment Method
 
-两个系统的断句粒度不同（通义听悟段落长，WE 段落碎），无法直接逐段对比。
+The two systems segment sentences at different granularities (Tongyi Tingwu uses longer paragraphs, WE's paragraphs are more fragmented), so direct paragraph-by-paragraph comparison isn't possible.
 
-尝试了两种对齐方式：
+Two alignment methods were tried:
 
-1. **按时间窗口切片**（2分钟/5分钟窗口）→ **不可靠**。两边时间戳有 3-8 秒偏移，窗口边界处内容错位严重，导致 CER 虚高。部分窗口出现两边完全不是同一段话的情况（如 62:00-64:00 窗口，CER 46.6%，实际是对齐错位而非识别错误）。
-2. **全文拼接 + SequenceMatcher 内容对齐** → **可靠**。去掉时间戳依赖，用 Python difflib.SequenceMatcher（Ratcliff/Obershelp 算法）做全文序列对齐。经人工抽样 20 个锚点验证，每一处两边说的都是同一段话，未发现错位。
+1. **Slicing by time window** (2-minute/5-minute windows) → **unreliable**. The two sides' timestamps were offset by 3-8 seconds, causing severe content misalignment at window boundaries and artificially inflating the CER. In some windows the two sides weren't even covering the same stretch of speech at all (e.g., the 62:00-64:00 window showed a CER of 46.6%, which was actually alignment drift rather than recognition error).
+2. **Full-text concatenation + SequenceMatcher content alignment** → **reliable**. This removes the dependency on timestamps and uses Python's difflib.SequenceMatcher (Ratcliff/Obershelp algorithm) to align the full-text sequences. Manual spot-checking of 20 anchor points confirmed that both sides were referring to the same passage at every point, with no misalignment found.
 
-最终采用方式 2。
+Method 2 was ultimately adopted.
 
-### 1.3 评估指标
+### 1.3 Evaluation Metrics
 
-| 指标 | 说明 | 局限性 |
+| Metric | Description | Limitations |
 |------|------|--------|
-| **CER（字符错误率）** | 编辑距离 / 参考文本字数，jiwer 库计算 | 只衡量字面差异，不区分语义影响大小。口水词差异和语义错误同等计分 |
-| **SemDist（语义距离）** | Chinese BERT 嵌入余弦相似度，shibing624/text2vec-base-chinese | 对长片段（>3字）有效；对单字替换不可靠（上下文稀释问题） |
-| **人工逐段对比** | 随机抽取 10 个时间段，人工阅读两边文本 | 主观性强，但能发现算法指标无法捕捉的问题 |
+| **CER (Character Error Rate)** | Edit distance / reference text character count, computed with the jiwer library | Only measures literal differences and doesn't distinguish the magnitude of semantic impact. Filler-word differences and semantic errors are scored equally |
+| **SemDist (Semantic Distance)** | Chinese BERT embedding cosine similarity, shibing624/text2vec-base-chinese | Effective for long segments (>3 characters); unreliable for single-character substitutions (context dilution issue) |
+| **Manual segment-by-segment comparison** | 10 time segments randomly sampled, both sides' text read manually | Highly subjective, but can surface issues that algorithmic metrics can't capture |
 
-**关于指标选取的反思**：
+**Reflections on metric selection**:
 
-- CER 是 ASR 评测的标准指标（NIST sclite 沿用至今），但它的致命问题是把"嗯→啊"和"进度→季度"同等对待。在会议场景下，前者无关紧要，后者可能导致误解。
-- SemDist 理论上能区分语义影响，但实测中存在上下文稀释问题：差异片段加上周围相同文本后，BERT 嵌入被拉向高相似度。去掉上下文后，单字替换又因为太短导致 BERT 嵌入不稳定。
-- 最终判断仍依赖人工逐段阅读。
+- CER is the standard metric for ASR evaluation (still used by NIST sclite today), but its fatal flaw is treating "um → ah" the same as "progress → quarter." In a meeting context, the former is inconsequential while the latter can cause real misunderstanding.
+- SemDist should, in theory, be able to distinguish semantic impact, but in practice it suffers from a context-dilution problem: once a difference segment is padded with the surrounding identical text, the BERT embedding gets pulled toward high similarity. Once the context is removed, single-character substitutions become too short for the BERT embedding to be stable.
+- The final judgment still relies on manual segment-by-segment reading.
 
-### 1.4 重要声明
+### 1.4 Important Statement
 
-**通义听悟不是 ground truth。** 通义听悟本身也有识别错误（如"新闻会"可能应为"新闻发布会"或"新婚会"，"微信车辆"明显是错误）。本报告中的 CER 是两个系统的**分歧率**，不是 WE 的绝对错误率。WE 的真实错误率需要人工听录音标注 ground truth 后才能得到。
+**Tongyi Tingwu is not ground truth.** Tongyi Tingwu itself also has recognition errors (e.g., "press conference" may actually have been "press briefing" or "newlywed gathering"; "WeChat vehicle" is clearly an error). The CER in this report is the **disagreement rate** between the two systems, not WE's absolute error rate. WE's true error rate can only be obtained after manually listening to the recording and annotating ground truth.
 
 ---
 
-## 二、CER 字符错误率
+## II. CER (Character Error Rate)
 
-### 2.1 全文统计
+### 2.1 Full-Text Statistics
 
-| 指标 | 数值 |
+| Metric | Value |
 |------|------|
-| 通义听悟总字数（去标点） | 21,089 |
-| WE 总字数（去标点） | 22,628 |
-| 字数差异 | WE 多 7.3% |
+| Tongyi Tingwu total character count (punctuation removed) | 21,089 |
+| WE total character count (punctuation removed) | 22,628 |
+| Character count difference | WE has 7.3% more |
 | **CER** | **19.09%** |
 
-### 2.2 错误类型拆解
+### 2.2 Error Type Breakdown
 
-| 类型 | 数量 | 占基线字数 | 说明 |
+| Type | Count | % of baseline character count | Description |
 |------|------|-----------|------|
-| 正确匹配 | 18,960 | 89.9% | 两边完全一致的字 |
-| 替换 (S) | 1,772 | 8.4% | WE 识别成了不同的字 |
-| 插入 (I) | 1,896 | 9.0% | WE 多出的字 |
-| 删除 (D) | 357 | 1.7% | WE 漏掉的字 |
+| Correct match | 18,960 | 89.9% | Characters identical on both sides |
+| Substitution (S) | 1,772 | 8.4% | WE recognized a different character |
+| Insertion (I) | 1,896 | 9.0% | Extra characters in WE |
+| Deletion (D) | 357 | 1.7% | Characters WE dropped |
 
-**插入率 9% 是最大的差异来源**——WE 保留了口水词（嗯、啊、就是就是）和重复，通义听悟做了自动清洗。这不一定是"错误"，而是产品策略不同。
+**The 9% insertion rate is the largest source of difference** — WE retains filler words (um, ah, "like, like") and repetitions, while Tongyi Tingwu automatically cleans these up. This isn't necessarily an "error," but rather a difference in product strategy.
 
-### 2.3 CER 的局限性（本次评估中暴露的问题）
+### 2.3 Limitations of CER (issues exposed during this evaluation)
 
-1. `进度→季度`（CER 算 1 个替换）和 `嗯→啊`（CER 也算 1 个替换）被同等对待，但前者改变了会议内容的含义
-2. WE 多保留的口水词被算作"插入错误"，占了 CER 的近一半
-3. 19.09% 这个数字混合了"真实识别错误"和"口水词/标点差异"，不能直接理解为"每 5 个字有 1 个错"
+1. `progress → quarter` (counted as 1 substitution by CER) and `um → ah` (also counted as 1 substitution by CER) are treated the same, but the former changes the meaning of the meeting content
+2. The extra filler words WE retains are counted as "insertion errors," accounting for nearly half of the CER
+3. The 19.09% figure mixes "genuine recognition errors" with "filler-word/punctuation differences," and shouldn't be interpreted directly as "1 error in every 5 characters"
 
 ---
 
-## 三、SemDist 语义距离评估
+## III. SemDist Semantic Distance Evaluation
 
-### 3.1 方法
+### 3.1 Method
 
-对全文对齐后的 1,420 处 replace 差异，分两类处理：
+Of the 1,420 replace differences found after full-text alignment, two categories were processed:
 
-- **长片段（>3字）**：用 Chinese BERT（text2vec-base-chinese）编码差异片段本身（不加上下文），计算余弦相似度
-- **短片段（≤3字）**：BERT 对单字嵌入不可靠，标记为"待人工判断"
+- **Long segments (>3 characters)**: encoded the difference segment itself (without added context) using Chinese BERT (text2vec-base-chinese), and computed cosine similarity
+- **Short segments (≤3 characters)**: BERT embeddings for single characters are unreliable, so these were flagged as "pending manual judgment"
 
-### 3.2 结果
+### 3.2 Results
 
-| 类别 | 数量 | 涉及字数 | 占总字数 |
+| Category | Count | Characters involved | % of total characters |
 |------|------|---------|---------|
-| 语义严重改变 (sim < 0.5) | 140 处 | 777 字 | 3.38% |
-| 语义中度差异 (0.5 ≤ sim < 0.75) | 90 处 | 486 字 | 2.11% |
-| 短片段替换（≤3字，算法无法判断） | 1,109 处 | 1,892 字 | 8.22% |
-| 表面变化 (sim ≥ 0.9) | 1 处 | 4 字 | — |
+| Severe semantic change (sim < 0.5) | 140 instances | 777 characters | 3.38% |
+| Moderate semantic difference (0.5 ≤ sim < 0.75) | 90 instances | 486 characters | 2.11% |
+| Short-segment substitution (≤3 characters, algorithm cannot judge) | 1,109 instances | 1,892 characters | 8.22% |
+| Surface-level change (sim ≥ 0.9) | 1 instance | 4 characters | — |
 
-### 3.3 SemDist 的局限性（本次评估中暴露的问题）
+### 3.3 Limitations of SemDist (issues exposed during this evaluation)
 
-1. **上下文稀释**：第一版实现中给差异片段加了前后 15 字上下文，导致几乎所有差异被判为"表面变化"（99.92% 语义保真率），这个结果是错误的
-2. **单字替换盲区**：1,109 处短片段替换（占差异的 78%）无法用 SemDist 评估。而这些短片段中包含了大量真实的同音替换错误（进→季、闻→婚、胜→顺）
-3. **结论**：SemDist 能区分大段差异的语义影响，但对中文单字同音替换（ASR 最常见的错误类型）无能为力
+1. **Context dilution**: the first implementation added 15 characters of surrounding context before and after each difference segment, causing nearly all differences to be judged as "surface-level changes" (99.92% semantic fidelity) — this result was wrong
+2. **Single-character substitution blind spot**: 1,109 short-segment substitutions (78% of all differences) cannot be evaluated with SemDist. Yet these short segments contain a large number of genuine homophone-substitution errors (progress→quarter, hear→marriage, win→smooth)
+3. **Conclusion**: SemDist can distinguish the semantic impact of long-segment differences, but it is powerless against Chinese single-character homophone substitution — the most common type of ASR error
 
 ---
 
-## 四、人工逐段对比（核心发现）
+## IV. Manual Segment-by-Segment Comparison (Key Findings)
 
-从会议全程均匀抽取 10 个 2 分钟时间段，逐句阅读两边文本。
+10 two-minute segments were sampled evenly across the entire meeting, and both sides' text was read sentence by sentence.
 
-### 4.1 通义听悟明显优于 WE 的方面
+### 4.1 Areas where Tongyi Tingwu clearly outperforms WE
 
-#### 英文和专业术语（差距最大）
+#### English and technical terms (largest gap)
 
-| 通义听悟 | WE | 位置 |
+| Tongyi Tingwu | WE | Location |
 |---------|-----|------|
-| voice纹 | 身文 | 00:53 |
-| copy paste 到 cloudy AI | cobe配ase 到 clounin AI | 61:24 |
+| voice print | body text | 00:53 |
+| copy paste to cloudy AI | cobematchase to clounin AI | 61:24 |
 | deeper research | deacher research / deperasage | 61:00 |
-| token 费 | colken 费 | 50:54 |
-| cloud 杠 1 个 USDK | cloudownpin 好呀 | 16:51 |
+| token fee | colken fee | 50:54 |
+| cloud slash 1 USDK | cloudownpin yeah | 16:51 |
 | VG / wiki | wieke / wike | 06:12 |
 | andle capacity | Andricapassiy | 05:46 |
-| 高分的速度 (token/s) | topen 的速度 | 10:16 |
+| high-score speed (token/s) | topen's speed | 10:16 |
 | V100 | B 10 | 10:51 |
 
-WE 在中英混合场景下的术语识别明显弱于通义听悟。
+WE's terminology recognition in mixed Chinese-English scenarios is clearly weaker than Tongyi Tingwu's.
 
-#### 人名识别
+#### Name recognition
 
-| 通义听悟 | WE | 出现次数 |
+| Tongyi Tingwu | WE | Occurrences |
 |---------|-----|---------|
-| 必胜 | 必顺 | 多次 |
-| 陆淑梅 | 洛夫梅 | 1次 |
-| 凯总 | 卡统 | 1次 |
-| 王永辉 | 王以为 | 1次 |
-| 陆凤伟 | 陆凤没 | 1次 |
+| Bisheng | Bishun | multiple times |
+| Lu Shumei | Luo Fumei | 1 time |
+| Director Kai | Katong | 1 time |
+| Wang Yonghui | Wang Yiwei | 1 time |
+| Lu Fengwei | Lu Fengmei | 1 time |
 
-WE 人名全部识别错误，且同一人名多次出现时错法不一致。
+WE got every name wrong, and even for the same person whose name appeared multiple times, the errors were inconsistent.
 
-#### 断句和可读性
+#### Sentence segmentation and readability
 
-- 通义听悟：一段话完整连贯，标点位置合理
-- WE：切得过碎（平均每段 ~50字 vs 通义 ~130字），标点混乱（逗号和句号位置不准确）
+- Tongyi Tingwu: passages are complete and coherent, with reasonably placed punctuation
+- WE: segments are cut too finely (average ~50 characters per segment vs. ~130 for Tongyi), punctuation is messy (commas and periods are placed inaccurately)
 
-示例（01:30 附近）：
+Example (around 01:30):
 ```
-通义：你看一下我说话屏幕，看到三件事，第一个就是说把考核的事。再过一下进度。
-      第二个是你们现在做的具体的推进的问题。第三个是所谓的培训了。
+Tongyi: Take a look at my screen while I'm talking — there are three things. The first is the matter of the
+        assessment. Let's go over the progress again. The second is the specific progress on what you're all
+        working on right now. The third is the so-called training.
 
-WE：  哦 ，你看一下我说行吗看看看三件事第一个就是说把那个讨房的事。
-      再过过一项进度第二个是你们现在做的具体的推进的问题第三个是所谓的培训了。
-```
-
-#### 说话人区分
-
-- 通义听悟：识别 6 个说话人，主讲人（发言人2，74.1%）与次要发言人（发言人1/3/4/5/6）切换基本准确
-- WE：识别 5 个 + "未知"，主讲人占比一致（说话人1，74.4%），但次要说话人区分精度较低。部分多人交叉段（25:00-27:00）说话人标记混乱
-
-### 4.2 WE 表现持平或可接受的方面
-
-#### 中文口语主干
-
-在纯中文口语的长句中，两边核心意思基本都能传达：
-
-```
-通义：模型本身它有训练，有微调，有提示词这些注入口。但是模型每个模型本身，
-      它这些注入口对它的生效机制又是一个黑箱。
-
-WE：  模型本身它有训练有微调有提示词这些注入口。但是模型每个模型本身
-      它这些注入口对它的生效机制又是又是一个黑线啊 ，你怎么办呢
+WE:     Oh, take a look — can I say — look look look three things the first is that house-negotiation matter.
+        Go over over an progress item the second is the specific progress on what you're all working on right
+        now the third is the so-called training.
 ```
 
-虽然"黑箱→黑线"有错，但整句意思可理解。
+#### Speaker differentiation
 
-#### 完整度
+- Tongyi Tingwu: identified 6 speakers; switching between the main speaker (Speaker 2, 74.1%) and secondary speakers (Speaker 1/3/4/5/6) was largely accurate
+- WE: identified 5 speakers + "Unknown"; the main speaker's share was consistent (Speaker 1, 74.4%), but accuracy in distinguishing secondary speakers was lower. In some multi-person overlapping segments (25:00-27:00), speaker labeling was chaotic
 
-WE 没有丢失大段内容。通义听悟偶尔会把几句合并或跳过短语气词，WE 则原样保留了几乎所有口语内容。
+### 4.2 Areas where WE performs on par or acceptably
 
-### 4.3 WE 表现明显较差的方面
+#### Core Chinese spoken content
 
-#### 某些时段质量严重下降
-
-16:00-17:00 和 85:00-87:00 两个时段，WE 的转写接近不可读：
+In long sentences of pure spoken Chinese, both sides basically conveyed the core meaning:
 
 ```
-WE (16:51): 好好OK是是不是一个用一个用 cloudicloudu一个用 SDK那个 cloudg杠屁。
-通义(16:57): 用cloud杠1个USDK另一个cloud杠杠P对。
+Tongyi: The model itself has training, fine-tuning, and prompts — these injection points. But for each model
+        itself, the mechanism by which these injection points take effect is a black box.
+
+WE:     The model itself has training fine-tuning prompts these injection points. But for each model itself
+        the mechanism by which these injection points take effect is is a black line uh, what are you gonna do about it
 ```
 
-两边都不太对，但 WE 明显更差。
+Although "black box → black line" is wrong, the overall meaning of the sentence is still understandable.
 
-#### 关键信息扭曲
+#### Completeness
 
-| 原意（推测） | 通义听悟 | WE |
+WE didn't lose any large chunks of content. Tongyi Tingwu occasionally merges several sentences together or skips short filler words, while WE preserved almost all spoken content as-is.
+
+### 4.3 Areas where WE performs clearly worse
+
+#### Severe quality degradation in certain segments
+
+In the two segments 16:00-17:00 and 85:00-87:00, WE's transcription was nearly unreadable:
+
+```
+WE (16:51): Good good OK is is isn't it use a use a cloudicloudu use a SDK that cloudg slash fart.
+Tongyi (16:57): Use cloud slash 1 USDK and another cloud slash slash P, right.
+```
+
+Neither side is quite right, but WE is clearly worse.
+
+#### Distortion of key information
+
+| Likely original meaning | Tongyi Tingwu | WE |
 |------------|---------|-----|
-| 考核 | 考核 | 讨房 |
-| 绩效管理 | 绩效管理 | 学校管理 |
-| 进度 | 进度 | 季度 |
-| 提高一些 skill | 以提高一些 skill | 李基钢琴些 skill |
-| 底层代码 | 底层代码 | 底层干嘛 |
+| assessment | assessment | house negotiation |
+| performance management | performance management | school management |
+| progress | progress | quarter |
+| improve some skills | so as to improve some skills | Li Ji piano some skills |
+| underlying code | underlying code | underlying what |
 
-这些错误会导致读会议记录的人产生误解。
+These errors would cause anyone reading the meeting minutes to misunderstand.
 
 ---
 
-## 五、说话人分离对比
+## V. Speaker Diarization Comparison
 
-| 指标 | 通义听悟 | WE |
+| Metric | Tongyi Tingwu | WE |
 |------|---------|-----|
-| 识别说话人数 | 6 | 5 + 未知 |
-| 主讲人占比 | 74.1% | 74.4% |
-| 主讲人一致率（30秒窗口） | — | 86.5% |
-| 未识别占比 | 0% | 0.4% |
+| Number of speakers identified | 6 | 5 + Unknown |
+| Main speaker share | 74.1% | 74.4% |
+| Main speaker consistency rate (30-second window) | — | 86.5% |
+| Unidentified share | 0% | 0.4% |
 
-主讲人识别两边一致。次要说话人区分通义听悟更准确。
+Main speaker identification is consistent between both sides. Tongyi Tingwu is more accurate at distinguishing secondary speakers.
 
 ---
 
-## 六、总结
+## VI. Summary
 
-### 6.1 WE 会议模式的定位
+### 6.1 Positioning of WE Meeting Mode
 
-WE 使用 Apple SpeechAnalyzer（on-device）做实时转写，FluidAudio 做离线说话人分离。这是一个**轻量级、隐私优先、零成本**的方案。通义听悟是**云端商业级 ASR**，有专门的会议场景优化。两者不在同一个量级。
+WE uses Apple SpeechAnalyzer (on-device) for real-time transcription and FluidAudio for offline speaker diarization. This is a **lightweight, privacy-first, zero-cost** solution. Tongyi Tingwu is a **cloud-based, commercial-grade ASR** with dedicated optimization for meeting scenarios. The two are not in the same weight class.
 
-### 6.2 差距总结
+### 6.2 Summary of Gaps
 
-| 维度 | 差距程度 | 说明 |
+| Dimension | Gap Size | Description |
 |------|---------|------|
-| 中文口语识别 | **小** | 纯中文日常口语两边差距不大 |
-| 英文/术语识别 | **大** | WE 对英文词汇的识别远不如通义 |
-| 人名识别 | **大** | WE 几乎全部识别错误 |
-| 断句/可读性 | **中** | WE 切句过碎，标点不准 |
-| 说话人区分 | **中** | 主讲人准确，次要说话人差距明显 |
-| 完整度 | **无差距** | WE 保留了更多口语原文 |
+| Chinese spoken language recognition | **Small** | The gap between the two sides is small for everyday spoken Chinese |
+| English/terminology recognition | **Large** | WE's recognition of English vocabulary is far inferior to Tongyi's |
+| Name recognition | **Large** | WE got almost every name wrong |
+| Sentence segmentation/readability | **Medium** | WE's sentences are cut too finely, with inaccurate punctuation |
+| Speaker differentiation | **Medium** | Main speaker is accurate, but the gap for secondary speakers is clear |
+| Completeness | **No gap** | WE preserved more of the original spoken content |
 
-### 6.3 评估方法本身的问题
+### 6.3 Issues with the Evaluation Method Itself
 
-本次评估过程中暴露了以下方法论问题，记录如下供后续改进：
+The following methodological issues were exposed during this evaluation, recorded here for future improvement:
 
-1. **没有 ground truth**：以通义听悟为基线，但通义听悟自身也有错误。CER 19.09% 是分歧率，不是 WE 的绝对错误率
-2. **CER 不区分语义影响**：把口水词差异和关键词错误同等计分，在会议场景下不合理
-3. **SemDist 对中文单字替换失效**：78% 的差异是短片段替换，BERT 无法可靠评估
-4. **时间窗口对齐不可靠**：两个系统的时间戳有偏移，按固定窗口切片会导致内容错位，初版报告的分时段 CER 数据受此影响
+1. **No ground truth**: Tongyi Tingwu was used as the baseline, but it has its own errors too. The 19.09% CER is a disagreement rate, not WE's absolute error rate
+2. **CER doesn't distinguish semantic impact**: it scores filler-word differences and keyword errors equally, which is unreasonable in a meeting context
+3. **SemDist fails for Chinese single-character substitutions**: 78% of differences are short-segment substitutions, which BERT cannot reliably evaluate
+4. **Time-window alignment is unreliable**: the two systems' timestamps are offset, so slicing by fixed windows causes content misalignment; the segment-by-segment CER data in the initial draft of the report was affected by this
 
-### 6.4 后续建议
+### 6.4 Recommendations for Follow-up
 
-1. **获取 ground truth**：选取 10-15 分钟录音，人工逐字标注，分别算两边的真实 CER
-2. **contextualStrings**：把会议相关的人名、术语加入 SA 的 contextualStrings，可能显著改善专有名词识别
-3. **L2 纠错应用到会议模式**：微调后的 we-polish 模型可以用于会议转写的后处理，特别是术语纠错
-4. **断句优化**：当前 WE 按 SA 的 isFinal 段切割，可以考虑合并相邻短段提升可读性
+1. **Obtain ground truth**: select a 10-15 minute recording, manually transcribe it word-for-word, and calculate the true CER for each side separately
+2. **contextualStrings**: add meeting-related names and terminology to SpeechAnalyzer's contextualStrings, which could significantly improve proper-noun recognition
+3. **Apply L2 correction to meeting mode**: the fine-tuned we-polish model could be used for post-processing meeting transcripts, especially for terminology correction
+4. **Sentence segmentation optimization**: WE currently segments based on SpeechAnalyzer's isFinal boundaries; merging adjacent short segments could be considered to improve readability

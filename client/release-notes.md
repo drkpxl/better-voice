@@ -1,51 +1,51 @@
 # WE v0.2.0
 
-首个公开发布版本。
+First public release.
 
-## 新功能
+## New Features
 
-- **会议模式**：菜单栏 → 「开始会议」，长时间录音 → 自动分段 → L2 模型纠错 → 导出 Markdown 纪要
-- **自定义热键**：菜单栏 → 「设置热键...」，支持单 modifier（Right Option 等）或组合键（⌘⇧R 等），冲突检测
-- **字典纠错**：自动加载 `~/.we/correction-dictionary.json`，把高频术语注入语音识别上下文
-- **完整数据留痕**：每段 L2 纠错的输入/输出实时写入 `~/.we/meeting-history.jsonl`
-- **远程录音**:iOS Shortcut 通过 HTTP 推到 Mac 的 :9800 端口转写
+- **Meeting Mode**: Menu bar → "Start Meeting", long-form recording → automatic segmentation → L2 model correction → export Markdown minutes
+- **Custom Hotkeys**: Menu bar → "Set Hotkey...", supports a single modifier key (Right Option, etc.) or key combinations (⌘⇧R, etc.), with conflict detection
+- **Dictionary Correction**: Automatically loads `~/.we/correction-dictionary.json`, injecting high-frequency terms into the speech recognition context
+- **Full Data Trail**: The input/output of each L2 correction is written in real time to `~/.we/meeting-history.jsonl`
+- **Remote Recording**: An iOS Shortcut pushes audio over HTTP to the Mac's :9800 port for transcription
 
-## 安装（首次必读）
+## Installation (Read This First)
 
-1. 下载 `WE-0.2.0.dmg`，双击挂载
-2. 把 `WE.app` 拖进「应用程序」
-3. 终端执行（绕过未签名警告，**只此一次**）：
+1. Download `WE-0.2.0.dmg` and double-click to mount it
+2. Drag `WE.app` into "Applications"
+3. Run in Terminal (to bypass the unsigned-app warning, **only needed once**):
    ```
    xattr -cr /Applications/WE.app
    ```
-4. 启动 WE，按提示逐项授权：麦克风、语音识别、辅助功能
+4. Launch WE and grant permissions as prompted: Microphone, Speech Recognition, Accessibility
 
-详见 DMG 内 `INSTALL.txt`。
+See `INSTALL.txt` inside the DMG for details.
 
-## 配置
+## Configuration
 
-菜单栏 → 「编辑配置文件...」，关键项：
+Menu bar → "Edit Config File...", key settings:
 
-- `server.endpoint`：默认 `http://localhost:11434`，需要改成你自己的 ollama 服务器地址
-- `polish.context_dictionary_enabled`：开启字典纠错（默认 false）
-- `meeting.audio_source`：`mic` / `system` / `both`（系统音频/混音录会议对方声音）
+- `server.endpoint`: Defaults to `http://localhost:11434`; change it to your own ollama server address
+- `polish.context_dictionary_enabled`: Enables dictionary correction (default: false)
+- `meeting.audio_source`: `mic` / `system` / `both` (system audio / mixed audio captures the other meeting participants' voices)
 
-## 系统要求
+## System Requirements
 
 - macOS 26 (Tahoe)
-- Apple Silicon (M 系列)
-- 远程或本地 ollama 服务器，跑 `we-polish` 模型
+- Apple Silicon (M-series)
+- A remote or local ollama server running the `we-polish` model
 
-## 已知限制
+## Known Limitations
 
-- 自签名构建：升级后 TCC 隐私授权可能要重新勾选一次
-- L2 纠错依赖外部 ollama 服务，server 不通时降级为透传 SA 原文（日志里 `kind=failed`）
+- Self-signed build: After upgrading, TCC privacy permissions may need to be re-granted once
+- L2 correction depends on an external ollama service; if the server is unreachable, it falls back to passing through the raw SA transcript (logged as `kind=failed`)
 
-## 卸载
+## Uninstall
 
 ```
 killall WE 2>/dev/null
 rm -rf /Applications/WE.app ~/Applications/WE.app
-# 同时清除历史数据：
+# Also clear history data:
 rm -rf ~/.we/
 ```
