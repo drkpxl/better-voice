@@ -44,6 +44,11 @@ final class MeetingSession {
     // MARK: - 分离缓冲区（16kHz Float32 mono）
 
     private var diarizationBuffer: [Float] = []
+
+    /// 短语级转写条目（含时间戳），用于 stop() 时按说话人细粒度分组。
+    /// Phrase-level transcript entries with timestamps; used at stop() for
+    /// fine-grained per-speaker grouping. Populated only on the live start() path.
+    private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
 
     // MARK: - 时长计时器
@@ -89,6 +94,7 @@ final class MeetingSession {
         polishedSegments = []
         currentVolatileText = ""
         diarizationBuffer = []
+        allPhraseEntries = []
         duration = 0
         resetL2Stats()
         setupSegmentBuffer()
@@ -133,6 +139,7 @@ final class MeetingSession {
                                 startTime: timeRange.start,
                                 endTime: timeRange.start + timeRange.duration
                             )
+                            self.allPhraseEntries.append(entry)
                             self.currentVolatileText = ""
 
                             Logger.log("Meeting", "[Bench] Final: \"\(text.prefix(40))\" [\(String(format: "%.1f", timeRange.start))-\(String(format: "%.1f", timeRange.start + timeRange.duration))s]")
@@ -257,6 +264,7 @@ final class MeetingSession {
         polishedSegments = []
         currentVolatileText = ""
         diarizationBuffer = []
+        allPhraseEntries = []
         duration = 0
         resetL2Stats()
         setupSegmentBuffer()
@@ -319,6 +327,7 @@ final class MeetingSession {
                             startTime: timeRange.start,
                             endTime: timeRange.start + timeRange.duration
                         )
+                        self.allPhraseEntries.append(entry)
                         self.currentVolatileText = ""
 
                         Logger.log("Meeting", "Final: \"\(text)\" [\(String(format: "%.1f", timeRange.start))-\(String(format: "%.1f", timeRange.start + timeRange.duration))s]")
@@ -589,11 +598,15 @@ final class MeetingSession {
                 Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
             }
 
-            // 对齐：为每个 L2 批次段分配说话人
-            return alignTranscriptionWithDiarization(
-                segments: segments,
-                diarization: result.segments
-            )
+            // 细粒度对齐：短语级按说话人分组，每个连续回合 = 一个 MeetingSegment。
+            // Fine-grained: label each phrase by speaker, group consecutive phrases
+            // into speaker turns, polish each turn. Falls back to the coarse
+            // per-batch alignment when there are no phrase entries (bench path).
+            let phraseEntries = allPhraseEntries
+            if phraseEntries.isEmpty {
+                return alignTranscriptionWithDiarization(segments: segments, diarization: result.segments)
+            }
+            return await buildSpeakerTurns(entries: phraseEntries, diarization: result.segments)
 
         } catch {
             Logger.log("Meeting", "Diarization failed: \(error), returning segments without speaker labels")
@@ -640,6 +653,82 @@ final class MeetingSession {
                 isFinal: tSeg.isFinal
             )
         }
+    }
+
+    /// 短语级说话人分配 + 分组：每个连续同说话人回合产出一个 MeetingSegment，
+    /// 并对该回合文本做一次 L2 润色。
+    /// Assign a speaker to each phrase (max time-overlap with diarization), group
+    /// consecutive same-speaker phrases into turns, and polish each turn. This is
+    /// what fixes "everything under one speaker": speaker changes mid-conversation
+    /// now split the transcript instead of being flattened into coarse L2 chunks.
+    private func buildSpeakerTurns(
+        entries: [SegmentBuffer.Entry],
+        diarization: [TimedSpeakerSegment]
+    ) async -> [MeetingSegment] {
+        // 1. label each phrase by speaker
+        let labeled = entries.map { entry -> (entry: SegmentBuffer.Entry, speaker: String?) in
+            (entry, speakerForTimeRange(start: entry.startTime, end: entry.endTime, in: diarization))
+        }
+
+        // 2. group consecutive phrases by speaker into turns
+        var turns: [(speaker: String?, entries: [SegmentBuffer.Entry])] = []
+        for item in labeled {
+            if !turns.isEmpty, turns[turns.count - 1].speaker == item.speaker {
+                turns[turns.count - 1].entries.append(item.entry)
+            } else {
+                turns.append((speaker: item.speaker, entries: [item.entry]))
+            }
+        }
+
+        // 3. polish each turn → one MeetingSegment per speaker turn
+        var result: [MeetingSegment] = []
+        for turn in turns {
+            guard let first = turn.entries.first, let last = turn.entries.last else { continue }
+            let raw = turn.entries.map(\.text).joined()
+            let polished = await polishTurnText(raw)
+            result.append(MeetingSegment(
+                text: polished.text,
+                rawText: raw,
+                startTime: first.startTime,
+                endTime: last.endTime,
+                speakerId: turn.speaker,
+                l2Kind: polished.kind,
+                isFinal: true
+            ))
+        }
+        let speakerCount = Set(result.compactMap(\.speakerId)).count
+        Logger.log("Meeting", "Speaker turns: \(result.count) turns from \(entries.count) phrases, \(speakerCount) distinct speakers")
+        return result
+    }
+
+    /// 找与给定时间区间重叠最长的分离段的 speakerId。
+    /// Speaker whose diarization segment overlaps this time range the most.
+    private func speakerForTimeRange(start: TimeInterval, end: TimeInterval, in diarization: [TimedSpeakerSegment]) -> String? {
+        var bestSpeaker: String? = nil
+        var maxOverlap: TimeInterval = 0
+        for d in diarization {
+            let dStart = TimeInterval(d.startTimeSeconds)
+            let dEnd = TimeInterval(d.endTimeSeconds)
+            let overlap = max(0, min(end, dEnd) - max(start, dStart))
+            if overlap > maxOverlap {
+                maxOverlap = overlap
+                bestSpeaker = d.speakerId
+            }
+        }
+        return bestSpeaker
+    }
+
+    /// 对一段文本做一次 L2 润色（复用 PolishClient）；禁用或失败时回退原文。
+    /// Polish a turn's text via PolishClient; falls back to raw on disabled/failure.
+    private func polishTurnText(_ raw: String) async -> (text: String, kind: L2Kind) {
+        let polishEnabled = (RuntimeConfig.shared.polishConfig["enabled"] as? Bool) == true
+        guard polishEnabled, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return (raw, .skipped)
+        }
+        if let p = await PolishClient.shared.polish(text: raw, words: [], app: nil) {
+            return (p, p == raw ? .identity : .changed)
+        }
+        return (raw, .failed)
     }
 
     // MARK: - B3.1 中断恢复
