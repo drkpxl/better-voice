@@ -18,16 +18,16 @@ final class MeetingExporter {
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
         let fileURL = WEDataDir.meetingMarkdownURL(forName: formatter.string(from: date))
 
-        var md = "# 会议记录\n\n"
-        md += "- 日期：\(formatDate(date))\n"
-        md += "- 时长：\(formatDuration(duration))\n"
-        md += "- 总字数：\(segments.reduce(0) { $0 + $1.text.count })\n\n"
+        var md = "# \(t("Meeting Transcript"))\n\n"
+        md += "- " + t("Date: \(formatDate(date))") + "\n"
+        md += "- " + t("Duration: \(formatDuration(duration))") + "\n"
+        md += "- " + t("Total characters: \(String(segments.reduce(0) { $0 + $1.text.count }))") + "\n\n"
         md += "---\n\n"
 
         var currentSpeaker = ""
         for segment in segments where !segment.text.isEmpty {
             let time = formatTimestamp(segment.startTime)
-            let speaker = segment.speakerLabel ?? "未知"
+            let speaker = segment.speakerLabel ?? t("Unknown")
 
             if speaker != currentSpeaker {
                 currentSpeaker = speaker
@@ -60,14 +60,14 @@ final class MeetingExporter {
         let m = (Int(seconds) % 3600) / 60
         let s = Int(seconds) % 60
         if h > 0 {
-            return String(format: "%d小时%d分%d秒", h, m, s)
+            return String(format: t("%dh %dm %ds"), h, m, s)
         }
-        return String(format: "%d分%d秒", m, s)
+        return String(format: t("%dm %ds"), m, s)
     }
 
     private static func formatDate(_ date: Date) -> String {
         let f = DateFormatter()
-        f.dateFormat = "yyyy年M月d日 HH:mm"
+        f.dateFormat = t("yyyy-MM-dd HH:mm")
         return f.string(from: date)
     }
 }

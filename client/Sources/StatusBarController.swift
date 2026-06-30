@@ -67,7 +67,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func setupMenu() {
         let menu = NSMenu()
 
-        menu.addItem(NSMenuItem(title: L10n.t("WE Voice Input", "WE 语音输入"), action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: t("WE Voice Input"), action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
         // 服务器状态
@@ -78,7 +78,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(modelItem)
 
         let reconnectItem = NSMenuItem(
-            title: L10n.t("Check server connection", "检查服务器连接"),
+            title: t("Check server connection"),
             action: #selector(checkServer),
             keyEquivalent: ""
         )
@@ -90,25 +90,25 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 权限状态行：用户视角直接看 4 项 + 点击跳系统设置
         addPermissionRow(
             to: menu,
-            label: L10n.t("Global hotkey monitoring", "全局热键监听"),
+            label: t("Global hotkey monitoring"),
             granted: PermissionManager.isInputMonitoringGranted(),
             selector: #selector(openInputMonitoringSettings)
         )
         addPermissionRow(
             to: menu,
-            label: L10n.t("Text injection (cursor)", "文字注入光标"),
+            label: t("Text injection (cursor)"),
             granted: PermissionManager.isAccessibilityGranted(),
             selector: #selector(openAccessibilitySettings)
         )
         addPermissionRow(
             to: menu,
-            label: L10n.t("Microphone", "麦克风录音"),
+            label: t("Microphone"),
             granted: PermissionManager.isMicrophoneGranted(),
             selector: #selector(openMicrophoneSettings)
         )
         addPermissionRow(
             to: menu,
-            label: L10n.t("Screen Recording (meeting system audio)", "屏幕录制（会议系统音频）"),
+            label: t("Screen Recording (meeting system audio)"),
             granted: PermissionManager.isScreenCaptureGranted(),
             selector: #selector(openScreenRecordingSettings)
         )
@@ -118,7 +118,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 会议模式
         if isMeetingActive {
             let stopMeeting = NSMenuItem(
-                title: L10n.t("Stop Meeting", "结束会议"),
+                title: t("Stop Meeting"),
                 action: #selector(toggleMeeting),
                 keyEquivalent: "m"
             )
@@ -126,7 +126,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             menu.addItem(stopMeeting)
         } else {
             let startMeeting = NSMenuItem(
-                title: L10n.t("Start Meeting Recording", "开始会议录音"),
+                title: t("Start Meeting Recording"),
                 action: #selector(toggleMeeting),
                 keyEquivalent: "m"
             )
@@ -138,7 +138,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         if remoteStatus != .idle {
             menu.addItem(NSMenuItem.separator())
             let port = RuntimeConfig.shared.remoteConfig["port"] as? Int ?? 9800
-            let remoteItem = NSMenuItem(title: "\(L10n.t("Remote voice", "远程语音"))\(L10n.t(": ", "："))\(remoteStatus.rawValue) (:\(port))", action: nil, keyEquivalent: "")
+            let remoteItem = NSMenuItem(title: t("Remote voice: \(remoteStatus.displayName) (:\(String(port)))"), action: nil, keyEquivalent: "")
             menu.addItem(remoteItem)
         }
 
@@ -147,7 +147,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 配置与数据
         let hotkeyTitle: String = {
             let cfg = HotKeyConfig.load(from: RuntimeConfig.shared.hotKeyConfig)
-            return L10n.t("Set Hotkey... (\(cfg.displayName))", "设置热键... (\(cfg.displayName))")
+            return t("Set Hotkey... (\(cfg.displayName))")
         }()
         let hotkeyItem = NSMenuItem(
             title: hotkeyTitle,
@@ -158,7 +158,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(hotkeyItem)
 
         let configItem = NSMenuItem(
-            title: L10n.t("Edit Config File...", "编辑配置文件..."),
+            title: t("Edit Config File..."),
             action: #selector(openConfig),
             keyEquivalent: ","
         )
@@ -166,7 +166,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(configItem)
 
         let dataItem = NSMenuItem(
-            title: L10n.t("Open Data Folder...", "打开数据目录..."),
+            title: t("Open Data Folder..."),
             action: #selector(openDataDir),
             keyEquivalent: ""
         )
@@ -174,7 +174,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(dataItem)
 
         let logItem = NSMenuItem(
-            title: L10n.t("View Logs...", "查看日志..."),
+            title: t("View Logs..."),
             action: #selector(openLog),
             keyEquivalent: ""
         )
@@ -183,7 +183,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: L10n.t("Quit", "退出"), action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: t("Quit"), action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -193,20 +193,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private var serverMenuTitle: String {
         let status = ModelServer.shared.status
-        let endpoint = RuntimeConfig.shared.serverConfig["endpoint"] as? String ?? L10n.t("not configured", "未配置")
+        let endpoint = RuntimeConfig.shared.serverConfig["endpoint"] as? String ?? t("not configured")
         switch status {
         case .connected:
-            return L10n.t("Server: connected (\(endpoint))", "服务器：已连接 (\(endpoint))")
+            return t("Server: connected (\(endpoint))")
         case .disconnected:
-            return L10n.t("Server: disconnected (\(endpoint))", "服务器：未连接 (\(endpoint))")
+            return t("Server: disconnected (\(endpoint))")
         case .unknown:
-            return L10n.t("Server: checking...", "服务器：检测中...")
+            return t("Server: checking...")
         }
     }
 
     private var modelMenuTitle: String {
-        let model = RuntimeConfig.shared.serverConfig["model"] as? String ?? L10n.t("not configured", "未配置")
-        return L10n.t("Model: \(model)", "模型：\(model)")
+        let model = RuntimeConfig.shared.serverConfig["model"] as? String ?? t("not configured")
+        return t("Model: \(model)")
     }
 
 
@@ -351,12 +351,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// granted=false 时变红，点击跳系统设置对应页面。
     private func addPermissionRow(to menu: NSMenu, label: String, granted: Bool, selector: Selector) {
         let icon = granted ? "✓" : "⚠"
-        let separator = L10n.t(": ", "：")
         let statusText = granted
-            ? L10n.t("Authorized", "已授权")
-            : L10n.t("Not authorized — click to open Settings", "未授权 — 点击设置")
+            ? t("Authorized")
+            : t("Not authorized — click to open Settings")
         let item = NSMenuItem(
-            title: "\(icon) \(label)\(separator)\(statusText)",
+            title: "\(icon) \(t("\(label): \(statusText)"))",
             action: granted ? nil : selector,
             keyEquivalent: ""
         )

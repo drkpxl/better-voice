@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "WE",
+    defaultLocalization: "en",
     platforms: [.macOS(.v26)],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio", branch: "main")
@@ -13,7 +14,10 @@ let package = Package(
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio")
             ],
-            path: "Sources"
+            path: "Sources",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

@@ -105,7 +105,7 @@ private class RecordingPanelView: NSView {
         addSubview(micView)
 
         // 文字
-        let label = NSTextField(labelWithString: "正在聆听…")
+        let label = NSTextField(labelWithString: t("Listening..."))
         label.font = .systemFont(ofSize: 13, weight: .medium)
         label.textColor = .white
         label.frame = NSRect(x: 60, y: (frame.height - 18) / 2, width: 90, height: 18)

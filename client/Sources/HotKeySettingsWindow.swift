@@ -39,7 +39,7 @@ final class HotKeySettingsWindow {
             backing: .buffered,
             defer: false
         )
-        win.title = "WE 设置热键"
+        win.title = t("WE Set Hotkey")
         win.contentView = host
         win.center()
         win.isReleasedWhenClosed = false
@@ -77,7 +77,7 @@ final class HotKeySettingsViewModel {
     func updateCaptured(_ config: HotKeyConfig) {
         captured = config
         if HotKeyConflictChecker.isConflicting(config) {
-            conflictWarning = "该快捷键可能与系统快捷键冲突。"
+            conflictWarning = t("This shortcut may conflict with system shortcuts.")
         } else {
             conflictWarning = nil
         }
@@ -100,7 +100,7 @@ struct HotKeySettingsContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("录音 / 停止 快捷键")
+            Text(t("Record / Stop Hotkey"))
                 .font(.headline)
 
             HotKeyRecorderView(
@@ -119,7 +119,7 @@ struct HotKeySettingsContentView: View {
                 }
             }
 
-            Text("点击按钮，按下你想要的快捷键。可以是单 modifier（如 Right Option）或组合键（如 ⌘+⇧+R）。Esc 取消。")
+            Text(t("Click the button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌘+⇧+R). Press Esc to cancel."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -127,9 +127,9 @@ struct HotKeySettingsContentView: View {
 
             HStack {
                 Spacer()
-                Button("取消") { viewModel.cancel() }
+                Button(t("Cancel")) { viewModel.cancel() }
                     .keyboardShortcut(.cancelAction)
-                Button("保存") { viewModel.save() }
+                Button(t("Save")) { viewModel.save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(viewModel.saveDisabled)
             }
@@ -171,7 +171,7 @@ struct HotKeyRecorderView: View {
     }
 
     private var buttonLabel: String {
-        isRecording ? "请按下快捷键…  (Esc 取消)" : current.displayName
+        isRecording ? t("Press hotkey... (Esc to cancel)") : current.displayName
     }
 
     private func toggleRecording() {
