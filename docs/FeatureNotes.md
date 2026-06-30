@@ -43,7 +43,12 @@
 - **Added:** free-text `~/.we/personal-context.md` injected into the polish prompt via `PersonalContext.appended(to:)`, gated by `polish.personal_context_enabled`. Default model bumped to `qwen3:4b`.
 - **Next:** reuse the same `PersonalContext.appended(to:)` in the summarization prompt (#2–#4).
 
+### Voice fingerprinting
+- Build persistent voice fingerprints per person (yourself + recurring call participants).
+- Goal: auto-recognize and label speakers across sessions without manual assignment.
+- Speaker-labeling UI (#3) is the interim solution until this is built.
 
-### 7. Other later-stage ideas
+
+###  Other later-stage ideas
 - Live markdown editor (edit transcript/notes in real time during or after the call).
 - Folder structure / organization system for saved transcripts and summaries.
