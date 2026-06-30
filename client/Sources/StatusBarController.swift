@@ -1,4 +1,5 @@
 import AppKit
+import WECore
 
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {

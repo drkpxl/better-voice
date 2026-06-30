@@ -1,4 +1,5 @@
 import Foundation
+import WECore
 
 /// 会议模式 segment 级流式落盘
 ///

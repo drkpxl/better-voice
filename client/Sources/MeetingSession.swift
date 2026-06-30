@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import CoreMedia
 import FluidAudio
+import WECore
 import Speech
 
 // MARK: - 会议录音会话

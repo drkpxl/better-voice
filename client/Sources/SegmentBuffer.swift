@@ -1,4 +1,5 @@
 import Foundation
+import WECore
 
 /// 会议模式分段缓冲
 /// 累积 SA final segment，按下列任一触发器 flush：

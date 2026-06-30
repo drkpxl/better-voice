@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WECore
 
 @main
 struct WEApp {

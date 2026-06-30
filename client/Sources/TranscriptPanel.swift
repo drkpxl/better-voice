@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WECore
 
 // MARK: - ViewModel
 
@@ -70,7 +71,7 @@ struct TranscriptContentView: View {
                 .foregroundStyle(.secondary)
 
             // 说话人标签
-            if let speaker = segment.speakerLabel {
+            if let speaker = segment.speakerLabel(prefix: t("Speaker")) {
                 Text(speaker + ":")
                     .font(.caption)
                     .fontWeight(.semibold)

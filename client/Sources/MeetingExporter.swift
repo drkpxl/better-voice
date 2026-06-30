@@ -1,4 +1,5 @@
 import Foundation
+import WECore
 
 /// 会议转录导出器
 /// 支持导出为 Markdown 格式，保存到 ~/.we/meetings/
@@ -27,7 +28,7 @@ final class MeetingExporter {
         var currentSpeaker = ""
         for segment in segments where !segment.text.isEmpty {
             let time = formatTimestamp(segment.startTime)
-            let speaker = segment.speakerLabel ?? t("Unknown")
+            let speaker = segment.speakerLabel(prefix: t("Speaker")) ?? t("Unknown")
 
             if speaker != currentSpeaker {
                 currentSpeaker = speaker
