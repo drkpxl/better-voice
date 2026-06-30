@@ -706,6 +706,9 @@ final class MeetingSession {
     private func speakerForTimeRange(start: TimeInterval, end: TimeInterval, in diarization: [TimedSpeakerSegment]) -> String? {
         var bestSpeaker: String? = nil
         var maxOverlap: TimeInterval = 0
+        var nearestSpeaker: String? = nil
+        var nearestDistance = TimeInterval.greatestFiniteMagnitude
+        let mid = (start + end) / 2
         for d in diarization {
             let dStart = TimeInterval(d.startTimeSeconds)
             let dEnd = TimeInterval(d.endTimeSeconds)
@@ -714,8 +717,17 @@ final class MeetingSession {
                 maxOverlap = overlap
                 bestSpeaker = d.speakerId
             }
+            // 到该分离段的时间距离（落在段内为 0），用于无重叠时兜底。
+            let distance = mid < dStart ? dStart - mid : (mid > dEnd ? mid - dEnd : 0)
+            if distance < nearestDistance {
+                nearestDistance = distance
+                nearestSpeaker = d.speakerId
+            }
         }
-        return bestSpeaker
+        // 有重叠取重叠最多者；否则取时间上最近的说话人，消除短插话的 "Unknown"。
+        // Prefer the most-overlapping speaker; otherwise snap to the nearest one
+        // so brief interjections in diarization gaps aren't labelled "Unknown".
+        return bestSpeaker ?? nearestSpeaker
     }
 
     /// 对一段文本做一次 L2 润色（复用 PolishClient）；禁用或失败时回退原文。
