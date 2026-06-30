@@ -81,8 +81,7 @@ final class RuntimeConfig {
                     "enabled": true,
                     "system_prompt": Prompts.defaultPolish,
                     "context_dictionary_enabled": false,
-                    "context_dictionary_path": WEDataDir.correctionDictURL.path,
-                    "context_ocr_enabled": false
+                    "context_dictionary_path": WEDataDir.correctionDictURL.path
                 ],
                 "distill": [
                     "enabled": false,

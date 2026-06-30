@@ -27,7 +27,6 @@ Grant: **System Settings → Privacy & Security** → Input Monitoring (for glob
 
 ```
 Hold Right Option
-  → Screen OCR (focus area) → contextualStrings → SpeechAnalyzer
   → Transcription (rawSA)
   → L2 LLM polish (optional, ollama)
   → Inject into active app

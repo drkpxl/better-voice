@@ -63,17 +63,14 @@ final class VoiceModule: WEModule {
                 try await voiceSession.start()
                 Logger.log("Voice", "Recording... press hotkey again to stop")
 
-                // G3: 上下文注入（OCR + 可选纠错字典），异步不阻塞录音
+                // 上下文注入（可选纠错字典），异步不阻塞录音
                 Task {
                     let polish = RuntimeConfig.shared.polishConfig
                     let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
                     let dictPath = polish["context_dictionary_path"] as? String
-                    let ocrEnabled = polish["context_ocr_enabled"] as? Bool ?? false
                     let words = await ContextEnhancer.enhance(
-                        for: self.pinnedApp,
                         dictionaryEnabled: dictEnabled,
-                        dictionaryPath: dictPath,
-                        ocrEnabled: ocrEnabled
+                        dictionaryPath: dictPath
                     )
                     if !words.isEmpty {
                         await voiceSession.updateContext(contextualWords: words)

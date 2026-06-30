@@ -819,12 +819,9 @@ final class MeetingSession {
         let polish = RuntimeConfig.shared.polishConfig
         let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
         let dictPath = polish["context_dictionary_path"] as? String
-        let ocrEnabled = polish["context_ocr_enabled"] as? Bool ?? false
         let words = await ContextEnhancer.enhance(
-            for: AppIdentity.current(),
             dictionaryEnabled: dictEnabled,
-            dictionaryPath: dictPath,
-            ocrEnabled: ocrEnabled
+            dictionaryPath: dictPath
         )
         if !words.isEmpty {
             let ctx = AnalysisContext()

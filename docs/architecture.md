@@ -20,15 +20,6 @@ When ambient mode is enabled (`ambient_enabled` in config), `AmbientController` 
 4. **Result processing** -- A background `Task` iterates `transcriber.results`. Final segments are accumulated into `finalizedText` with word-level `WordInfo` (text, confidence, alternatives, timing). Volatile (partial) results are forwarded via `onPartialResult` for live UI feedback.
 5. **Stop and finalize** -- On stop, capture halts, `inputBuilder.finish()` signals end-of-audio, then `analyzer.finalizeAndFinishThroughEndOfInput()` is awaited with a 5-second timeout. The accumulated text and word info are returned as a `TranscriptionResult`.
 
-### Screen Context Capture via ScreenCaptureKit + Vision OCR (G3)
-
-`ScreenContextProvider` runs asynchronously after recording starts, without blocking audio capture:
-
-1. **Window capture** -- Uses `SCShareableContent` to find the focused application's on-screen window, then `SCScreenshotManager.captureImage` at 2x Retina resolution.
-2. **OCR** -- Runs `VNRecognizeTextRequest` with `.accurate` recognition level and language correction enabled, on a background queue.
-3. **Keyword extraction** -- From the last 30 lines of OCR text, extracts capitalized English terms (proper nouns, technical terms) and Chinese word groups (2-8 characters). Up to 50 keywords are collected.
-4. **Context injection** -- Keywords are injected into the `SpeechAnalyzer` via `AnalysisContext.contextualStrings[.general]`, biasing the speech recognizer toward domain-specific vocabulary visible on screen.
-
 ### Deterministic Correction via AlternativeSwap (L1)
 
 `AlternativeSwap.apply()` performs rule-based corrections on the raw transcription:
@@ -126,7 +117,6 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 | `VoicePipeline.swift` | Post-processing orchestrator: L1 -> L2 -> inject -> correction -> history |
 | `AmbientController.swift` | CoreAudio HAL VAD for hands-free voice activation |
 | `GlobalHotKey.swift` | CGEventTap-based global hotkey (Right Option toggle, Enter key detection) |
-| `ScreenContextProvider.swift` | ScreenCaptureKit window capture + Vision OCR for contextual bias |
 | `AlternativeSwap.swift` | Deterministic word replacement using SA alternatives + correction history |
 | `PolishClient.swift` | LLM polish client, delegates to ModelServer |
 | `ModelServer.swift` | Ollama/OpenAI-compatible API client with health monitoring |
@@ -143,7 +133,7 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 | `StatusBarController.swift` | Menu bar UI, meeting mode controls, server status display |
 | `RecordingIndicator.swift` | Floating HUD panel with pulsing mic icon during recording |
 | `RuntimeConfig.swift` | JSON config loader (~/.we/config.json) with file-watch hot reload |
-| `PermissionManager.swift` | Accessibility, microphone, and screen capture permission checks |
+| `PermissionManager.swift` | Accessibility, microphone, and screen-recording (meeting audio) permission checks |
 | `AppIdentity.swift` | Frontmost application identification (bundle ID, PID, name) |
 | `Logger.swift` | File + console logger with 5MB auto-trim |
 | `JSONLWriter.swift` | Thread-safe JSONL append writer |
@@ -204,9 +194,6 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
            (~/.we/audio/)    (text + words +      |
                               confidence)         |
                                                   |
-           ScreenContextProvider (G3) ────────────┤
-           (ScreenCaptureKit + Vision OCR         |
-            -> contextualWords -> SA bias)        |
                                                   v
                                      ┌─── AlternativeSwap (L1)
                                      |    (confidence < 0.8?

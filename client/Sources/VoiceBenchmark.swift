@@ -70,16 +70,13 @@ enum VoiceBenchmark {
             // 2. 创建 SpeechAnalyzer
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
-            // 3. 上下文注入（字典 + OCR）—— 用户视角必须含此环节
+            // 3. 上下文注入（字典）—— 用户视角必须含此环节
             let polishCfg = RuntimeConfig.shared.polishConfig
             let dictEnabled = polishCfg["context_dictionary_enabled"] as? Bool ?? false
             let dictPath = polishCfg["context_dictionary_path"] as? String
-            // bench 模式不做 OCR（屏幕焦点未知）
             let contextWords = await ContextEnhancer.enhance(
-                for: nil,
                 dictionaryEnabled: dictEnabled,
-                dictionaryPath: dictPath,
-                ocrEnabled: false
+                dictionaryPath: dictPath
             )
             if !contextWords.isEmpty {
                 let ctx = AnalysisContext()

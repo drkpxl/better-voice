@@ -185,6 +185,6 @@ Grant in: **Privacy & Security > Microphone**
 
 ### Screen Recording
 
-**Optional.** Used for OCR context capture -- reading on-screen text to provide context to the polish model. If not granted, polish still works but without screen context.
+**Optional.** Used by Meeting mode to capture system audio via ScreenCaptureKit (see `SystemAudioCapturer.swift`). Not needed for dictation-only use. If not granted, meetings still record microphone audio but not system/remote-participant audio.
 
 Grant in: **Privacy & Security > Screen Recording**

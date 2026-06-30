@@ -232,17 +232,13 @@ final class RemoteInbox {
             // 3. 创建 SpeechAnalyzer
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
-            // 3.5 上下文注入（字典 + OCR），和本地 VoiceSession 路径统一
-            let currentApp = AppIdentity.current()
+            // 3.5 上下文注入（字典），和本地 VoiceSession 路径统一
             let polish = RuntimeConfig.shared.polishConfig
             let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
             let dictPath = polish["context_dictionary_path"] as? String
-            let ocrEnabled = polish["context_ocr_enabled"] as? Bool ?? false
             let contextWords = await ContextEnhancer.enhance(
-                for: currentApp,
                 dictionaryEnabled: dictEnabled,
-                dictionaryPath: dictPath,
-                ocrEnabled: ocrEnabled
+                dictionaryPath: dictPath
             )
             if !contextWords.isEmpty {
                 let ctx = AnalysisContext()

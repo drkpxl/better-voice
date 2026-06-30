@@ -175,7 +175,7 @@ final class VoiceSession {
         Logger.log("Voice", "Session started (AVCaptureSession + SpeechAnalyzer)")
     }
 
-    /// G3 → G2：运行时注入屏幕上下文到 SA（提升专有名词/术语识别率）
+    /// 运行时注入纠错字典关键词到 SA（提升专有名词/术语识别率）
     func updateContext(contextualWords: [String]) async {
         guard let analyzer, !contextualWords.isEmpty else { return }
         let context = AnalysisContext()

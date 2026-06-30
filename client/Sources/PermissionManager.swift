@@ -3,11 +3,11 @@ import AVFoundation
 import IOKit.hid
 
 /// 权限检查与引导
-/// - Accessibility：用于 TextInjector (AX API) 和 ScreenContextProvider (焦点位置)
+/// - Accessibility：用于 TextInjector (AX API)
 /// - **Input Monitoring**：CGEventTap 监听全局键盘事件的真实权限（macOS 10.15+ 必须）
 ///   ⚠️ 不是 Accessibility。CGEventTap 能"创建成功"但不收事件 = Input Monitoring 缺失。
 /// - Microphone：用于语音录制
-/// - Screen Capture：用于 G3 屏幕上下文感知
+/// - Screen Capture：用于会议系统音频捕获 (SystemAudioCapturer / ScreenCaptureKit)
 enum PermissionManager {
     static func checkAccessibility() -> Bool {
         let trusted = AXIsProcessTrusted()
@@ -66,7 +66,7 @@ enum PermissionManager {
         }
     }
 
-    /// 请求屏幕录制权限（G3 需要）
+    /// 请求屏幕录制权限（会议系统音频捕获需要，见 SystemAudioCapturer）
     /// CGRequestScreenCaptureAccess() 会把 app 加入系统设置的屏幕录制列表
     /// 用户需要手动开启后重启 app 才生效
     static func checkScreenCapture() -> Bool {
