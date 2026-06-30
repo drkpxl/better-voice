@@ -101,6 +101,12 @@ make install        # Install to ~/Applications
 make uninstall      # Remove
 ```
 
-## License
+## Credits & License
 
-MIT
+This project began as a fork of [Marvinngg/ambient-voice](https://github.com/Marvinngg/ambient-voice)
+and has since diverged substantially — most notably, the self-training / QLoRA
+fine-tuning pipeline was removed in v0.3.0 in favor of prompt-based
+personalization (`~/.we/personal-context.md`). Original portions remain credited
+to the upstream authors.
+
+Licensed under the MIT License — see [LICENSE](LICENSE).
