@@ -2,6 +2,9 @@
 
 ## Near-term
 
+### 0. New Settings UI
+- From menu bar a settings option should be created, initial selections are up to you further details are listed below
+
 ### 1. Live waveform indicator
 - Small waveform UI sits below the camera bar, in the "eyebrow" area.
 - Animates when audio is detected — either your voice (mic) or system audio (other participants).
@@ -13,6 +16,10 @@
 - Currently the app outputs a raw markdown transcript with no summarization step.
 - Add a post-processing step that sends the full transcript to a local Ollama endpoint for summarization.
 - Output gets appended to (or saved alongside) the markdown file.
+- User gets to in the UI choose save location for both files
+- User gets option to auto-delete audio files after transcription
+- Defaults to our current model, but they can put in a different ollama model id
+- Need to make sure context is upped on model args
 
 ### 3. Speaker labeling UI (stepping stone to voice fingerprinting)
 - Between transcription and summarization, add a UI step to assign names to detected speakers.
