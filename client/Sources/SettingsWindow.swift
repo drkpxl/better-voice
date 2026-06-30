@@ -152,6 +152,40 @@ final class SettingsViewModel {
 
     func openDataFolder() { NSWorkspace.shared.open(WEDataDir.url) }
 
+    /// 打开个人上下文文件；不存在时先用模板创建，方便用户上手。
+    func editPersonalContext() {
+        let url = WEDataDir.personalContextURL
+        if !FileManager.default.fileExists(atPath: url.path) {
+            WEDataDir.ensureExists()
+            try? Self.personalContextTemplate.write(to: url, atomically: true, encoding: .utf8)
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private static let personalContextTemplate = """
+    # Personal context
+
+    This file gives the local AI background about you so it spells names, jargon,
+    and acronyms correctly when polishing dictation and summarizing meetings. It is
+    used only for disambiguation — it is never added to your text or summaries.
+
+    Edit freely. Useful things to include:
+    - Your name and how it's spelled.
+    - Your company / team and what it does.
+    - Your role / title.
+    - People you talk to often (names + roles).
+    - Recurring projects, products, tools, and acronyms.
+
+    ## About me
+
+
+    ## People
+
+
+    ## Projects & terms
+
+    """
+
     func editConfigFile() {
         let url = WEDataDir.configURL
         if !FileManager.default.fileExists(atPath: url.path) { _ = RuntimeConfig.shared }
@@ -257,6 +291,7 @@ struct SettingsContentView: View {
                 }
 
                 Section(t("Data")) {
+                    Button(t("Edit Personal Context...")) { viewModel.editPersonalContext() }
                     Button(t("Open Data Folder...")) { viewModel.openDataFolder() }
                     Button(t("Edit Config File...")) { viewModel.editConfigFile() }
                     Button(t("View Logs...")) { viewModel.viewLogs() }

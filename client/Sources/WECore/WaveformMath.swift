@@ -21,15 +21,4 @@ public enum WaveformMath {
     public static func rms(int16 samples: [Int16]) -> Float {
         samples.withUnsafeBufferPointer { rms(int16: $0) }
     }
-
-    /// 把原始 RMS 映射成 0...1 的可视电平。
-    /// - 在噪声地板及以下返回 0（指示器保持平直/静止）。
-    /// - 其上按 (rms - floor)/(1 - floor) 线性映射并乘以灵敏度，最后夹到 0...1。
-    public static func normalizedLevel(rms: Float, noiseFloor: Float, sensitivity: Float) -> Float {
-        let floor = max(0, min(noiseFloor, 0.999))
-        guard rms > floor else { return 0 }
-        let span = 1 - floor
-        let scaled = (rms - floor) / span * max(0, sensitivity)
-        return min(1, max(0, scaled))
-    }
 }

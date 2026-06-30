@@ -203,17 +203,4 @@ final class WECoreTests: XCTestCase {
         let buf = [Int16](repeating: 32767, count: 128)
         XCTAssertEqual(WaveformMath.rms(int16: buf), 1.0, accuracy: 0.001)
     }
-
-    func testNormalizedLevelFloor() {
-        XCTAssertEqual(WaveformMath.normalizedLevel(rms: 0.01, noiseFloor: 0.02, sensitivity: 1), 0)
-        XCTAssertEqual(WaveformMath.normalizedLevel(rms: 0.02, noiseFloor: 0.02, sensitivity: 1), 0)
-    }
-
-    func testNormalizedLevelScalesAndClamps() {
-        // Halfway between floor and 1, sensitivity 1.
-        let mid = WaveformMath.normalizedLevel(rms: 0.51, noiseFloor: 0.02, sensitivity: 1)
-        XCTAssertEqual(mid, 0.5, accuracy: 0.01)
-        // High sensitivity clamps at 1.
-        XCTAssertEqual(WaveformMath.normalizedLevel(rms: 0.5, noiseFloor: 0.02, sensitivity: 10), 1)
-    }
 }

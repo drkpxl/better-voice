@@ -44,10 +44,11 @@ final class MeetingWrapUpWindow {
         inferredType: MeetingType,
         completion: @escaping (Outcome) -> Void
     ) {
-        // 防御：若已有未完成的面板，先用 skip 收尾它的 continuation（绝不丢挂起的 await）。
+        // 防御：若已有未完成的面板，先关掉旧窗口并用 skip 收尾它的 continuation
+        // （既不丢挂起的 await，也不残留一个孤立的窗口）。
         if let stale = pendingCompletion {
             pendingCompletion = nil
-            detachWindow()
+            close()
             stale(Outcome(names: [:], type: inferredType))
         }
 

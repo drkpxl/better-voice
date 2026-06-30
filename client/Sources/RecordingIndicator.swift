@@ -14,8 +14,8 @@ final class RecordingIndicator {
     private let state = RecordingIndicatorState()
     private var normalizer = LiveAudioLevelNormalizer()
 
-    private let panelWidth: CGFloat = 120
-    private let panelHeight: CGFloat = 32
+    private let panelWidth: CGFloat = 150
+    private let panelHeight: CGFloat = 34
 
     func show() {
         guard window == nil else { return }
@@ -25,7 +25,10 @@ final class RecordingIndicator {
 
         let screen = NSScreen.main ?? NSScreen.screens.first!
         let x = screen.frame.midX - panelWidth / 2
-        let finalY = screen.frame.maxY - panelHeight   // 紧贴屏幕顶边
+        // 顶部居中，落在菜单栏/刘海「下方」（visibleFrame.maxY 已在菜单栏之下），
+        // 避免被刘海遮挡——这正是之前看不到指示器的原因。
+        let gap: CGFloat = 6
+        let finalY = screen.visibleFrame.maxY - panelHeight - gap
         let finalFrame = NSRect(x: x, y: finalY, width: panelWidth, height: panelHeight)
 
         let panel = NSPanel(
@@ -34,10 +37,10 @@ final class RecordingIndicator {
             backing: .buffered,
             defer: false
         )
-        panel.level = .screenSaver            // 浮在菜单栏之上
+        panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
         panel.ignoresMouseEvents = true
         panel.isMovableByWindowBackground = false
@@ -46,18 +49,18 @@ final class RecordingIndicator {
         host.frame = NSRect(origin: .zero, size: finalFrame.size)
         panel.contentView = host
 
-        // 从顶边外滑入
-        let hiddenFrame = NSRect(x: x, y: screen.frame.maxY, width: panelWidth, height: panelHeight)
+        // 从菜单栏下沿「滑下」一小段
+        let hiddenFrame = NSRect(x: x, y: screen.visibleFrame.maxY, width: panelWidth, height: panelHeight)
         panel.setFrame(hiddenFrame, display: false)
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
+            ctx.duration = 0.20
             ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1.0)
             panel.animator().setFrame(finalFrame, display: true)
         }
 
         self.window = panel
-        Logger.log("UI", "Recording indicator shown")
+        Logger.log("UI", "Recording indicator shown at \(finalFrame)")
     }
 
     func hide() {

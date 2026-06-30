@@ -45,11 +45,6 @@ final class RuntimeConfig {
         meetingConfig["summarization"] as? [String: Any] ?? [:]
     }
 
-    /// 波形指示器配置
-    var waveformConfig: [String: Any] {
-        values["waveform"] as? [String: Any] ?? [:]
-    }
-
     /// 转写与界面语言（BCP-47 或语言代码，如 "en"、"zh-Hans"）。
     /// nil 时跟随系统语言。
     /// Transcription & UI language (BCP-47 or language code, e.g. "en", "zh-Hans").
@@ -141,12 +136,6 @@ final class RuntimeConfig {
                         // 各会议类型的自定义提示词覆盖（留空用内置模板）。
                         "prompts": [String: String]()
                     ]
-                ],
-                "waveform": [
-                    // 噪声地板：RMS 低于此值时波形保持平直（0...1）。
-                    "noise_floor": 0.02,
-                    // 灵敏度：放大归一化后的电平。
-                    "sensitivity": 1.0
                 ],
                 "hotkey": [
                     "keyCode": 61,
