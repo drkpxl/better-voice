@@ -1,14 +1,14 @@
 import Foundation
 import WECore
 
-/// 会议模式分段缓冲
-/// 累积 SA final segment，按下列任一触发器 flush：
-///   1. 与前一段的 audioTimeRange gap >= pauseThresholdSec，且 buffer 字数 >= minChars
-///   2. buffer 字数 >= maxChars（熔断，保证 L2 不超出模型训练窗口）
-///   3. 手动 flush（会议结束）
+/// Segment buffer for meeting mode.
+/// Accumulates SA final segments and flushes whenever any of the following triggers fires:
+///   1. The gap between this segment's audioTimeRange and the previous one is >= pauseThresholdSec, and the buffer's char count >= minChars
+///   2. The buffer's char count >= maxChars (circuit breaker, ensures L2 doesn't exceed the model's training window)
+///   3. Manual flush (meeting ended)
 ///
-/// flush 产出：一个 FlushBatch，包含本批次的 rawText（所有段原文拼起来）+ 时间范围 + 触发原因
-/// 下游（MeetingSession）拿到 batch 后调 L2 润色，组装成 MeetingSegment
+/// Flush output: a FlushBatch containing this batch's rawText (all segment texts concatenated) + time range + trigger reason
+/// Downstream (MeetingSession) takes the batch, runs L2 polishing, and assembles a MeetingSegment
 @MainActor
 final class SegmentBuffer {
     struct Entry {
@@ -19,14 +19,14 @@ final class SegmentBuffer {
 
     struct FlushBatch {
         let entries: [Entry]
-        let rawText: String           // 所有 entry.text 拼起来
+        let rawText: String           // All entry.text concatenated
         let startTime: TimeInterval
         let endTime: TimeInterval
         let triggerReason: String     // "pause" / "maxChars" / "final"
-        let pauseGapSec: Double?      // 只有 trigger=pause 时有值
+        let pauseGapSec: Double?      // Only set when trigger=pause
     }
 
-    // 阈值（从 config 读）
+    // Thresholds (read from config)
     private let pauseThresholdSec: Double
     private let maxChars: Int
     private let minChars: Int
@@ -34,7 +34,7 @@ final class SegmentBuffer {
     private var buffer: [Entry] = []
     private var flushCounter = 0
 
-    /// flush 回调（在 MainActor 上调用）
+    /// Flush callback (invoked on MainActor)
     var onFlush: ((FlushBatch) async -> Void)?
 
     init(pauseThresholdSec: Double, maxChars: Int, minChars: Int) {
@@ -44,10 +44,10 @@ final class SegmentBuffer {
         Logger.log("SegBuf", "init pauseSec=\(pauseThresholdSec) maxChars=\(maxChars) minChars=\(minChars)")
     }
 
-    /// 喂入一个 final segment。内部判断是否需要 flush。
-    /// 触发优先级：先检查停顿（相对于已 buffer 的 segment），再 append，再检查熔断。
+    /// Feeds in a final segment. Internally decides whether a flush is needed.
+    /// Trigger priority: first check the pause (relative to the already-buffered segments), then append, then check the circuit breaker.
     func feed(_ entry: Entry) async {
-        // 先判停顿（新段的 startTime 与 buffer 末段的 endTime 比较）
+        // Check the pause first (compare the new segment's startTime against the buffer's last segment's endTime)
         if let last = buffer.last {
             let gap = entry.startTime - last.endTime
             let bufChars = currentCharCount()
@@ -58,13 +58,13 @@ final class SegmentBuffer {
 
         buffer.append(entry)
 
-        // 再判熔断
+        // Then check the circuit breaker
         if currentCharCount() >= maxChars {
             await flushInternal(trigger: "maxChars", pauseGap: nil)
         }
     }
 
-    /// 会议结束时冲尾（即使短于 minChars 也 flush）
+    /// Flushes the tail when the meeting ends (flushes even if shorter than minChars)
     func flushFinal() async {
         if !buffer.isEmpty {
             await flushInternal(trigger: "final", pauseGap: nil)
@@ -99,11 +99,11 @@ final class SegmentBuffer {
         await onFlush?(batch)
     }
 
-    /// 当前缓冲状态（调试用）
+    /// Current buffer state (for debugging)
     var currentState: (entries: Int, chars: Int) {
         (buffer.count, currentCharCount())
     }
 
-    /// 本次会议累计 flush 次数（= segment 数）
+    /// Cumulative flush count for this meeting (= segment count)
     var flushCount: Int { flushCounter }
 }

@@ -1,13 +1,13 @@
 import AppKit
 import CoreGraphics
 
-/// 热键配置
+/// Hotkey configuration
 ///
-/// 两种模式：
-/// 1. modifier-only（如 Right Option 单独按下）：keyCode 是 modifier 键码（61=右 option 等），modifiers 为空
-/// 2. 组合键（如 Cmd+Shift+R）：keyCode 是字母/数字键码，modifiers 是 modifier 标志位集合
+/// Two modes:
+/// 1. modifier-only (e.g. Right Option pressed alone): keyCode is the modifier keyCode (61 = Right Option, etc.), modifiers is empty
+/// 2. key combination (e.g. Cmd+Shift+R): keyCode is a letter/number keyCode, modifiers is the set of modifier flag bits
 ///
-/// 存储格式（JSON in ~/.we/config.json）：
+/// Storage format (JSON in ~/.we/config.json):
 /// ```json
 /// "hotkey": {
 ///   "keyCode": 61,
@@ -18,7 +18,7 @@ import CoreGraphics
 /// ```
 struct HotKeyConfig: Codable, Equatable, Sendable {
     let keyCode: UInt16
-    /// NSEvent.ModifierFlags.rawValue（不要直接存 CGEventFlags，二者位不同）
+    /// NSEvent.ModifierFlags.rawValue (do not store CGEventFlags directly, their bits differ)
     let modifierFlags: UInt
     let isModifierOnly: Bool
     let displayName: String
@@ -30,7 +30,7 @@ struct HotKeyConfig: Codable, Equatable, Sendable {
         displayName: "Right Option"
     )
 
-    /// 从 RuntimeConfig 读取，失败返回默认
+    /// Reads from RuntimeConfig, returns default on failure
     static func load(from dict: [String: Any]) -> HotKeyConfig {
         guard let keyCode = dict["keyCode"] as? Int else {
             return .default
@@ -46,7 +46,7 @@ struct HotKeyConfig: Codable, Equatable, Sendable {
         )
     }
 
-    /// 序列化回 [String: Any] 写入 config.json
+    /// Serializes back to [String: Any] for writing to config.json
     func toDictionary() -> [String: Any] {
         return [
             "keyCode": Int(keyCode),
@@ -56,25 +56,25 @@ struct HotKeyConfig: Codable, Equatable, Sendable {
         ]
     }
 
-    /// CGEventFlags 表示（用于 GlobalHotKey 匹配）
-    /// 注意：NSEvent.ModifierFlags 和 CGEventFlags 的 modifier 位是同一套（macOS 内部一致）
+    /// CGEventFlags representation (used for GlobalHotKey matching)
+    /// Note: NSEvent.ModifierFlags and CGEventFlags share the same modifier bits (consistent internally in macOS)
     var cgEventFlags: CGEventFlags {
         return CGEventFlags(rawValue: UInt64(modifierFlags))
     }
 
-    /// 仅取 modifier 标志位（command/shift/option/control/capsLock）
+    /// Takes only the modifier flag bits (command/shift/option/control/capsLock)
     var deviceIndependentModifiers: NSEvent.ModifierFlags {
         return NSEvent.ModifierFlags(rawValue: modifierFlags)
             .intersection(.deviceIndependentFlagsMask)
     }
 }
 
-// MARK: - Display name 渲染
+// MARK: - Display name rendering
 
-/// 把 keyCode + modifiers 渲染成人类可读字符串（"⌘⇧R" / "Right Option" 等）
+/// Renders keyCode + modifiers into a human-readable string ("⌘⇧R" / "Right Option" etc.)
 enum HotKeyFormatter {
 
-    /// 从 NSEvent 录制结果构造 displayName
+    /// Constructs displayName from an NSEvent recording result
     static func displayName(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isModifierOnly: Bool) -> String {
         let modifierFlags = modifiers.intersection(.deviceIndependentFlagsMask)
 
@@ -95,11 +95,11 @@ enum HotKeyFormatter {
         return parts.joined()
     }
 
-    /// modifier-only 时，把 keyCode 翻译成具体 modifier 名
+    /// When modifier-only, translates the keyCode into a specific modifier name
     private static func modifierOnlyName(keyCode: UInt16) -> String {
         switch keyCode {
-        case 54: return "Right Command"   // ⌘ 右
-        case 55: return "Left Command"    // ⌘ 左
+        case 54: return "Right Command"   // ⌘ right
+        case 55: return "Left Command"    // ⌘ left
         case 56: return "Left Shift"
         case 57: return "Caps Lock"
         case 58: return "Left Option"
@@ -112,9 +112,9 @@ enum HotKeyFormatter {
         }
     }
 
-    /// 字母/数字/常用键的可读名（来自 macOS 标准物理键码）
+    /// Readable names for letter/number/common keys (from macOS standard physical key codes)
     private static func keyName(keyCode: UInt16) -> String? {
-        // 来源：HIToolbox/Events.h kVK_* 常量
+        // Source: HIToolbox/Events.h kVK_* constants
         switch keyCode {
         case 0: return "A"
         case 11: return "B"

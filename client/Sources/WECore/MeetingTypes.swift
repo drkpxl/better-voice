@@ -1,30 +1,29 @@
 import Foundation
 
-/// L2 纠错的处理类型（对照 Pipeline 的 kind 字段）
-/// Outcome of the L2 polish step for a segment.
+/// Outcome of the L2 polish step for a segment (corresponds to the Pipeline's kind field).
 public enum L2Kind: String, Sendable {
-    case changed   // L2 改动了文本
-    case identity  // L2 输出 == 输入
-    case failed    // L2 调用失败或返回 nil
-    case skipped   // polish.enabled=false 时跳过
+    case changed   // L2 changed the text
+    case identity  // L2 output == input
+    case failed    // L2 call failed or returned nil
+    case skipped   // skipped when polish.enabled=false
 }
 
-/// 会议转录片段
-/// 一个 MeetingSegment 对应 SegmentBuffer 的一次 flush
-/// - text: 展示给用户的最终文本（L2 成功时 = L2 输出；失败/跳过时 = rawText）
-/// - rawText: 本批次 SA final 段原文拼接（调试 + 蒸馏留存）
-/// - l2Kind: L2 的处理结果，用于验收和日志回溯
-/// - speakerName: 用户在收尾面板里给该说话人指定的名字（会话级，不持久化）
+/// Meeting transcript segment.
+/// One MeetingSegment corresponds to a single flush of SegmentBuffer.
+/// - text: final text shown to the user (= L2 output when L2 succeeds; = rawText when failed/skipped)
+/// - rawText: concatenation of this batch's SA final segments (kept for debugging + distillation)
+/// - l2Kind: result of L2 processing, used for QA and log tracing
+/// - speakerName: name the user assigned to this speaker in the wrap-up panel (session-level, not persisted)
 public struct MeetingSegment: Sendable, Identifiable {
     public let id = UUID()
     public let text: String
     public let rawText: String
-    public let startTime: TimeInterval   // 相对于会议开始的秒数
+    public let startTime: TimeInterval   // Seconds relative to the start of the meeting
     public let endTime: TimeInterval
-    public let speakerId: String?        // FluidAudio 分配的说话人 ID
+    public let speakerId: String?        // Speaker ID assigned by FluidAudio
     public let l2Kind: L2Kind
     public let isFinal: Bool
-    public let speakerName: String?      // 用户指定的说话人名字（可空）
+    public let speakerName: String?      // User-specified speaker name (nullable)
 
     public init(
         text: String,
@@ -46,14 +45,14 @@ public struct MeetingSegment: Sendable, Identifiable {
         self.speakerName = speakerName
     }
 
-    /// 显示用的说话人标签。优先用用户指定的名字，否则 "<prefix> <id>"。
-    /// `prefix` 由调用方传入（已本地化），保持 WECore 不依赖本地化层。
+    /// Display label for the speaker. Prefers the user-specified name, otherwise "<prefix> <id>".
+    /// `prefix` is passed in by the caller (already localized), keeping WECore independent of the localization layer.
     public func speakerLabel(prefix: String) -> String? {
         resolveSpeakerLabel(speakerId: speakerId, speakerName: speakerName, prefix: prefix)
     }
 }
 
-/// 会议结果
+/// Meeting result.
 public struct MeetingResult: Sendable {
     public let segments: [MeetingSegment]
     public let duration: TimeInterval

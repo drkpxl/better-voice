@@ -1,11 +1,11 @@
 import CoreAudio
 import Foundation
 
-/// G1: 声音门控 — ambient 模式
-/// 使用 CoreAudio HAL VAD（硬件级语音检测）替代手动热键触发
-/// 检测到语音开始 → 自动启动录音，语音结束 + settle delay → 自动停止
+/// G1: voice gating -- ambient mode
+/// Uses CoreAudio HAL VAD (hardware-level voice activity detection) instead of manual hotkey triggering
+/// When speech start is detected -> recording starts automatically; when speech ends + settle delay elapses -> recording stops automatically
 ///
-/// 与热键模式互斥：ambient 开启时热键仍可用（手动覆盖）
+/// Not mutually exclusive with hotkey mode: the hotkey still works while ambient mode is on (manual override)
 @MainActor
 final class AmbientController {
     static let shared = AmbientController()
@@ -15,21 +15,21 @@ final class AmbientController {
     private var isSpeaking = false
     private var settleWork: DispatchWorkItem?
 
-    /// 语音结束后的沉淀延迟（防止句间停顿误判为结束）
+    /// Settle delay after speech ends (prevents a mid-sentence pause from being misread as the end)
     var settleDelay: TimeInterval = 0.8
 
-    /// 最短语音时长（过滤咳嗽/噪声）
+    /// Minimum speech duration (filters out coughs/noise)
     var minimumDuration: TimeInterval = 0.5
     private var speechStartTime: Date?
 
-    /// 回调
+    /// Callbacks
     var onSpeechStart: (() -> Void)?
     var onSpeechEnd: (() -> Void)?
 
     func start() {
         guard !isEnabled else { return }
 
-        // 获取默认输入设备
+        // Get the default input device
         var propAddr = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -48,7 +48,7 @@ final class AmbientController {
         }
         self.deviceID = devID
 
-        // 启用 HAL VAD
+        // Enable HAL VAD
         var enable: UInt32 = 1
         var vadEnableAddr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVoiceActivityDetectionEnable,
@@ -65,7 +65,7 @@ final class AmbientController {
             return
         }
 
-        // 监听 VAD 状态变化
+        // Listen for VAD state changes
         var vadStateAddr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVoiceActivityDetectionState,
             mScope: kAudioObjectPropertyScopeInput,
@@ -93,7 +93,7 @@ final class AmbientController {
     func stop() {
         guard isEnabled else { return }
 
-        // 关闭 VAD
+        // Disable VAD
         var disable: UInt32 = 0
         var vadEnableAddr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVoiceActivityDetectionEnable,
@@ -112,7 +112,7 @@ final class AmbientController {
         Logger.log("Ambient", "HAL VAD disabled")
     }
 
-    // MARK: - VAD 状态变化
+    // MARK: - VAD state changes
 
     private func handleVADChange() {
         var state: UInt32 = 0
@@ -127,7 +127,7 @@ final class AmbientController {
         let speaking = state != 0
 
         if speaking && !isSpeaking {
-            // 语音开始
+            // Speech started
             isSpeaking = true
             speechStartTime = Date()
             settleWork?.cancel()
@@ -135,13 +135,13 @@ final class AmbientController {
             onSpeechStart?()
 
         } else if !speaking && isSpeaking {
-            // 语音可能结束 — 启动 settle 延迟
+            // Speech may have ended -- start the settle delay
             settleWork?.cancel()
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.isSpeaking else { return }
                 self.isSpeaking = false
 
-                // 检查最短时长
+                // Check the minimum duration
                 if let start = self.speechStartTime,
                    Date().timeIntervalSince(start) < self.minimumDuration {
                     Logger.log("Ambient", "Too short, ignored")

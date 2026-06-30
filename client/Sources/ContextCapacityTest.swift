@@ -1,8 +1,8 @@
 import AVFoundation
 import Speech
 
-/// 测试 SpeechAnalyzer contextualStrings 的容量上限
-/// 用法: WE --test-context-capacity <wav-file>
+/// Tests the capacity limit of SpeechAnalyzer's contextualStrings
+/// Usage: WE --test-context-capacity <wav-file>
 enum ContextCapacityTest {
     @MainActor
     static func run() async {
@@ -21,25 +21,25 @@ enum ContextCapacityTest {
             return
         }
 
-        print("=== contextualStrings 容量测试 ===")
+        print("=== contextualStrings capacity test ===")
         print("Audio: \(wavPath)")
         print()
 
-        // 测试不同数量的 contextualStrings
+        // Test different counts of contextualStrings
         let testSizes = [0, 50, 100, 500, 1000, 5000]
 
         for size in testSizes {
-            // 生成测试词汇
+            // Generate test vocabulary
             var words: [String] = []
             if size > 0 {
-                // 混合真实词汇 + 填充词
-                let realWords = ["蒸馏", "微调", "Claude", "SpeechAnalyzer", "Whisper", "Gemini",
-                                 "ollama", "数据飞轮", "contextualStrings", "AlternativeSwap",
-                                 "FluidAudio", "CoreML", "Tailscale", "MacOS", "语音识别",
-                                 "转写", "润色", "纠错", "模型", "训练"]
+                // Mix real vocabulary with filler words
+                let realWords = ["distillation", "fine-tuning", "Claude", "SpeechAnalyzer", "Whisper", "Gemini",
+                                 "ollama", "data flywheel", "contextualStrings", "AlternativeSwap",
+                                 "FluidAudio", "CoreML", "Tailscale", "MacOS", "speech recognition",
+                                 "transcription", "polish", "correction", "model", "training"]
                 words.append(contentsOf: realWords)
                 for i in words.count..<size {
-                    words.append("测试词\(i)")
+                    words.append("testword\(i)")
                 }
             }
 
@@ -57,7 +57,7 @@ enum ContextCapacityTest {
                 let analyzer = SpeechAnalyzer(modules: [transcriber])
                 let audioFile = try AVAudioFile(forReading: URL(fileURLWithPath: wavPath))
 
-                // 注入 contextualStrings
+                // Inject contextualStrings
                 if !words.isEmpty {
                     let context = AnalysisContext()
                     context.contextualStrings[.general] = words
@@ -67,7 +67,7 @@ enum ContextCapacityTest {
                     print("  No context (baseline)")
                 }
 
-                // 收集结果
+                // Collect the results
                 let collector = AlternativesCollector()
 
                 let resultTask = Task { @Sendable in

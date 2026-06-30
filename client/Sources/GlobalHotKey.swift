@@ -1,14 +1,14 @@
 import Cocoa
 import CoreGraphics
 
-/// 全局热键
+/// Global hotkey
 ///
-/// 使用 CGEventTap 替代 NSEvent monitor，避免 macOS 26 下
-/// AppKit GlobalObserverHandler 的 Swift actor runtime crash (Bus error)。
+/// Uses CGEventTap instead of NSEvent monitor to avoid the Swift actor runtime
+/// crash (Bus error) in AppKit's GlobalObserverHandler on macOS 26.
 ///
-/// 支持两种模式：
-/// 1. modifier-only（如 Right Option 单独按下）—— 监听 flagsChanged，匹配 modifier keyCode
-/// 2. 组合键（如 Cmd+Shift+R）—— 监听 keyDown，匹配 keyCode + modifiers
+/// Supports two modes:
+/// 1. modifier-only (e.g. Right Option pressed alone) -- listens for flagsChanged, matches modifier keyCode
+/// 2. key combination (e.g. Cmd+Shift+R) -- listens for keyDown, matches keyCode + modifiers
 final class GlobalHotKey: @unchecked Sendable {
     @MainActor static let shared = GlobalHotKey()
 
@@ -19,18 +19,18 @@ final class GlobalHotKey: @unchecked Sendable {
     private nonisolated(unsafe) var runLoopSource: CFRunLoopSource?
     private nonisolated(unsafe) var isPressed = false
 
-    /// 定期检查 CGEventTap 是否仍 enable，失活自动 re-enable。
-    /// macOS 26 上 CGEventTap 长时间运行（数小时到数天）会被静默 disable，
-    /// 而 .tapDisabledByTimeout/.tapDisabledByUserInput 回调有时不触发（因为 callback
-    /// 本身就被 disable 了），所以需要外部主动 ping。
+    /// Periodically checks whether the CGEventTap is still enabled, and re-enables it automatically if disabled.
+    /// On macOS 26, a CGEventTap running for a long time (hours to days) can be silently disabled,
+    /// and the .tapDisabledByTimeout/.tapDisabledByUserInput callback sometimes doesn't fire (because the
+    /// callback itself has been disabled), so an external active ping is needed.
     private var healthTimer: Timer?
 
-    /// 当前生效的配置（nonisolated 是因为 callback 在非 actor 上下文读它）
+    /// The currently active config (nonisolated because the callback reads it from a non-actor context)
     fileprivate nonisolated(unsafe) var currentConfig: HotKeyConfig = .default
 
     @MainActor
     func start() {
-        // 启动时从 config 读
+        // Read from config at startup
         let dict = RuntimeConfig.shared.hotKeyConfig
         currentConfig = HotKeyConfig.load(from: dict)
         Logger.log("HotKey", "Loaded hotkey: \(currentConfig.displayName) (keyCode=\(currentConfig.keyCode), modifierOnly=\(currentConfig.isModifierOnly))")
@@ -61,7 +61,7 @@ final class GlobalHotKey: @unchecked Sendable {
         startHealthMonitor()
     }
 
-    /// 每 30 秒检查一次 tap 是否还 enable；失活则主动 re-enable + 打日志。
+    /// Checks every 30 seconds whether the tap is still enabled; if disabled, proactively re-enables it and logs.
     @MainActor
     private func startHealthMonitor() {
         healthTimer?.invalidate()
@@ -88,28 +88,28 @@ final class GlobalHotKey: @unchecked Sendable {
         runLoopSource = nil
     }
 
-    /// 让状态栏菜单查询 CGEventTap 实时是否健康（启用 + 进程能收到事件）。
+    /// Lets the status bar menu query in real time whether the CGEventTap is healthy (enabled + process can receive events).
     @MainActor
     var isHealthy: Bool {
         guard let tap = eventTap else { return false }
         return CGEvent.tapIsEnabled(tap: tap)
     }
 
-    /// 热更新配置（保存设置后调用）
+    /// Hot-reload config (called after saving settings)
     @MainActor
     func reload(config: HotKeyConfig) {
         currentConfig = config
-        isPressed = false  // 防止跨配置切换时残留按下状态
+        isPressed = false  // Prevent residual pressed state from leaking across config switches
         Logger.log("HotKey", "Hotkey reloaded: \(config.displayName) (keyCode=\(config.keyCode), modifierOnly=\(config.isModifierOnly))")
     }
 
     fileprivate func handleKeyDown(keyCode: Int64, flags: CGEventFlags) {
-        // 仅在组合键模式下处理 keyDown
+        // Only handle keyDown in key-combination mode
         let cfg = currentConfig
         guard !cfg.isModifierOnly else { return }
         guard Int64(cfg.keyCode) == keyCode else { return }
 
-        // 比较 modifier 位（device-independent 部分）
+        // Compare modifier bits (device-independent part)
         let cfgMods = cfg.deviceIndependentModifiers
         let evtMods = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
             .intersection(.deviceIndependentFlagsMask)
@@ -119,7 +119,7 @@ final class GlobalHotKey: @unchecked Sendable {
         if let onPress {
             DispatchQueue.main.async { onPress() }
         }
-        // 组合键模式下，松开通常不重要（toggle 语义只看 down），不再额外触发 onRelease
+        // In key-combination mode, release usually doesn't matter (toggle semantics only look at down), so onRelease is not triggered separately
     }
 
     fileprivate func handleFlags(_ flags: CGEventFlags, keyCode: Int64) {
@@ -144,7 +144,7 @@ final class GlobalHotKey: @unchecked Sendable {
         }
     }
 
-    /// 给定一个 modifier 键码，返回它在 CGEventFlags 里是否被按下
+    /// Given a modifier keyCode, returns whether it is pressed in CGEventFlags
     private func isModifierDown(for keyCode: UInt16, in flags: CGEventFlags) -> Bool {
         switch keyCode {
         case 54, 55: return flags.contains(.maskCommand)    // Right/Left Cmd
@@ -158,7 +158,7 @@ final class GlobalHotKey: @unchecked Sendable {
     }
 }
 
-/// 纯 C 回调，不经过任何 Swift concurrency 路径
+/// Pure C callback, does not go through any Swift concurrency path
 private func globalHotKeyCallback(
     proxy: CGEventTapProxy,
     type: CGEventType,

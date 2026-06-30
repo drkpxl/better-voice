@@ -1,12 +1,12 @@
 import Foundation
 
-/// L2 语义润色客户端
-/// 统一通过 ModelServer 路由到远程/本地模型服务
+/// L2 semantic polishing client
+/// Routes uniformly through ModelServer to remote/local model services
 @MainActor
 final class PolishClient {
     static let shared = PolishClient()
 
-    /// 润色文本，返回 nil 表示跳过或失败
+    /// Polishes text, returns nil to indicate skipped or failed
     func polish(
         text: String,
         words: [WordInfo],

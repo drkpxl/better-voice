@@ -1,8 +1,8 @@
 import Foundation
 import WECore
 
-/// 模型推理服务器连接管理
-/// 支持局域网直连 / Tailscale / localhost，自动健康检测 + 断线降级
+/// Model inference server connection management
+/// Supports direct LAN connection / Tailscale / localhost, with automatic health checks + disconnect fallback
 @MainActor
 final class ModelServer {
     static let shared = ModelServer()
@@ -13,8 +13,8 @@ final class ModelServer {
         case disconnected
     }
 
-    /// 单次推理的参数覆盖（摘要用不同模型 / 更大上下文 / 更长超时）。
-    /// 任一字段为 nil 时回退到 config.server 的默认值。
+    /// Parameter overrides for a single inference call (different model for summarization / larger context / longer timeout).
+    /// When any field is nil, it falls back to the default value from config.server.
     struct GenerateOptions {
         var model: String?
         var numCtx: Int?
@@ -32,10 +32,10 @@ final class ModelServer {
     private(set) var status: Status = .unknown
     private var healthTask: Task<Void, Never>?
 
-    /// 状态变更通知（菜单栏用）
+    /// Status change notification (used by the menu bar)
     var onStatusChange: ((Status) -> Void)?
 
-    // MARK: - 配置读取
+    // MARK: - Config reading
 
     private var serverConfig: [String: Any] {
         RuntimeConfig.shared.serverConfig
@@ -57,7 +57,7 @@ final class ModelServer {
         serverConfig["timeout"] as? TimeInterval ?? 10
     }
 
-    // MARK: - 健康检测
+    // MARK: - Health checks
 
     func startHealthCheck() {
         stopHealthCheck()
@@ -65,7 +65,7 @@ final class ModelServer {
         let interval = serverConfig["health_interval"] as? TimeInterval ?? 30
 
         healthTask = Task { [weak self] in
-            // 首次立即检查
+            // Check immediately on first run
             await self?.checkHealth()
 
             while !Task.isCancelled {
@@ -104,7 +104,7 @@ final class ModelServer {
         do {
             var request = URLRequest(url: url, timeoutInterval: 5)
             request.httpMethod = "GET"
-            // OpenAI 需要 auth
+            // OpenAI requires auth
             if apiType == "openai", let key = serverConfig["api_key"] as? String, !key.isEmpty {
                 request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
             }
@@ -119,14 +119,14 @@ final class ModelServer {
         }
     }
 
-    // MARK: - 推理
+    // MARK: - Inference
 
     func generate(
         prompt: String,
         systemPrompt: String = Prompts.defaultPolish,
         options: GenerateOptions = .init()
     ) async -> String? {
-        // 如果状态不是 connected，先尝试一次快速健康检查
+        // If status isn't connected, try a quick health check first
         if status != .connected {
             Logger.log("Server", "Status=\(status.rawValue), trying health check...")
             await checkHealth()
@@ -152,8 +152,9 @@ final class ModelServer {
         let urlStr = endpoint.hasSuffix("/api/generate") ? endpoint : endpoint + "/api/generate"
         guard let url = URL(string: urlStr) else { return nil }
 
-        // 长会议需要更大的 KV 上下文；num_predict 需足够容纳整段说话人回合，
-        // 否则长段落会被截断。可在 config 的 server 段覆盖，或由调用方 options 覆盖。
+        // Long meetings need a bigger KV context; num_predict needs to be large enough to fit
+        // a whole speaker turn, otherwise long passages get truncated. Can be overridden in the
+        // config's server section, or by the caller's options.
         // Long meetings need a bigger KV context; num_predict must fit a whole
         // speaker turn or long turns get truncated. Resolved from options → config → default.
         let numCtx = options.numCtx ?? (serverConfig["num_ctx"] as? Int) ?? 32768
@@ -226,7 +227,7 @@ final class ModelServer {
         return nil
     }
 
-    // MARK: - 状态管理
+    // MARK: - Status management
 
     private func updateStatus(_ newStatus: Status) {
         guard status != newStatus else { return }

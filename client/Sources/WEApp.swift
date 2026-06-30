@@ -5,7 +5,7 @@ import WECore
 @main
 struct WEApp {
     static func main() {
-        // contextualStrings 容量测试
+        // contextualStrings capacity test
         if CommandLine.arguments.contains("--test-context-capacity") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -17,7 +17,7 @@ struct WEApp {
             return
         }
 
-        // alternatives 测试：WE --test-alternatives <wav-file>
+        // alternatives test: WE --test-alternatives <wav-file>
         if CommandLine.arguments.contains("--test-alternatives") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -29,7 +29,7 @@ struct WEApp {
             return
         }
 
-        // 截断测试：WE --test-truncation <wav-file> [--locale zh-CN]
+        // truncation test: WE --test-truncation <wav-file> [--locale zh-CN]
         if CommandLine.arguments.contains("--test-truncation") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -41,7 +41,7 @@ struct WEApp {
             return
         }
 
-        // 评估模式：WE --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]
+        // evaluation mode: WE --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]
         if CommandLine.arguments.contains("--bench-meeting") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -53,8 +53,8 @@ struct WEApp {
             return
         }
 
-        // 即时录音评估：WE --bench-voice <wav> [--locale zh-CN] [--output result.json]
-        // 走完整 ContextEnhancer + SA + L2 polish 链路（用户视角），但不注入光标、不写历史
+        // live recording evaluation: WE --bench-voice <wav> [--locale zh-CN] [--output result.json]
+        // Runs the full ContextEnhancer + SA + L2 polish pipeline (from the user's perspective), but does not inject at the cursor or write history
         if CommandLine.arguments.contains("--bench-voice") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -69,14 +69,14 @@ struct WEApp {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
-        app.setActivationPolicy(.accessory)  // 菜单栏应用，不显示 Dock 图标
+        app.setActivationPolicy(.accessory)  // menu bar app, no Dock icon
         app.run()
     }
 }
 
-/// 会议模式评估入口
-/// 用法：WE --bench-meeting <wav> [--locale zh-CN] [--output result.json]
-///   或：WE --bench-meeting --batch <manifest.jsonl> [--output-dir results/]
+/// Meeting mode evaluation entry point
+/// Usage: WE --bench-meeting <wav> [--locale zh-CN] [--output result.json]
+///   or: WE --bench-meeting --batch <manifest.jsonl> [--output-dir results/]
 enum MeetingBenchmark {
     @MainActor
     static func run() async {
@@ -121,13 +121,13 @@ enum MeetingBenchmark {
         let result = await session.runFromFile(fileURL, locale: locale)
         let totalTime = CFAbsoluteTimeGetCurrent() - startTime
 
-        // 导出 Markdown（走我们的 MeetingExporter）
+        // export Markdown (via our MeetingExporter)
         let mdURL = MeetingExporter.exportMarkdown(
             segments: result.segments,
             duration: result.duration
         )
 
-        // 构建评估 JSON
+        // build evaluation JSON
         let json = formatResult(result, totalTime: totalTime, mdPath: mdURL?.path)
 
         if let outputPath {
@@ -177,13 +177,13 @@ enum MeetingBenchmark {
             let result = await session.runFromFile(fileURL, locale: entryLocale)
             let totalTime = CFAbsoluteTimeGetCurrent() - startTime
 
-            // 导出 Markdown
+            // export Markdown
             let mdURL = MeetingExporter.exportMarkdown(
                 segments: result.segments,
                 duration: result.duration
             )
 
-            // 保存 JSON
+            // save JSON
             let json = formatResult(result, totalTime: totalTime, mdPath: mdURL?.path)
             let jsonData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys])
             let outPath = "\(outputDir)/\(id).json"
@@ -203,7 +203,7 @@ enum MeetingBenchmark {
             "n_segments": result.segments.count,
             "n_speakers": Set(result.segments.compactMap { $0.speakerId }).count,
             "markdown_path": mdPath ?? "",
-            // 完整转写文本（供 WER/CER 对比）
+            // full transcript text (for WER/CER comparison)
             "hypothesis": result.segments.map { $0.text }.joined(),
             "segments": result.segments.map { seg in
                 [
@@ -232,28 +232,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let remoteInbox = RemoteInbox()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 初始化数据目录
+        // initialize data directory
         WEDataDir.ensureExists()
 
-        // 检查权限
+        // check permissions
         let axOK = PermissionManager.checkAccessibility()
         let screenOK = PermissionManager.checkScreenCapture()
-        // Input Monitoring 是 CGEventTap 监听全局热键真正需要的权限（不是 Accessibility）
+        // Input Monitoring is the permission actually needed for CGEventTap to listen for the global hotkey (not Accessibility)
         let inputOK = PermissionManager.checkInputMonitoring()
         Logger.log("WE", "Accessibility: \(axOK), Input Monitoring: \(inputOK), Screen capture: \(screenOK)")
 
-        // 初始化菜单栏
+        // initialize the menu bar
         statusBar = StatusBarController(moduleManager: moduleManager)
 
-        // 注册语音模块
+        // register the voice module
         let voiceModule = VoiceModule()
         voiceModule.onStateChange = { [weak self] state in
             guard let self else { return }
-            let recording = state == .recording
-            self.statusBar?.setRecording(recording)
-            if recording {
+            self.statusBar?.setRecording(state == .recording)
+            switch state {
+            case .recording:
                 self.recordingIndicator.show()
-            } else {
+                DictationSound.playStart()
+            case .processing:
+                // First non-recording state after a real recording — play the
+                // stop cue here (not on .idle) so it fires exactly once.
+                self.recordingIndicator.hide()
+                DictationSound.playStop()
+            case .idle:
                 self.recordingIndicator.hide()
             }
         }
@@ -262,7 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         moduleManager.register(voiceModule)
 
-        // 注册全局热键
+        // register the global hotkey
         GlobalHotKey.shared.onPress = { [weak self] in
             self?.moduleManager.activeModule?.onHotKeyDown()
         }
@@ -271,10 +277,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         GlobalHotKey.shared.start()
 
-        // 启动模型服务器健康检测
+        // start model server health checks
         ModelServer.shared.startHealthCheck()
 
-        // 启动远程语音接收
+        // start the remote voice inbox
         let remoteConfig = config.remoteConfig
         if remoteConfig["enabled"] as? Bool == true {
             let port = remoteConfig["port"] as? Int ?? 9800
@@ -286,18 +292,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Logger.log("WE", "Remote inbox: ON (:\(port))")
         }
 
-        // G1 ambient 模式（config 控制开关）
+        // G1 ambient mode (toggled via config)
         if config.ambientEnabled {
             let ambient = AmbientController.shared
             ambient.onSpeechStart = { [weak self] in
                 guard let vm = self?.moduleManager.activeModule as? VoiceModule,
                       vm.state == .idle else { return }
-                vm.onHotKeyDown()  // 复用热键流程：开始录音
+                vm.onHotKeyDown()  // reuse the hotkey flow: start recording
             }
             ambient.onSpeechEnd = { [weak self] in
                 guard let vm = self?.moduleManager.activeModule as? VoiceModule,
                       vm.state == .recording else { return }
-                vm.onHotKeyDown()  // 复用热键流程：停止并处理
+                vm.onHotKeyDown()  // reuse the hotkey flow: stop and process
             }
             ambient.start()
             Logger.log("WE", "Ambient mode: ON")

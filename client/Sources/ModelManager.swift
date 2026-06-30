@@ -1,6 +1,6 @@
 import Foundation
 
-/// 模型管理：检测就绪状态、从后端下载、hash 校验
+/// Model management: detect readiness state, download from the backend, hash verification
 @MainActor
 final class ModelManager {
     static let shared = ModelManager()
@@ -18,17 +18,17 @@ final class ModelManager {
         let version: String?
         let models: [String: ManifestEntry]?
 
-        // 兼容简化格式
+        // Compatible with the simplified format
         let base_model: ManifestEntry?
         let adapter: ManifestEntry?
     }
 
-    /// 检查基础模型是否已下载
+    /// Check whether the base model has been downloaded
     var isBaseModelReady: Bool {
         FileManager.default.fileExists(atPath: baseModelPath.path)
     }
 
-    /// 检查 adapter 是否已下载
+    /// Check whether the adapter has been downloaded
     var isAdapterReady: Bool {
         FileManager.default.fileExists(atPath: adapterPath.path)
     }
@@ -41,7 +41,7 @@ final class ModelManager {
         modelsDir.appendingPathComponent("sa-adapter.gguf")
     }
 
-    /// 从 manifest URL 下载模型
+    /// Download models from the manifest URL
     func downloadModels(progressHandler: ((String, Double) -> Void)? = nil) async throws {
         let config = RuntimeConfig.shared.downloadsConfig
         guard let manifestURLStr = config["manifest"] as? String,
@@ -50,13 +50,13 @@ final class ModelManager {
             return
         }
 
-        // 下载 manifest
+        // Download the manifest
         Logger.log("Model", "Fetching manifest: \(manifestURLStr)")
         let (manifestData, _) = try await URLSession.shared.data(from: manifestURL)
         let manifest = try JSONDecoder().decode(Manifest.self, from: manifestData)
         Logger.log("Model", "Manifest version: \(manifest.version ?? "unknown")")
 
-        // 下载 base model
+        // Download the base model
         let baseURL = config["base_model"] as? String
         if let urlStr = baseURL, let url = URL(string: urlStr), !isBaseModelReady {
             progressHandler?("base model", 0)
@@ -65,7 +65,7 @@ final class ModelManager {
             })
         }
 
-        // 下载 adapter
+        // Download the adapter
         let adapterURL = config["adapter"] as? String
         if let urlStr = adapterURL, let url = URL(string: urlStr) {
             progressHandler?("adapter", 0)
@@ -87,7 +87,7 @@ final class ModelManager {
             throw ModelError.downloadFailed(url.lastPathComponent, httpResponse?.statusCode ?? 0)
         }
 
-        // 移动到目标位置
+        // Move to the destination location
         let fm = FileManager.default
         if fm.fileExists(atPath: destination.path) {
             try fm.removeItem(at: destination)

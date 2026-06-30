@@ -1,10 +1,8 @@
 import Foundation
 
-/// 摘要相关的纯逻辑：提示词选择、类型解析、转录文本拼接、Ollama 请求体构造。
 /// Pure summarization logic (prompt selection, type parsing, transcript building,
 /// Ollama request-body building) — kept free of networking/GUI for unit tests.
 
-/// 选择摘要系统提示词：config 覆盖优先，否则用内置模板。
 /// Pick the summarization system prompt: a non-empty config override wins, else builtin.
 public func resolveSummarizationPrompt(
     type: MeetingType,
@@ -18,11 +16,10 @@ public func resolveSummarizationPrompt(
     return builtin(type)
 }
 
-/// 从分类模型的自由文本回复里解析出 MeetingType（大小写不敏感、子串匹配）。
 /// Parse a MeetingType out of a classifier's free-text response. Falls back to `default`.
 public func parseMeetingType(from response: String, default fallback: MeetingType) -> MeetingType {
     let s = response.lowercased()
-    // 顺序很重要：先匹配更具体的类型关键词。
+    // Order matters: match more specific type keywords first.
     if s.contains("one on one") || s.contains("one-on-one") || s.contains("1:1")
         || s.contains("1 on 1") || s.contains("oneonone") {
         return .oneOnOne
@@ -37,7 +34,6 @@ public func parseMeetingType(from response: String, default fallback: MeetingTyp
     return fallback
 }
 
-/// 把（已命名的）片段拼成 "Label: text" 多行转录，喂给摘要模型。
 /// Build a "Label: text" transcript from (named) segments for the summarizer.
 public func buildSummarizationTranscript(segments: [MeetingSegment], speakerPrefix: String) -> String {
     var lines: [String] = []
@@ -53,7 +49,6 @@ public func buildSummarizationTranscript(segments: [MeetingSegment], speakerPref
     return lines.joined(separator: "\n")
 }
 
-/// 构造 Ollama /api/generate 请求体（纯字典，便于单测断言）。
 /// Build the Ollama /api/generate request body as a plain dictionary.
 public func makeOllamaRequestBody(
     model: String,

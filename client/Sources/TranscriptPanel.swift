@@ -4,7 +4,7 @@ import WECore
 
 // MARK: - ViewModel
 
-/// 转录面板的数据源，驱动 SwiftUI 视图刷新
+/// Data source for the transcript panel, drives SwiftUI view refreshes
 @Observable
 @MainActor
 final class TranscriptViewModel {
@@ -14,7 +14,7 @@ final class TranscriptViewModel {
     var wordCount: Int = 0
     var isRecording: Bool = false
 
-    /// 格式化时间为 MM:SS
+    /// Format time as MM:SS
     func formatTimestamp(_ t: TimeInterval) -> String {
         let m = Int(t) / 60
         let s = Int(t) % 60
@@ -22,15 +22,15 @@ final class TranscriptViewModel {
     }
 }
 
-// MARK: - SwiftUI 视图
+// MARK: - SwiftUI View
 
-/// 转录面板内容视图
+/// Transcript panel content view
 struct TranscriptContentView: View {
     let viewModel: TranscriptViewModel
 
     var body: some View {
         VStack(spacing: 0) {
-            // 转录内容区
+            // transcript content area
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 6) {
@@ -43,7 +43,7 @@ struct TranscriptContentView: View {
                     .padding(.vertical, 8)
                 }
                 .onChange(of: viewModel.segments.count) {
-                    // 自动滚动到底部
+                    // auto-scroll to the bottom
                     if let last = viewModel.segments.last {
                         withAnimation(.easeOut(duration: 0.15)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
@@ -54,23 +54,23 @@ struct TranscriptContentView: View {
 
             Divider()
 
-            // 底部状态栏
+            // bottom status bar
             statusBar
         }
         .frame(minWidth: 300, minHeight: 200)
     }
 
-    // MARK: - 单行转录
+    // MARK: - Single transcript row
 
     @ViewBuilder
     private func segmentRow(_ segment: MeetingSegment) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            // 时间戳
+            // timestamp
             Text("[\(viewModel.formatTimestamp(segment.startTime))]")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-            // 说话人标签
+            // speaker label
             if let speaker = segment.speakerLabel(prefix: t("Speaker")) {
                 Text(speaker + ":")
                     .font(.caption)
@@ -78,7 +78,7 @@ struct TranscriptContentView: View {
                     .foregroundStyle(.orange)
             }
 
-            // 文本内容
+            // text content
             Text(segment.text)
                 .font(.system(.body, design: .default))
                 .foregroundStyle(segment.isFinal ? .primary : .secondary)
@@ -86,11 +86,11 @@ struct TranscriptContentView: View {
         }
     }
 
-    // MARK: - 状态栏
+    // MARK: - Status bar
 
     private var statusBar: some View {
         HStack {
-            // 录音状态
+            // recording status
             if viewModel.isRecording {
                 Circle()
                     .fill(.red)
@@ -109,12 +109,12 @@ struct TranscriptContentView: View {
 
             Spacer()
 
-            // 时长
+            // duration
             Text(viewModel.formatTimestamp(viewModel.duration))
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-            // 字数
+            // character count
             Text("· " + t("\(String(viewModel.wordCount)) characters"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -124,9 +124,9 @@ struct TranscriptContentView: View {
     }
 }
 
-// MARK: - 面板控制器
+// MARK: - Panel controller
 
-/// 会议转录浮动面板，不抢焦点，始终置顶
+/// Floating meeting transcript panel, never steals focus, always stays on top
 @MainActor
 final class TranscriptPanelController {
     private var panel: NSPanel?
@@ -154,7 +154,7 @@ final class TranscriptPanelController {
         panel.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95)
         panel.minSize = NSSize(width: 280, height: 200)
 
-        // 居中显示
+        // center on screen
         if let screen = NSScreen.main {
             let x = screen.frame.maxX - 420
             let y = screen.frame.midY - 250
@@ -175,28 +175,28 @@ final class TranscriptPanelController {
         Logger.log("Transcript", "Panel hidden")
     }
 
-    /// 更新转录内容
+    /// Update the transcript content
     func updateTranscript(segments: [MeetingSegment]) {
         viewModel.segments = segments
     }
 
-    /// 追加单条转录片段
+    /// Append a single transcript segment
     func appendSegment(_ segment: MeetingSegment) {
         viewModel.segments.append(segment)
     }
 
-    /// 更新底部状态栏
+    /// Update the bottom status bar
     func updateStatus(duration: TimeInterval, wordCount: Int) {
         viewModel.duration = duration
         viewModel.wordCount = wordCount
     }
 
-    /// 设置录音状态
+    /// Set the recording status
     func setRecording(_ recording: Bool) {
         viewModel.isRecording = recording
     }
 
-    /// 清空所有转录
+    /// Clear all transcripts
     func clear() {
         viewModel.segments.removeAll()
         viewModel.duration = 0

@@ -1,14 +1,14 @@
 import Foundation
 
-/// 组装 SpeechAnalyzer.contextualStrings 的统一入口
-/// 来源：纠错字典（可关）
-/// Apple 建议 contextualStrings 总长 ≤100 项
+/// Unified entry point for assembling SpeechAnalyzer.contextualStrings
+/// Source: the correction dictionary (can be disabled)
+/// Apple recommends keeping the total contextualStrings count <=100
 @MainActor
 enum ContextEnhancer {
     private static let maxContextualStrings = 100
 
-    /// 组合字典术语为 contextualStrings
-    /// 开关由 config.polish.context_dictionary_enabled 控制
+    /// Combines dictionary terms into contextualStrings
+    /// Controlled by the config.polish.context_dictionary_enabled toggle
     static func enhance(
         dictionaryEnabled: Bool,
         dictionaryPath: String?
@@ -17,7 +17,7 @@ enum ContextEnhancer {
         var result: [String] = []
         var seen = Set<String>()
 
-        // 字典术语（高频术语，用户明确定义）
+        // Dictionary terms (high-frequency terms explicitly defined by the user)
         var dictCount = 0
         if dictionaryEnabled, let path = dictionaryPath {
             CorrectionDictionary.shared.load(from: path)

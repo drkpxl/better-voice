@@ -1,7 +1,7 @@
 import Foundation
 
-/// Shell + Module 架构中的模块协议
-/// 当前只有 VoiceModule，未来可扩展 Chat/Files/Tools
+/// The module protocol in the Shell + Module architecture
+/// Currently only VoiceModule exists; Chat/Files/Tools can be added in the future
 @MainActor
 protocol WEModule: AnyObject {
     var name: String { get }

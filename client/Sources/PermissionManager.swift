@@ -2,12 +2,12 @@ import AppKit
 import AVFoundation
 import IOKit.hid
 
-/// 权限检查与引导
-/// - Accessibility：用于 TextInjector (AX API)
-/// - **Input Monitoring**：CGEventTap 监听全局键盘事件的真实权限（macOS 10.15+ 必须）
-///   ⚠️ 不是 Accessibility。CGEventTap 能"创建成功"但不收事件 = Input Monitoring 缺失。
-/// - Microphone：用于语音录制
-/// - Screen Capture：用于会议系统音频捕获 (SystemAudioCapturer / ScreenCaptureKit)
+/// Permission checks and prompting
+/// - Accessibility: used by TextInjector (AX API)
+/// - **Input Monitoring**: the real permission CGEventTap needs to listen for global keyboard events (required on macOS 10.15+)
+///   ⚠️ Not Accessibility. CGEventTap can "succeed at creation" but still not receive events = Input Monitoring is missing.
+/// - Microphone: used for voice recording
+/// - Screen Capture: used for meeting system audio capture (SystemAudioCapturer / ScreenCaptureKit)
 enum PermissionManager {
     static func checkAccessibility() -> Bool {
         let trusted = AXIsProcessTrusted()
@@ -20,15 +20,15 @@ enum PermissionManager {
         return trusted
     }
 
-    /// 检查 Input Monitoring（全局键盘监听）权限。
-    /// 这是 CGEventTap 真正需要的权限——Accessibility 给了也没用，不收事件。
-    /// 首次未授权时会弹系统对话框（IOHIDRequestAccess 异步）。
+    /// Check the Input Monitoring (global keyboard listening) permission.
+    /// This is the permission CGEventTap actually needs — granting Accessibility alone doesn't help, no events are received.
+    /// The first time it's unauthorized, a system dialog will pop up (IOHIDRequestAccess is async).
     @discardableResult
     static func checkInputMonitoring() -> Bool {
         let granted = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
         if !granted {
             Logger.log("Permission", "Input Monitoring not granted — CGEventTap will not receive key events. Requesting...")
-            // 异步弹系统对话框
+            // Async system dialog prompt
             _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
         } else {
             Logger.log("Permission", "Input Monitoring: OK")
@@ -36,7 +36,7 @@ enum PermissionManager {
         return granted
     }
 
-    // MARK: - 状态栏轮询用 — 纯查询，不弹对话框
+    // MARK: - For status bar polling — pure query, no dialog prompt
 
     static func isAccessibilityGranted() -> Bool {
         AXIsProcessTrusted()
@@ -66,9 +66,9 @@ enum PermissionManager {
         }
     }
 
-    /// 请求屏幕录制权限（会议系统音频捕获需要，见 SystemAudioCapturer）
-    /// CGRequestScreenCaptureAccess() 会把 app 加入系统设置的屏幕录制列表
-    /// 用户需要手动开启后重启 app 才生效
+    /// Request Screen Recording permission (needed by meeting system audio capture, see SystemAudioCapturer)
+    /// CGRequestScreenCaptureAccess() adds the app to the Screen Recording list in System Settings
+    /// The user needs to manually enable it and restart the app for it to take effect
     static func checkScreenCapture() -> Bool {
         let granted = CGPreflightScreenCaptureAccess()
         if !granted {

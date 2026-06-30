@@ -1,8 +1,8 @@
 import Foundation
 
-/// 每次语音会话的历史记录
-/// 写入 ~/.we/voice-history.jsonl
-/// 蒸馏流水线从此文件读取训练数据
+/// History record for each voice session
+/// Written to ~/.we/voice-history.jsonl
+/// The distillation pipeline reads training data from this file
 struct VoiceHistoryEntry: Codable {
     let timestamp: Date
     let rawSA: String

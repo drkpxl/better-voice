@@ -1,7 +1,7 @@
 import Foundation
 
-/// 运行时配置，从 ~/.we/config.json 加载
-/// 支持热更新（文件变更时自动重载）
+/// Runtime configuration, loaded from ~/.we/config.json
+/// Supports hot reload (automatically reloads when the file changes)
 @MainActor
 final class RuntimeConfig {
     static let shared = RuntimeConfig()
@@ -10,68 +10,68 @@ final class RuntimeConfig {
     private var values: [String: Any] = [:]
     private var fileWatcher: DispatchSourceFileSystemObject?
 
-    /// G1 ambient 模式开关，默认关闭
+    /// G1 ambient mode toggle, off by default
     var ambientEnabled: Bool {
         values["ambient_enabled"] as? Bool ?? false
     }
 
-    /// 模型服务器配置
+    /// Model server configuration
     var serverConfig: [String: Any] {
         values["server"] as? [String: Any] ?? [:]
     }
 
-    /// 润色配置
+    /// Polish (text refinement) configuration
     var polishConfig: [String: Any] {
         values["polish"] as? [String: Any] ?? [:]
     }
 
-    /// 模型下载配置
+    /// Model download configuration
     var downloadsConfig: [String: Any] {
         values["downloads"] as? [String: Any] ?? [:]
     }
 
-    /// 远程语音接收配置
+    /// Remote voice inbox configuration
     var remoteConfig: [String: Any] {
         values["remote"] as? [String: Any] ?? [:]
     }
 
-    /// 会议模式配置
+    /// Meeting mode configuration
     var meetingConfig: [String: Any] {
         values["meeting"] as? [String: Any] ?? [:]
     }
 
-    /// 摘要配置（meeting.summarization 子段）
+    /// Summarization configuration (meeting.summarization sub-section)
     var meetingSummarizationConfig: [String: Any] {
         meetingConfig["summarization"] as? [String: Any] ?? [:]
     }
 
-    /// 转写与界面语言（BCP-47 或语言代码，如 "en"、"zh-Hans"）。
-    /// nil 时跟随系统语言。
+    /// Transcription & UI language (BCP-47 or language code, e.g. "en", "zh-Hans").
+    /// When nil, follows the system language.
     /// Transcription & UI language (BCP-47 or language code, e.g. "en", "zh-Hans").
     /// When nil, follows the system language.
     var language: String? {
         (values["language"] as? String).flatMap { $0.isEmpty ? nil : $0 }
     }
 
-    /// 全局热键配置
+    /// Global hotkey configuration
     var hotKeyConfig: [String: Any] {
         values["hotkey"] as? [String: Any] ?? [:]
     }
 
-    /// 持久化新的 hotkey 配置（设置窗口保存时调用）
+    /// Persist a new hotkey configuration (called when the settings window saves)
     func updateHotKeyConfig(_ dict: [String: Any]) {
         values["hotkey"] = dict
         save()
     }
 
-    /// 写入/覆盖一个顶层配置段（如 "server"、"meeting"、"waveform"），并持久化。
-    /// 设置窗口保存时调用。Merges into `values` then saves (avoids clobbering on hot-reload).
+    /// Write/overwrite a top-level config section (e.g. "server", "meeting", "waveform"), and persist it.
+    /// Called when the settings window saves. Merges into `values` then saves (avoids clobbering on hot-reload).
     func updateSection(_ key: String, _ dict: [String: Any]) {
         values[key] = dict
         save()
     }
 
-    /// 写入/覆盖一个顶层标量配置（如 "language"）。传 nil 删除该键。
+    /// Write/overwrite a top-level scalar config value (e.g. "language"). Pass nil to delete the key.
     func updateTopLevel(_ key: String, _ value: Any?) {
         if let value {
             values[key] = value
@@ -89,7 +89,7 @@ final class RuntimeConfig {
 
     private func load() {
         guard FileManager.default.fileExists(atPath: configURL.path) else {
-            // 首次运行，创建默认配置
+            // first run, create the default configuration
             let defaults: [String: Any] = [
                 "language": "en",
                 "server": [
@@ -98,7 +98,7 @@ final class RuntimeConfig {
                     "model": "qwen3.5:4b-mlx",
                     "timeout": 10,
                     "health_interval": 30,
-                    // 摘要可指定不同（更大上下文）的模型；留空则回退到上面的 model。
+                    // summarization can specify a different (larger-context) model; leave empty to fall back to the model above.
                     "summarization_model": ""
                 ],
                 "polish": [
@@ -119,21 +119,21 @@ final class RuntimeConfig {
                     "l2_flush_on_chars": 200,
                     "l2_min_chars": 30,
                     "audio_source": "mic",
-                    // 会议转录 + 摘要的保存目录（支持 ~ 展开）。
+                    // save directory for meeting transcripts + summaries (supports ~ expansion).
                     "save_folder": WEDataDir.meetings.path,
-                    // 转录完成后是否自动删除音频 wav（默认关闭）。
+                    // whether to automatically delete the audio wav after transcription finishes (off by default).
                     "auto_delete_audio": false,
-                    // 收尾面板里会议类型下拉的默认值（general / one_on_one / standup）。
+                    // default value for the meeting type dropdown in the wrap-up panel (general / one_on_one / standup).
                     "default_type": "general",
-                    // 摘要子段。
+                    // summarization sub-section.
                     "summarization": [
                         "enabled": true,
                         "num_ctx": 32768,
                         "num_predict": 2048,
                         "timeout": 300,
-                        // 是否用一次快速分类预选会议类型。
+                        // whether to use a quick classification pass to pre-select the meeting type.
                         "classify_enabled": true,
-                        // 各会议类型的自定义提示词覆盖（留空用内置模板）。
+                        // custom prompt overrides per meeting type (leave empty to use the built-in templates).
                         "prompts": [String: String]()
                     ]
                 ],

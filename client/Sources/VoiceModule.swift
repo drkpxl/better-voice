@@ -1,7 +1,7 @@
 import Foundation
 
-/// 语音模块
-/// 交互：按右 Command 开始录音+转写 → 再按右 Command 停止 → 自动注入
+/// Voice module
+/// Interaction: press right Command to start recording+transcription -> press right Command again to stop -> auto-inject
 @MainActor
 final class VoiceModule: WEModule {
     let name = "Voice"
@@ -17,10 +17,10 @@ final class VoiceModule: WEModule {
         didSet { onStateChange?(state) }
     }
 
-    /// 状态变化回调（UI 指示器用）
+    /// State change callback (used by UI indicators)
     var onStateChange: ((State) -> Void)?
 
-    /// 实时音频电平回调（原始 RMS，0...1，用于波形指示器；仅听写流程触发，会议不走此模块）
+    /// Real-time audio level callback (raw RMS, 0...1, used for the waveform indicator; only triggered by the dictation flow, meetings don't use this module)
     var onAudioLevel: ((Float) -> Void)?
 
     private var session: VoiceSession?
@@ -40,7 +40,7 @@ final class VoiceModule: WEModule {
     }
 
     func onHotKeyUp() {
-        // 松开不做操作
+        // No action on key release
     }
 
     private func startRecording() {
@@ -50,11 +50,11 @@ final class VoiceModule: WEModule {
             return
         }
 
-        // 立即设为 recording，防止快速重复按键创建多个 session
+        // Set to recording immediately to prevent rapid repeated key presses from creating multiple sessions
         state = .recording
         recordingStartT = CFAbsoluteTimeGetCurrent()
 
-        // 锁定当前焦点应用
+        // Pin the currently focused app
         pinnedApp = AppIdentity.current()
         Logger.log("Voice", "Pinned app: \(pinnedApp?.bundleID ?? "unknown")")
 
@@ -69,7 +69,7 @@ final class VoiceModule: WEModule {
                 try await voiceSession.start()
                 Logger.log("Voice", "Recording... press hotkey again to stop")
 
-                // 上下文注入（可选纠错字典），异步不阻塞录音
+                // Context injection (optional correction dictionary), async so it doesn't block recording
                 Task {
                     let polish = RuntimeConfig.shared.polishConfig
                     let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false

@@ -1,17 +1,18 @@
 import AppKit
 import Carbon
 
-/// 系统级 symbolic hot key 冲突检测
+/// System-level symbolic hot key conflict detection
 ///
-/// 用 Carbon `CopySymbolicHotKeys()` 查询当前 macOS 启用的所有系统快捷键
-/// （Spotlight、Mission Control、应用切换等）。MASShortcut / Karabiner-Elements
-/// 等库的标准做法——动态查询系统当前状态，不硬编码。
+/// Uses Carbon `CopySymbolicHotKeys()` to query all system shortcuts currently
+/// enabled in macOS (Spotlight, Mission Control, app switching, etc.). This is
+/// the standard approach used by libraries like MASShortcut / Karabiner-Elements —
+/// dynamically query current system state instead of hardcoding.
 ///
-/// 注意：modifier-only 热键（如 Right Option）不在 symbolic hot keys 范围，
-/// 不参与检测。
+/// Note: modifier-only hotkeys (e.g. Right Option) are outside the scope of
+/// symbolic hot keys and are not checked.
 enum HotKeyConflictChecker {
 
-    /// 检测给定 HotKeyConfig 是否与当前启用的系统快捷键冲突
+    /// Checks whether the given HotKeyConfig conflicts with any currently enabled system shortcut
     static func isConflicting(_ config: HotKeyConfig) -> Bool {
         if config.isModifierOnly { return false }
 
@@ -25,7 +26,7 @@ enum HotKeyConflictChecker {
         let userMods = config.deviceIndependentModifiers
         let userKeyCode = Int(config.keyCode)
 
-        // 字段名来自 plist 约定，Carbon 公开常量在新 SDK 不再暴露
+        // Field names follow the plist convention; Carbon's public constants are no longer exposed in newer SDKs
         for entry in array {
             guard let enabled = entry["enabled"] as? Bool, enabled,
                   let value = entry["value"] as? [String: Any],
@@ -42,7 +43,7 @@ enum HotKeyConflictChecker {
         return false
     }
 
-    /// Carbon modifier 位 → NSEvent.ModifierFlags（device-independent 部分）
+    /// Carbon modifier bits → NSEvent.ModifierFlags (device-independent portion)
     /// Carbon: cmdKey=1<<8, shiftKey=1<<9, alphaLock=1<<10, optionKey=1<<11, controlKey=1<<12
     private static func nsModifierFlags(fromCarbon carbon: Int) -> NSEvent.ModifierFlags {
         var flags: NSEvent.ModifierFlags = []

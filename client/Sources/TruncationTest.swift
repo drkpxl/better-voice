@@ -1,16 +1,16 @@
 @preconcurrency import AVFoundation
 import Speech
 
-/// 截断测试：模拟 VoiceSession 的流式输入 + stop() 逻辑
-/// 验证 SA 是否在 stop 流程中丢失尾部内容
+/// Truncation test: simulates VoiceSession's streaming input + stop() logic
+/// Verifies whether SA loses trailing content during the stop sequence
 ///
-/// 用法: WE --test-truncation <wav-file> [--locale zh-CN]
+/// Usage: WE --test-truncation <wav-file> [--locale zh-CN]
 ///
-/// 测试流程：
-/// 1. 读取 WAV 文件，按 20ms 一块切成小 buffer（模拟 AVCaptureSession 的实时输入）
-/// 2. 通过 AsyncStream 喂给 SpeechAnalyzer（和 VoiceSession 完全一样的路径）
-/// 3. 所有 buffer 发送完后，执行和 VoiceSession.stop() 一样的关闭逻辑
-/// 4. 记录每一步的时间戳和 SA 状态，输出诊断报告
+/// Test flow:
+/// 1. Read the WAV file and slice it into small buffers in 20ms chunks (simulating AVCaptureSession's live input)
+/// 2. Feed the chunks to SpeechAnalyzer via AsyncStream (the exact same path VoiceSession uses)
+/// 3. Once all buffers are sent, run the same shutdown logic as VoiceSession.stop()
+/// 4. Log the timestamp and SA state at each step, then print a diagnostic report
 enum TruncationTest {
     private static let outputURL = WEDataDir.archiveReports.appendingPathComponent("truncation-test.log")
     nonisolated(unsafe) private static var logHandle: FileHandle?
@@ -26,7 +26,7 @@ enum TruncationTest {
 
     @MainActor
     static func run() async {
-        // 初始化日志文件
+        // Initialize the log file
         WEDataDir.ensureExists()
         FileManager.default.createFile(atPath: outputURL.path, contents: nil)
         logHandle = try? FileHandle(forWritingTo: outputURL)
@@ -46,13 +46,13 @@ enum TruncationTest {
             return
         }
 
-        log("=== 截断测试 ===")
+        log("=== Truncation Test ===")
         log("Audio: \(wavPath)")
         log("Locale: \(locale.identifier(.bcp47))")
         log("")
 
         do {
-            // 读取音频文件
+            // Read the audio file
             let fileURL = URL(fileURLWithPath: wavPath)
             let audioFile = try AVAudioFile(forReading: fileURL)
             let fileFormat = audioFile.processingFormat
@@ -60,11 +60,11 @@ enum TruncationTest {
             let audioDuration = Double(totalFrames) / fileFormat.sampleRate
             log("Audio: \(String(format: "%.1f", audioDuration))s, \(Int(fileFormat.sampleRate))Hz, \(fileFormat.channelCount)ch")
 
-            // 读取完整音频到 buffer
+            // Read the full audio into a buffer
             let fullBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: totalFrames)!
             try audioFile.read(into: fullBuffer)
 
-            // 配置 SA（和 VoiceSession 一样）
+            // Configure SA (same as VoiceSession)
             let supportedLocales = await SpeechTranscriber.supportedLocales
             let bestLocale = supportedLocales.first(where: { $0.identifier(.bcp47).hasPrefix("zh") }) ?? locale
 
@@ -79,7 +79,7 @@ enum TruncationTest {
             let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
             log("SA format: \(analyzerFormat as Any)")
 
-            // 格式转换器（如果需要）
+            // Format converter (if needed)
             var converter: AVAudioConverter? = nil
             if let targetFormat = analyzerFormat,
                fileFormat.sampleRate != targetFormat.sampleRate
@@ -88,14 +88,14 @@ enum TruncationTest {
                 log("Converter: \(fileFormat) → \(targetFormat)")
             }
 
-            // 创建 AsyncStream（和 VoiceSession 一样）
+            // Create the AsyncStream (same as VoiceSession)
             let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
 
-            // 启动 SA
+            // Start SA
             try await analyzer.start(inputSequence: inputSequence)
             log("SA started")
 
-            // 结果收集
+            // Result collection
             var finalizedText = ""
             var volatileText = ""
             var finalCount = 0
@@ -112,7 +112,7 @@ enum TruncationTest {
                             volatileText = ""
                             finalCount += 1
 
-                            // 提取时间范围
+                            // Extract the time range
                             typealias TimeKey = AttributeScopes.SpeechAttributes.TimeRangeAttribute
                             var maxEnd: TimeInterval = 0
                             for (timeRange, _) in result.text.runs[TimeKey.self] {
@@ -136,9 +136,9 @@ enum TruncationTest {
                 }
             }
 
-            // === 模拟流式输入：按 20ms 一块切割并 yield ===
-            // 注意：feed 在 nonisolated Task 里执行，避免阻塞 MainActor
-            let chunkDuration: TimeInterval = 0.02 // 20ms，模拟 AVCaptureSession
+            // === Simulate streaming input: slice into 20ms chunks and yield ===
+            // Note: feed runs inside a nonisolated Task to avoid blocking the MainActor
+            let chunkDuration: TimeInterval = 0.02 // 20ms, simulating AVCaptureSession
             let chunkFrames = AVAudioFrameCount(fileFormat.sampleRate * chunkDuration)
             let feedStartTime = CFAbsoluteTimeGetCurrent()
 
@@ -185,20 +185,20 @@ enum TruncationTest {
             let yieldedDuration = feedResult.1
             let feedTime = CFAbsoluteTimeGetCurrent() - feedStartTime
             log("")
-            log("=== Feed 完成 ===")
+            log("=== Feed complete ===")
             log("Yielded: \(yieldCount) chunks, \(String(format: "%.1f", yieldedDuration))s audio in \(String(format: "%.2f", feedTime))s")
             log("Feed speed: \(String(format: "%.1f", yieldedDuration / feedTime))x realtime")
             log("")
 
-            // === 模拟 VoiceSession.stop() 的关闭逻辑 ===
-            log("=== 模拟 stop() 流程 ===")
+            // === Simulate VoiceSession.stop()'s shutdown logic ===
+            log("=== Simulating stop() flow ===")
 
             // Step 1: finish input stream
             let t1 = CFAbsoluteTimeGetCurrent()
             inputBuilder.finish()
             log("[\(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - t1))s] inputBuilder.finish()")
 
-            // Step 2: finalize with 5s timeout (和 VoiceSession 一样)
+            // Step 2: finalize with 5s timeout (same as VoiceSession)
             let t2 = CFAbsoluteTimeGetCurrent()
             do {
                 try await withThrowingTimeout(seconds: 5) {
@@ -209,68 +209,66 @@ enum TruncationTest {
                 log("[\(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - t2))s] finalizeAndFinishThroughEndOfInput() TIMEOUT/ERROR: \(error)")
             }
 
-            // Step 3: sleep 500ms (和 VoiceSession 一样)
+            // Step 3: sleep 500ms (same as VoiceSession)
             let t3 = CFAbsoluteTimeGetCurrent()
             try? await Task.sleep(for: .milliseconds(500))
             log("[\(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - t3))s] sleep(500ms)")
 
-            // Step 4: cancel resultTask (和 VoiceSession 一样)
+            // Step 4: cancel resultTask (same as VoiceSession)
             let t4 = CFAbsoluteTimeGetCurrent()
             resultTask.cancel()
             log("[\(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - t4))s] resultTask.cancel()")
 
-            // 等 resultTask 结束
+            // Wait for resultTask to finish
             await resultTask.value
 
-            // === 输出诊断报告 ===
+            // === Print the diagnostic report ===
             let fullText = finalizedText + volatileText
             log("")
             log(String(repeating: "=", count: 60))
-            log("截断测试报告")
+            log("Truncation Test Report")
             log(String(repeating: "=", count: 60))
-            log("音频总时长:        \(String(format: "%.1f", audioDuration))s")
-            log("SA 最后 final 时间: \(String(format: "%.1f", lastFinalTime))s")
-            log("尾部 gap:          \(String(format: "%.1f", audioDuration - lastFinalTime))s")
+            log("Total audio duration:   \(String(format: "%.1f", audioDuration))s")
+            log("SA last final time:     \(String(format: "%.1f", lastFinalTime))s")
+            log("Trailing gap:           \(String(format: "%.1f", audioDuration - lastFinalTime))s")
             log("")
             log("Final segments:    \(finalCount)")
             log("Volatile updates:  \(volatileCount)")
-            log("finalizedText:     \(finalizedText.count) 字")
-            log("volatileText:      \(volatileText.count) 字")
-            log("fullText:          \(fullText.count) 字")
+            log("finalizedText:     \(finalizedText.count) chars")
+            log("volatileText:      \(volatileText.count) chars")
+            log("fullText:          \(fullText.count) chars")
             log("")
-            log("=== finalizedText（前200字）===")
+            log("=== finalizedText (first 200 chars) ===")
             log(String(finalizedText.prefix(200)))
             log("")
             log("=== volatileText ===")
-            log(volatileText.isEmpty ? "(空)" : volatileText)
+            log(volatileText.isEmpty ? "(empty)" : volatileText)
             log("")
-            log("=== fullText 最后100字 ===")
+            log("=== fullText last 100 chars ===")
             log(String(fullText.suffix(100)))
             log("")
 
-            // 如果有 ground truth 文件，对比
+            // If a ground truth file exists, compare against it
             let gtPath = wavPath.replacingOccurrences(of: ".wav", with: ".txt")
             if FileManager.default.fileExists(atPath: gtPath) {
                 let gt = try String(contentsOfFile: gtPath, encoding: .utf8)
                     .replacingOccurrences(of: "\n", with: "")
                     .replacingOccurrences(of: " ", with: "")
                 let fullClean = fullText.replacingOccurrences(of: " ", with: "")
-                    .replacingOccurrences(of: "，", with: "")
-                    .replacingOccurrences(of: "。", with: "")
 
-                log("=== Ground Truth 对比 ===")
-                log("GT 字数:   \(gt.count)")
-                log("SA 字数:   \(fullClean.count)")
+                log("=== Ground Truth Comparison ===")
+                log("GT char count:   \(gt.count)")
+                log("SA char count:   \(fullClean.count)")
                 log("")
-                log("GT 最后50字:  \(String(gt.suffix(50)))")
-                log("SA 最后50字:  \(String(fullClean.suffix(50)))")
+                log("GT last 50 chars:  \(String(gt.suffix(50)))")
+                log("SA last 50 chars:  \(String(fullClean.suffix(50)))")
                 log("")
 
-                // 检查 GT 的最后 20 个字是否出现在 SA 输出中
+                // Check whether the GT's last 20 characters appear in the SA output
                 let gtTail = String(gt.suffix(20))
                 let found = fullClean.contains(gtTail)
-                log("GT 尾部20字「\(gtTail)」")
-                log("在 SA 输出中: \(found ? "✓ 找到（未截断）" : "✗ 未找到（可能截断）")")
+                log("GT tail 20 chars: \"\(gtTail)\"")
+                log("Found in SA output: \(found ? "yes (not truncated)" : "no (possibly truncated)")")
             }
 
         } catch {
@@ -282,7 +280,7 @@ enum TruncationTest {
 // MARK: - AVAudioPCMBuffer slice helper
 
 extension AVAudioPCMBuffer {
-    /// 从指定偏移截取一段 buffer
+    /// Slices a buffer segment starting at the given offset
     func slice(from startFrame: AVAudioFrameCount, length: AVAudioFrameCount) -> AVAudioPCMBuffer? {
         guard startFrame + length <= frameLength else { return nil }
         guard let newBuf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: length) else { return nil }

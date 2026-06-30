@@ -2,20 +2,21 @@ import AppKit
 import SwiftUI
 import WECore
 
-/// 录音指示器：从屏幕顶部「挂下」的黑色条，含实时音频波形。仅用于即时听写。
+/// Recording indicator: a black bar "hanging" from the top of the screen, with a live audio waveform. Used only for instant dictation.
 ///
-/// 移植自 FreeFlow（github.com/zachlatta/freeflow, MIT）的 RecordingOverlay：
-/// - 有刘海的屏幕用「双翼」布局：波形在刘海左侧的小翼里，中间是与刘海等宽的纯黑
-///   遮罩，整体与菜单栏齐高、紧贴顶边，看起来像从刘海两侧挂下来。
-/// - 无刘海的屏幕用顶部居中的下拉小药丸。
-/// 电平由 LiveAudioLevelNormalizer 自适应归一化；单个 audioLevel(0...1) 驱动竖条。
+/// Ported from FreeFlow's (github.com/zachlatta/freeflow, MIT) RecordingOverlay:
+/// - On screens with a notch, uses a "double-wing" layout: the waveform sits in a small wing to the
+///   left of the notch, with a solid black mask matching the notch's width in the middle, the whole
+///   thing flush with the top edge at menu-bar height, making it look like it hangs from both sides of the notch.
+/// - On screens without a notch, uses a small pill centered at the top that drops down.
+/// Level is adaptively normalized by LiveAudioLevelNormalizer; a single audioLevel(0...1) drives the bars.
 @MainActor
 final class RecordingIndicator {
     private var window: NSPanel?
     private let state = RecordingIndicatorState()
     private var normalizer = LiveAudioLevelNormalizer()
 
-    // 双翼尺寸（与紧凑波形一致，避免顶到右侧菜单栏图标）。
+    // Double-wing size (matches the compact waveform, avoiding collision with right-side menu bar icons).
     private let wingWidth: CGFloat = 38
 
     func show() {
@@ -34,7 +35,7 @@ final class RecordingIndicator {
             backing: .buffered,
             defer: false
         )
-        panel.level = .screenSaver            // 浮在菜单栏之上，贴着顶边
+        panel.level = .screenSaver            // Floats above the menu bar, flush with the top edge
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -47,7 +48,7 @@ final class RecordingIndicator {
         host.frame = NSRect(origin: .zero, size: finalFrame.size)
         panel.contentView = host
 
-        // 从顶边外「滑下」一小段，营造挂下来的感觉。
+        // "Slides down" a short distance from off the top edge, creating the impression of hanging down.
         let hiddenFrame = NSRect(x: finalFrame.origin.x, y: screen.frame.maxY,
                                  width: finalFrame.width, height: finalFrame.height)
         panel.setFrame(hiddenFrame, display: false)
@@ -72,16 +73,16 @@ final class RecordingIndicator {
         Logger.log("UI", "Recording indicator hidden")
     }
 
-    /// 输入原始 RMS（0...1），经自适应归一化后驱动波形。
+    /// Takes the raw RMS (0...1) and drives the waveform after adaptive normalization.
     func update(level rawRMS: Float) {
         guard window != nil else { return }
         state.audioLevel = normalizer.normalizedLevel(forRMS: rawRMS)
     }
 }
 
-// MARK: - 几何（刘海/菜单栏）
+// MARK: - Geometry (notch/menu bar)
 
-/// 计算指示器的窗口 frame 与布局参数。移植自 FreeFlow 的 overlayFrame 逻辑（仅录音态）。
+/// Computes the indicator window's frame and layout parameters. Ported from FreeFlow's overlayFrame logic (recording state only).
 struct Geometry {
     let frame: NSRect
     let hasNotch: Bool
@@ -92,7 +93,7 @@ struct Geometry {
     let cornerRadius: CGFloat
 
     init(screen: NSScreen, wingWidth: CGFloat) {
-        // 菜单栏高度（也是刘海与可见区之间的重叠高度）。
+        // Menu bar height (also the overlap height between the notch and the visible area).
         let menuOverlap = max(screen.frame.maxY - screen.visibleFrame.maxY, 22)
         let notch = screen.safeAreaInsets.top > 0
         self.hasNotch = notch
@@ -101,7 +102,7 @@ struct Geometry {
         if notch,
            let left = screen.auxiliaryTopLeftArea,
            let right = screen.auxiliaryTopRightArea {
-            // 双翼：[左翼][刘海纯黑][右翼]，整体贴顶、与菜单栏齐高。
+            // Double-wing: [left wing][solid black notch][right wing], flush with the top, at menu-bar height.
             let nWidth = screen.frame.width - left.width - right.width
             let nLeftX = left.maxX
             self.leftWingWidth = wingWidth
@@ -113,7 +114,7 @@ struct Geometry {
             let panelY = screen.frame.maxY - menuOverlap
             self.frame = NSRect(x: panelX, y: panelY, width: panelWidth, height: menuOverlap)
         } else {
-            // 无刘海：顶部居中下拉小药丸。
+            // No notch: a small pill centered at the top that drops down.
             let pillWidth: CGFloat = 150
             self.leftWingWidth = 0
             self.notchWidth = 0
@@ -141,7 +142,7 @@ private struct RecordingIndicatorContentView: View {
     var body: some View {
         Group {
             if geometry.hasNotch {
-                // 左翼波形 + 中间刘海纯黑 + 右翼留白（被相机切口遮住）。
+                // Left-wing waveform + middle solid-black notch + right-wing empty space (hidden by the camera cutout).
                 HStack(spacing: 0) {
                     CompactWaveformView(audioLevel: state.audioLevel)
                         .frame(width: geometry.leftWingWidth, height: geometry.height)
@@ -179,7 +180,7 @@ private struct WaveformBar: View {
     }
 }
 
-/// 9 条对称竖条（无刘海药丸用）。
+/// 9 symmetric vertical bars (used for the no-notch pill).
 private struct WaveformView: View {
     let audioLevel: Float
 
@@ -213,7 +214,7 @@ private struct WaveformView: View {
     }
 }
 
-/// 5 条紧凑竖条（刘海左翼用）。
+/// 5 compact vertical bars (used for the notch's left wing).
 private struct CompactWaveformView: View {
     let audioLevel: Float
 
@@ -242,7 +243,7 @@ private struct CompactWaveformView: View {
     }
 }
 
-/// FreeFlow 的竖条幅度公式：低电平时叠加一点行波/微光，让波形「活」起来。
+/// FreeFlow's bar amplitude formula: at low levels, adds a bit of traveling wave/shimmer to make the waveform feel "alive".
 private func sharedAmplitude(level: Float, multiplier: CGFloat, index: Int, pulseTime: TimeInterval?) -> CGFloat {
     let lvl = CGFloat(max(level, 0))
     let base = min(lvl * multiplier, 1.0)

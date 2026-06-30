@@ -2,17 +2,17 @@
 import CoreMedia
 import Speech
 
-/// 即时录音模式评估入口
-/// 用法：
+/// Entry point for evaluating instant-recording mode
+/// Usage:
 ///   WE --bench-voice <wav> [--locale zh-CN] [--output result.json]
 ///   WE --bench-voice --batch <manifest.jsonl> [--output-dir results/]
 ///
-/// 走完整 ContextEnhancer + SpeechAnalyzer + L2 polish 链路，输出 rawSA + finalText。
-/// **不调用 TextInjector**（不注入光标），**不写 voice-history.jsonl**（不污染历史），
-/// 这是与 VoiceSession 的唯一区别——其他链路完全等价。
+/// Runs the full ContextEnhancer + SpeechAnalyzer + L2 polish pipeline, outputting rawSA + finalText.
+/// **Does not call TextInjector** (no cursor injection), **does not write voice-history.jsonl** (keeps history clean) —
+/// that is the only difference from VoiceSession; the rest of the pipeline is identical.
 ///
-/// 用于 KPI §3.2 L4 ①②③ 三项基线（短句准确率 / 中等 WER / 长句保留率），
-/// 以"用户视角 + 全链路"为原则评估即时录音模式。
+/// Used for the three KPI §3.2 L4 ①②③ baselines (short-sentence accuracy / medium WER / long-sentence retention rate),
+/// evaluating instant-recording mode on the principle of "user perspective + full pipeline."
 enum VoiceBenchmark {
 
     @MainActor
@@ -53,7 +53,7 @@ enum VoiceBenchmark {
         let tStart = CFAbsoluteTimeGetCurrent()
 
         do {
-            // 1. 配置 SpeechTranscriber —— 与 VoiceSession 的核心配置一致
+            // 1. Configure SpeechTranscriber -- matches VoiceSession's core configuration
             guard let bestLocale = await SpeechUtils.findChineseLocale() else {
                 print("Error: no Chinese locale available")
                 return
@@ -67,10 +67,10 @@ enum VoiceBenchmark {
             )
             try await SpeechUtils.ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
 
-            // 2. 创建 SpeechAnalyzer
+            // 2. Create the SpeechAnalyzer
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
-            // 3. 上下文注入（字典）—— 用户视角必须含此环节
+            // 3. Context injection (dictionary) -- must be included for a user-perspective evaluation
             let polishCfg = RuntimeConfig.shared.polishConfig
             let dictEnabled = polishCfg["context_dictionary_enabled"] as? Bool ?? false
             let dictPath = polishCfg["context_dictionary_path"] as? String
@@ -85,7 +85,7 @@ enum VoiceBenchmark {
             }
             let tCtxDone = CFAbsoluteTimeGetCurrent()
 
-            // 4. 结果收集
+            // 4. Result collection
             var fullText = ""
             var allWords: [WordInfo] = []
             let resultTask = Task {
@@ -101,14 +101,14 @@ enum VoiceBenchmark {
                 }
             }
 
-            // 5. 文件输入
+            // 5. File input
             let inputFile = try AVAudioFile(forReading: fileURL)
             let audioDuration = Double(inputFile.length) / inputFile.processingFormat.sampleRate
             try await analyzer.start(inputAudioFile: inputFile, finishAfterFile: true)
             await resultTask.value
             let tSADone = CFAbsoluteTimeGetCurrent()
 
-            // 6. L2 polish（用户视角的最终文本）
+            // 6. L2 polish (the final text from the user's perspective)
             var polishedText: String? = nil
             let l2Enabled = polishCfg["enabled"] as? Bool ?? true
             if l2Enabled && !fullText.isEmpty {
@@ -120,7 +120,7 @@ enum VoiceBenchmark {
             }
             let tL2Done = CFAbsoluteTimeGetCurrent()
 
-            // 7. 输出
+            // 7. Output
             let finalText = polishedText ?? fullText
             let totalMs = Int((tL2Done - tStart) * 1000)
 
@@ -134,7 +134,7 @@ enum VoiceBenchmark {
                 "rawSA": fullText,
                 "polishedText": polishedText ?? NSNull(),
                 "finalText": finalText,
-                "hypothesis": finalText,                  // 与 MeetingBenchmark 输出格式一致
+                "hypothesis": finalText,                  // matches MeetingBenchmark's output format
                 "context_terms": contextWords.count,
                 "n_words": allWords.count,
             ]
@@ -202,7 +202,7 @@ enum VoiceBenchmark {
         print("Batch done: \(outDir.path)")
     }
 
-    // MARK: - 内部辅助
+    // MARK: - Internal helpers
 
     private static func extractWords(from attrText: AttributedString) -> [WordInfo] {
         var words: [WordInfo] = []

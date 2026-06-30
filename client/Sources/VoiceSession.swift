@@ -3,9 +3,9 @@ import CoreMedia
 import Speech
 import WECore
 
-// MARK: - 转写数据类型
+// MARK: - Transcription Data Types
 
-/// 转写结果的词级信息
+/// Word-level info for a transcription result
 struct WordInfo: Codable {
     let text: String
     let confidence: Float
@@ -14,7 +14,7 @@ struct WordInfo: Codable {
     let duration: TimeInterval
 }
 
-/// 一次语音会话的完整转写结果
+/// Complete transcription result for a single voice session
 struct TranscriptionResult: Codable {
     let fullText: String
     let words: [WordInfo]
@@ -24,9 +24,9 @@ struct TranscriptionResult: Codable {
 
 // MARK: - VoiceSession
 
-/// 语音会话：使用 Apple SpeechAnalyzer (WWDC 2025) 做端侧实时转写
-/// 音频采集用 AVCaptureSession（兼容蓝牙等各类音频设备）
-/// AVAudioEngine 的 installTap 在蓝牙设备上不触发回调
+/// Voice session: uses Apple SpeechAnalyzer (WWDC 2025) for on-device real-time transcription
+/// Audio capture uses AVCaptureSession (compatible with Bluetooth and other audio devices)
+/// AVAudioEngine's installTap doesn't fire callbacks on Bluetooth devices
 @MainActor
 final class VoiceSession {
     private var captureSession: AVCaptureSession?
@@ -41,18 +41,18 @@ final class VoiceSession {
 
     private(set) var isRunning = false
 
-    // 转写结果累积
+    // Accumulated transcription results
     private var finalizedText = ""
     private var volatileText = ""
     private var allWords: [WordInfo] = []
 
-    /// 识别完成时的回调
+    /// Callback fired when recognition completes
     var onResult: ((TranscriptionResult) -> Void)?
 
-    /// 实时部分结果回调（可选，用于 UI 显示）
+    /// Real-time partial result callback (optional, for UI display)
     var onPartialResult: ((String) -> Void)?
 
-    /// 实时音频电平回调（归一化前的原始 RMS，0...1，用于波形指示器）
+    /// Real-time audio level callback (raw RMS before normalization, 0...1, used for the waveform indicator)
     var onAudioLevel: ((Float) -> Void)?
 
     init() {}
@@ -67,7 +67,7 @@ final class VoiceSession {
         AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
-    /// 开始录音 + 实时转写
+    /// Start recording + real-time transcription
     func start() async throws {
         guard Self.isAuthorized else {
             throw VoiceError.notAuthorized
@@ -77,14 +77,14 @@ final class VoiceSession {
         volatileText = ""
         allWords = []
 
-        // 1. 查找最佳中文 locale
+        // 1. Find the best Chinese locale
         let bestLocale = await findChineseLocale()
         guard let bestLocale else {
             throw VoiceError.recognizerUnavailable
         }
         Logger.log("Voice", "Using locale: \(bestLocale.identifier(.bcp47))")
 
-        // 2. 配置 SpeechTranscriber（volatile 给 UI 实时回显，confidence 给服务端蒸馏用）
+        // 2. Configure SpeechTranscriber (volatile for real-time UI echo, confidence for server-side distillation)
         let transcriber = SpeechTranscriber(
             locale: bestLocale,
             transcriptionOptions: [],
@@ -93,32 +93,32 @@ final class VoiceSession {
         )
         self.transcriber = transcriber
 
-        // 3. 确保语音模型已安装
+        // 3. Ensure the speech model is installed
         try await ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
 
-        // 4. 创建 SpeechAnalyzer（processLifetime 让模型在进程内常驻，避免热键间歇被卸载）
+        // 4. Create SpeechAnalyzer (processLifetime keeps the model resident for the process's lifetime, avoiding unload between hotkey presses)
         let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
         let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
         self.analyzer = analyzer
 
-        // 获取最佳音频格式
+        // Get the best audio format
         let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
         self.analyzerFormat = analyzerFormat
         Logger.log("Voice", "Analyzer format: \(analyzerFormat as Any)")
 
-        // 5. 预热模型（首次热键响应从 ~800ms 降到 <100ms）
+        // 5. Warm up the model (reduces first hotkey response from ~800ms to <100ms)
         let prepareT0 = CFAbsoluteTimeGetCurrent()
         try? await analyzer.prepareToAnalyze(in: analyzerFormat)
         Logger.log("Voice", "prepareToAnalyze took \(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - prepareT0))s")
 
-        // 6. 创建 AsyncStream 用于音频输入
+        // 6. Create an AsyncStream for audio input
         let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
         self.inputBuilder = inputBuilder
 
-        // 7. 启动分析器
+        // 7. Start the analyzer
         try await analyzer.start(inputSequence: inputSequence)
 
-        // 7. 启动结果处理任务
+        // 7. Start the result-processing task
         resultTask = Task { [weak self] in
             do {
                 for try await result in transcriber.results {
@@ -143,12 +143,12 @@ final class VoiceSession {
             }
         }
 
-        // 8. 准备音频文件
+        // 8. Prepare the audio file
         let fileName = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let url = WEDataDir.audioURL(forName: fileName)
         audioFileURL = url
 
-        // 9. 启动 AVCaptureSession（替代 AVAudioEngine，兼容蓝牙设备）
+        // 9. Start AVCaptureSession (replaces AVAudioEngine, compatible with Bluetooth devices)
         guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
             throw VoiceError.noAudioDevice
         }
@@ -161,7 +161,7 @@ final class VoiceSession {
         let audioOutput = AVCaptureAudioDataOutput()
         let captureQueue = DispatchQueue(label: "com.antigravity.we.audio-capture")
 
-        // 创建 delegate，捕获所有需要的局部变量（避免访问 @MainActor 的 self）
+        // Create the delegate, capturing all needed local variables (avoids accessing @MainActor self)
         let delegate = AudioCaptureDelegate(
             inputBuilder: inputBuilder,
             analyzerFormat: analyzerFormat,
@@ -184,7 +184,7 @@ final class VoiceSession {
         Logger.log("Voice", "Session started (AVCaptureSession + SpeechAnalyzer)")
     }
 
-    /// 运行时注入纠错字典关键词到 SA（提升专有名词/术语识别率）
+    /// Inject correction-dictionary keywords into SA at runtime (improves recognition accuracy for proper nouns/terminology)
     func updateContext(contextualWords: [String]) async {
         guard let analyzer, !contextualWords.isEmpty else { return }
         let context = AnalysisContext()
@@ -199,7 +199,7 @@ final class VoiceSession {
         }
     }
 
-    /// 停止录音并等待最终结果
+    /// Stop recording and wait for the final result
     func stop() async -> TranscriptionResult {
         guard isRunning else {
             return TranscriptionResult(fullText: "", words: [], audioPath: nil, timestamp: Date())
@@ -208,7 +208,7 @@ final class VoiceSession {
         let stopT0 = CFAbsoluteTimeGetCurrent()
         let bufferCountBefore = captureDelegate?.bufferCount ?? 0
 
-        // 停止音频采集
+        // Stop audio capture
         captureSession?.stopRunning()
         captureSession = nil
         captureDelegate?.close()
@@ -216,13 +216,13 @@ final class VoiceSession {
 
         let stopT1 = CFAbsoluteTimeGetCurrent()
         Logger.log("Voice", "[DIAG] stop: capture stopped in \(String(format: "%.3f", stopT1 - stopT0))s, buffers received: \(bufferCountBefore)")
-        Logger.log("Voice", "[DIAG] stop: finalizedText=\(finalizedText.count)字, volatileText=\(volatileText.count)字, words=\(allWords.count)")
+        Logger.log("Voice", "[DIAG] stop: finalizedText=\(finalizedText.count) chars, volatileText=\(volatileText.count) chars, words=\(allWords.count)")
 
-        // 告诉分析器音频结束
+        // Tell the analyzer the audio has ended
         inputBuilder?.finish()
         Logger.log("Voice", "[DIAG] stop: inputBuilder.finish()")
 
-        // 等待分析器完成（带超时）
+        // Wait for the analyzer to finish (with timeout)
         let stopT2 = CFAbsoluteTimeGetCurrent()
         var finalizeTimedOut = false
         do {
@@ -237,9 +237,9 @@ final class VoiceSession {
             Logger.log("Voice", "[DIAG] stop: finalize TIMEOUT/ERROR in \(String(format: "%.3f", finalizeTime))s: \(error)")
         }
 
-        // 给 resultTask 短暂时间处理最终结果，然后强制取消
+        // Give resultTask a brief window to process the final result, then force-cancel
         let stopT3 = CFAbsoluteTimeGetCurrent()
-        Logger.log("Voice", "[DIAG] stop: post-finalize finalizedText=\(finalizedText.count)字, volatileText=\(volatileText.count)字")
+        Logger.log("Voice", "[DIAG] stop: post-finalize finalizedText=\(finalizedText.count) chars, volatileText=\(volatileText.count) chars")
         try? await Task.sleep(for: .milliseconds(500))
         resultTask?.cancel()
         resultTask = nil
@@ -249,14 +249,14 @@ final class VoiceSession {
         let fullText = finalizedText + volatileText
         isRunning = false
 
-        // 清理
+        // Clean up
         analyzer = nil
         transcriber = nil
 
-        // 诊断摘要
+        // Diagnostic summary
         let totalStopTime = CFAbsoluteTimeGetCurrent() - stopT0
         let lastWordEnd = allWords.last.map { $0.startTime + $0.duration } ?? 0
-        Logger.log("Voice", "[DIAG] stop: SUMMARY | total=\(String(format: "%.3f", totalStopTime))s | timedOut=\(finalizeTimedOut) | finalizedText=\(finalizedText.count)字 | volatileText=\(volatileText.count)字 | fullText=\(fullText.count)字 | lastWordEnd=\(String(format: "%.1f", lastWordEnd))s | words=\(allWords.count)")
+        Logger.log("Voice", "[DIAG] stop: SUMMARY | total=\(String(format: "%.3f", totalStopTime))s | timedOut=\(finalizeTimedOut) | finalizedText=\(finalizedText.count) chars | volatileText=\(volatileText.count) chars | fullText=\(fullText.count) chars | lastWordEnd=\(String(format: "%.1f", lastWordEnd))s | words=\(allWords.count)")
         Logger.log("Voice", "Session stopped, text: \(fullText)")
 
         return TranscriptionResult(
@@ -267,15 +267,14 @@ final class VoiceSession {
         )
     }
 
-    // MARK: - Locale 查找
+    // MARK: - Locale Lookup
 
     private func findChineseLocale() async -> Locale? {
-        // 现在跟随配置/系统语言（见 SpeechUtils.bestLocale）。
         // Now follows the configured/system language (see SpeechUtils.bestLocale).
         await SpeechUtils.bestLocale()
     }
 
-    // MARK: - 词级信息提取
+    // MARK: - Word-Level Info Extraction
 
     private func extractWords(from attrText: AttributedString) -> [WordInfo] {
         var words: [WordInfo] = []
@@ -300,7 +299,7 @@ final class VoiceSession {
         return words
     }
 
-    // MARK: - 模型管理
+    // MARK: - Model Management
 
     private func ensureModelInstalled(transcriber: SpeechTranscriber, locale: Locale) async throws {
         let localeID = locale.identifier(.bcp47)
@@ -322,12 +321,12 @@ final class VoiceSession {
     }
 }
 
-// MARK: - 音频采集代理（nonisolated，在后台队列运行）
+// MARK: - Audio Capture Delegate (nonisolated, runs on a background queue)
 
-/// 从 AVCaptureSession 接收 CMSampleBuffer，转换为 AVAudioPCMBuffer 后
-/// 喂给 SpeechAnalyzer 的 inputBuilder，同时写入 WAV 音频文件
+/// Receives CMSampleBuffer from AVCaptureSession, converts it to AVAudioPCMBuffer, then
+/// feeds it to SpeechAnalyzer's inputBuilder while also writing a WAV audio file
 ///
-/// 音频文件使用手动 WAV 写入，彻底避免 AVAudioFile 内部 AudioConverter 的 abort 崩溃
+/// The audio file is written manually as WAV, completely avoiding the abort crash from AVAudioFile's internal AudioConverter
 final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
@@ -347,7 +346,7 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
     ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
-        // 改用 .wav 扩展名
+        // Use a .wav extension instead
         self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
         self.onAudioLevel = onAudioLevel
         super.init()
@@ -370,13 +369,13 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
             Logger.log("Voice", "Audio #\(bufferCount): \(pcmBuffer.frameLength) frames, fmt=\(pcmBuffer.format)")
         }
 
-        // 格式转换（如果采集格式 ≠ analyzer 格式）
+        // Format conversion (if the capture format != the analyzer format)
         let outputBuffer: AVAudioPCMBuffer
         if let targetFormat = analyzerFormat,
            pcmBuffer.format.sampleRate != targetFormat.sampleRate
             || pcmBuffer.format.commonFormat != targetFormat.commonFormat {
 
-            // 延迟创建 converter（需要知道输入格式）
+            // Lazily create the converter (needs to know the input format)
             if converter == nil {
                 converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat)
                 Logger.log("Voice", "Created converter: \(pcmBuffer.format) → \(targetFormat)")
@@ -392,10 +391,10 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
             outputBuffer = pcmBuffer
         }
 
-        // 写入 WAV 文件（用 outputBuffer，格式始终一致：Int16 16kHz mono）
+        // Write to the WAV file (using outputBuffer, format is always consistent: Int16 16kHz mono)
         writeToWAV(buffer: outputBuffer)
 
-        // 计算音频电平（用于波形指示器），仅在 Int16 缓冲下计算
+        // Compute the audio level (used for the waveform indicator), only computed for Int16 buffers
         if let onAudioLevel, let channelData = outputBuffer.int16ChannelData {
             let frameCount = Int(outputBuffer.frameLength)
             let samples = UnsafeBufferPointer(start: channelData[0], count: frameCount)
@@ -403,27 +402,27 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
             onAudioLevel(level)
         }
 
-        // 发送给 SpeechAnalyzer
+        // Send to SpeechAnalyzer
         let input = AnalyzerInput(buffer: outputBuffer)
         inputBuilder.yield(input)
     }
 
-    // MARK: - WAV 手动写入（绕过 AVAudioFile）
+    // MARK: - Manual WAV Writing (bypasses AVAudioFile)
 
     private func writeToWAV(buffer: AVAudioPCMBuffer) {
-        // 首次写入：创建文件 + 占位 WAV header
+        // First write: create the file + placeholder WAV header
         if fileHandle == nil {
             wavFormat = buffer.format
             let dir = audioFileURL.deletingLastPathComponent()
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             FileManager.default.createFile(atPath: audioFileURL.path, contents: nil)
             fileHandle = try? FileHandle(forWritingTo: audioFileURL)
-            // 写入 44 字节占位 header
+            // Write a 44-byte placeholder header
             fileHandle?.write(Data(count: 44))
             wavDataSize = 0
         }
 
-        // 提取 PCM 数据
+        // Extract the PCM data
         let abl = buffer.audioBufferList.pointee
         guard let mData = abl.mBuffers.mData else { return }
         let byteCount = Int(abl.mBuffers.mDataByteSize)
@@ -471,7 +470,7 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
         Logger.log("Voice", "WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
     }
 
-    // MARK: - 格式转换
+    // MARK: - Format Conversion
 
     private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         let ratio = targetFormat.sampleRate / buffer.format.sampleRate
@@ -540,7 +539,7 @@ enum VoiceError: Error {
     case timeout
 }
 
-/// 带超时的 async 执行（throwing 版本）
+/// Async execution with a timeout (throwing version)
 func withThrowingTimeout<T: Sendable>(seconds: TimeInterval, operation: @Sendable @escaping () async throws -> T) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask { try await operation() }
@@ -554,7 +553,7 @@ func withThrowingTimeout<T: Sendable>(seconds: TimeInterval, operation: @Sendabl
     }
 }
 
-/// 带超时的 async 执行（non-throwing 版本）
+/// Async execution with a timeout (non-throwing version)
 func withTimeout(seconds: TimeInterval, operation: @Sendable @escaping () async -> Void) async {
     await withTaskGroup(of: Void.self) { group in
         group.addTask { await operation() }

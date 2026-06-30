@@ -2,20 +2,20 @@ import AVFoundation
 import Network
 import Speech
 
-/// 远程语音接收服务
+/// Remote voice inbox service
 ///
-/// 监听 HTTP 端口，接收 Windows 侧 tailscale voice 发来的 WAV 音频。
-/// 收到 WAV → 临时文件 → SpeechAnalyzer 文件输入 → VoicePipeline → TextInjector
+/// Listens on an HTTP port and receives WAV audio sent from tailscale voice on the Windows side.
+/// On receiving a WAV -> temp file -> SpeechAnalyzer file input -> VoicePipeline -> TextInjector
 ///
-/// 使用 Network.framework (NWListener)，零第三方依赖。
-/// 协议极简：POST /transcribe，body 是 WAV 二进制，返回 200。
+/// Uses Network.framework (NWListener), zero third-party dependencies.
+/// Protocol is minimal: POST /transcribe, body is raw WAV binary, returns 200.
 @MainActor
 final class RemoteInbox {
     private var listener: NWListener?
     private let pipeline = VoicePipeline()
     private var isProcessing = false
 
-    /// 当前状态回调（UI 用）
+    /// Current status callback (used by the UI)
     var onStatusChange: ((Status) -> Void)?
 
     enum Status: String {
@@ -24,7 +24,7 @@ final class RemoteInbox {
         case processing
         case idle
 
-        /// 本地化的显示名称 / Localized display name
+        /// Localized display name / Localized display name
         var displayName: String {
             switch self {
             case .listening: return t("Listening")
@@ -77,12 +77,13 @@ final class RemoteInbox {
         Logger.log("Remote", "RemoteInbox stopped")
     }
 
-    // MARK: - HTTP 连接处理
+    // MARK: - HTTP connection handling
 
-    // 每个 HTTP 连接的解析状态。Connection-scoped，单连接独享。
-    // @unchecked Sendable：状态只在 NWConnection.receive 的 completion handler
-    // 内读写，由 connection.start(queue: .main) 保证总在 main queue 上，与
-    // RemoteInbox 的 @MainActor isolation 一致——无真实数据竞争。
+    // Per-connection parsing state. Connection-scoped, exclusive to a single connection.
+    // @unchecked Sendable: the state is only read/written inside the completion handler
+    // of NWConnection.receive, which connection.start(queue: .main) guarantees always
+    // runs on the main queue, consistent with RemoteInbox's @MainActor isolation —
+    // there is no real data race.
     private final class HTTPRequestState: @unchecked Sendable {
         var accumulated = Data()
         var contentLength: Int?
@@ -103,9 +104,10 @@ final class RemoteInbox {
     private func readMore(connection: NWConnection, state: HTTPRequestState, authToken: String) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 1024 * 1024) {
             [weak self] data, _, isComplete, error in
-            // NWConnection.receive 的 completion 是 @Sendable，但 Network 框架在
-            // connection.start(queue: .main) 后会在 main queue 上分发回调，所以这里
-            // 用 MainActor.assumeIsolated 同步声明 main actor 隔离（不引入 Task 调度）。
+            // The completion handler of NWConnection.receive is @Sendable, but after
+            // connection.start(queue: .main) the Network framework dispatches the
+            // callback on the main queue, so we use MainActor.assumeIsolated here to
+            // synchronously assert main actor isolation (without introducing Task scheduling).
             MainActor.assumeIsolated {
                 guard let self else { return }
 
@@ -161,7 +163,7 @@ final class RemoteInbox {
 
         let (headers, body) = RemoteInbox.parseHTTPRequest(data)
 
-        // 验证 token
+        // verify the token
         if !authToken.isEmpty {
             let auth = headers["authorization"] ?? ""
             if auth != "Bearer \(authToken)" {
@@ -192,7 +194,7 @@ final class RemoteInbox {
         }
     }
 
-    // MARK: - 音频处理（核心链路）
+    // MARK: - Audio processing (core pipeline)
 
     private func processAudio(wavData: Data) async {
         isProcessing = true
@@ -204,7 +206,7 @@ final class RemoteInbox {
 
         let tStart = CFAbsoluteTimeGetCurrent()
 
-        // 1. 写临时文件
+        // 1. write the temp file
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let tempURL = WEDataDir.remoteAudioURL(timestamp: timestamp)
         do {
@@ -215,7 +217,7 @@ final class RemoteInbox {
         }
 
         do {
-            // 2. 配置 SpeechTranscriber
+            // 2. configure SpeechTranscriber
             guard let locale = await SpeechUtils.findChineseLocale() else {
                 Logger.log("Remote", "No Chinese locale available")
                 return
@@ -229,10 +231,10 @@ final class RemoteInbox {
             )
             try await SpeechUtils.ensureModelInstalled(transcriber: transcriber, locale: locale)
 
-            // 3. 创建 SpeechAnalyzer
+            // 3. create SpeechAnalyzer
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
-            // 3.5 上下文注入（字典），和本地 VoiceSession 路径统一
+            // 3.5 context injection (dictionary), unified with the local VoiceSession path
             let polish = RuntimeConfig.shared.polishConfig
             let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
             let dictPath = polish["context_dictionary_path"] as? String
@@ -251,7 +253,7 @@ final class RemoteInbox {
             let tCtxDone = CFAbsoluteTimeGetCurrent()
             let ctxMs = Int((tCtxDone - tStart) * 1000)
 
-            // 4. 结果收集
+            // 4. collect results
             var fullText = ""
             var allWords: [WordInfo] = []
 
@@ -270,7 +272,7 @@ final class RemoteInbox {
                 }
             }
 
-            // 5. 文件输入（MeetingSession 已验证的 API）
+            // 5. file input (the API already validated by MeetingSession)
             let inputFile = try AVAudioFile(forReading: tempURL)
             let audioDuration = Double(inputFile.length) / inputFile.processingFormat.sampleRate
             Logger.log("Remote", "Starting SA from file (\(String(format: "%.1f", audioDuration))s)")
@@ -284,7 +286,7 @@ final class RemoteInbox {
                 return
             }
 
-            // 6. 构造 TranscriptionResult，走 VoicePipeline
+            // 6. build the TranscriptionResult, then run it through VoicePipeline
             let transcription = TranscriptionResult(
                 fullText: fullText,
                 words: allWords,
@@ -308,7 +310,7 @@ final class RemoteInbox {
         }
     }
 
-    // MARK: - 词级信息提取（和 VoiceSession 相同）
+    // MARK: - Word-level info extraction (same as VoiceSession)
 
     private func extractWords(from attrText: AttributedString) -> [WordInfo] {
         var words: [WordInfo] = []
@@ -328,10 +330,10 @@ final class RemoteInbox {
         return words
     }
 
-    // MARK: - HTTP 解析/响应
+    // MARK: - HTTP parsing/response
 
     private nonisolated static func parseHTTPRequest(_ data: Data) -> (headers: [String: String], body: Data) {
-        // 找 \r\n\r\n 分隔 header 和 body
+        // find \r\n\r\n to separate the header from the body
         let separator = Data([0x0D, 0x0A, 0x0D, 0x0A])
         var headers: [String: String] = [:]
         var body = Data()

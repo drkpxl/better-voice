@@ -1,8 +1,8 @@
 import Foundation
 
-/// 语音后处理流水线
-/// L2: PolishClient 语义润色（可关闭）
-/// 注入 → 历史落盘（本地调试日志）
+/// Voice post-processing pipeline
+/// L2: PolishClient semantic polishing (can be disabled)
+/// Inject -> persist to history (local debug log)
 @MainActor
 final class VoicePipeline {
     private let history = VoiceHistory()
@@ -15,10 +15,10 @@ final class VoicePipeline {
         let rawText = transcription.fullText
         Logger.log("Pipeline", "Raw: \(rawText)")
 
-        // L1: 信任 Apple 官方排序，不做任何修改
+        // L1: Trust Apple's official ordering, no modifications
         let l1Text = rawText
 
-        // L2: 模型润色（polish.enabled = false 时跳过）
+        // L2: Model polishing (skipped when polish.enabled = false)
         let finalText: String
         let polished: String?
         var l2ElapsedMs = 0
@@ -31,7 +31,7 @@ final class VoicePipeline {
             )
             l2ElapsedMs = Int((CFAbsoluteTimeGetCurrent() - tL2) * 1000)
 
-            // 无条件记录 L2 真实行为：nil / identity / 真改
+            // Unconditionally record L2's actual behavior: nil / identity / real change
             let kind: String
             if polished == nil { kind = "nil" }
             else if polished == l1Text { kind = "identity" }
@@ -45,12 +45,12 @@ final class VoicePipeline {
             Logger.log("Pipeline", "L2: skipped (polish.enabled=false)")
         }
 
-        // 注入到焦点应用
+        // Inject into the focused app
         let tInject = CFAbsoluteTimeGetCurrent()
         TextInjector.inject(text: finalText, to: targetApp)
         let injectMs = Int((CFAbsoluteTimeGetCurrent() - tInject) * 1000)
 
-        // 历史落盘（始终写入，本地调试日志：配对 audio/*.wav 便于排查转写问题）
+        // Persist to history (always written, local debug log: paired with audio/*.wav to help debug transcription issues)
         history.save(
             transcription: transcription,
             l1Text: l1Text,

@@ -1,12 +1,10 @@
 import Foundation
 
-/// 会议 Markdown 渲染（纯字符串，文件 IO 留在 WE 层）。
 /// Pure Markdown rendering for transcript + summary. File IO stays in the WE layer;
 /// all human-facing strings (title, metadata lines, labels) are passed in already
 /// localized so WECore stays free of the localization layer.
 public enum MeetingMarkdown {
 
-    /// 渲染带说话人分组的转录 Markdown。
     /// Render the speaker-grouped transcript. `metadataLines` are emitted as `- line`.
     public static func renderTranscript(
         title: String,
@@ -35,7 +33,6 @@ public enum MeetingMarkdown {
         return md
     }
 
-    /// 渲染摘要 Markdown。
     /// Render the summary document.
     public static func renderSummary(
         title: String,
@@ -52,7 +49,7 @@ public enum MeetingMarkdown {
         return md
     }
 
-    /// MM:SS 时间戳。
+    /// MM:SS timestamp.
     public static func formatTimestamp(_ seconds: TimeInterval) -> String {
         let total = max(0, Int(seconds))
         return String(format: "%02d:%02d", total / 60, total % 60)

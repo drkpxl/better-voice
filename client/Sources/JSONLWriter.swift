@@ -1,6 +1,6 @@
 import Foundation
 
-/// 通用 JSONL 写入器，线程安全，支持文件滚动
+/// General-purpose JSONL writer, thread-safe, supports file rollover
 final class JSONLWriter: Sendable {
     private let fileURL: URL
     private let queue: DispatchQueue

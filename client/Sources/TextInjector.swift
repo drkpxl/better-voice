@@ -1,20 +1,20 @@
 import AppKit
 
-/// 文本注入器
+/// Text injector
 ///
-/// 用 clipboard + 模拟 ⌘V 粘贴。三个关键 fix（vs 早期版本）：
+/// Uses clipboard + simulated ⌘V paste. Three key fixes (vs. earlier versions):
 ///
-/// 1. **post 到 `.cgSessionEventTap`（不是 `.cghidEventTap`）**。
-///    macOS 14+ 上 `.cghidEventTap` 注入键盘事件可能在更严格的安全策略下被静默丢弃；
-///    `.cgSessionEventTap` 是 user-session 级别，对其他 app 的 Cmd+V 投递更可靠。
+/// 1. **Post to `.cgSessionEventTap` (not `.cghidEventTap`)**.
+///    On macOS 14+, keyboard events injected via `.cghidEventTap` can be silently dropped under stricter security policies;
+///    `.cgSessionEventTap` operates at the user-session level and delivers Cmd+V to other apps more reliably.
 ///
-/// 2. **写剪贴板后给 5ms 让 OS commit**，再 post Cmd+V。
-///    NSPasteboard 写入是非原子的（changeCount 立刻递增但实际内容跨进程可见有微延迟），
-///    立刻 post Cmd+V 偶尔会被目标 app 用旧剪贴板内容粘贴。
+/// 2. **After writing to the clipboard, wait 5ms for the OS to commit it** before posting Cmd+V.
+///    NSPasteboard writes are non-atomic (changeCount increments immediately, but the actual content has a slight delay before it's visible across processes),
+///    so posting Cmd+V immediately can occasionally cause the target app to paste stale clipboard content.
 ///
-/// 3. **post 后 30ms 验证 `pb.changeCount` 是否变化**。Cmd+V 不写剪贴板，但目标 app
-///    粘贴后可能触发系统 paste history 等机制改 changeCount。光打 "Pasted" 日志而不
-///    验证是 observability gap，verify 之后才知道是真粘贴还是失败。日志带 `verified=Y/N`。
+/// 3. **30ms after posting, verify whether `pb.changeCount` has changed**. Cmd+V doesn't write to the clipboard, but the target app
+///    may trigger system mechanisms like paste history after pasting, which changes changeCount. Just logging "Pasted" without
+///    verifying is an observability gap — only after verifying do we know whether it was a real paste or a failure. The log includes `verified=Y/N`.
 enum TextInjector {
     @MainActor
     static func inject(text: String, to app: AppIdentity?) {
@@ -22,19 +22,19 @@ enum TextInjector {
 
         let pb = NSPasteboard.general
 
-        // 保存当前剪贴板
+        // Save the current clipboard
         let savedString = pb.string(forType: .string)
         let changeCountBeforeWrite = pb.changeCount
 
-        // 写入要注入的文字
+        // Write the text to be injected
         pb.clearContents()
         pb.setString(text, forType: .string)
         let changeCountAfterWrite = pb.changeCount
 
-        // 让 OS commit 剪贴板内容（跨进程可见）
+        // Let the OS commit the clipboard content (visible across processes)
         usleep(5_000)
 
-        // 模拟 ⌘V —— 用 cgSessionEventTap，比 cghidEventTap 在 macOS 14+ 上更可靠
+        // Simulate ⌘V — using cgSessionEventTap, which is more reliable than cghidEventTap on macOS 14+
         let source = CGEventSource(stateID: .combinedSessionState)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
@@ -43,8 +43,8 @@ enum TextInjector {
         keyDown?.post(tap: .cgSessionEventTap)
         keyUp?.post(tap: .cgSessionEventTap)
 
-        // 30ms 后 verify changeCount — 若变化说明 Cmd+V 实际被处理（目标 app 触发 paste）
-        // 若没变化说明 Cmd+V 没生效（焦点 app 拦截 / 没收到 / 不响应 ⌘V）
+        // 30ms later, verify changeCount — if it changed, Cmd+V was actually processed (the target app triggered a paste)
+        // If it didn't change, Cmd+V had no effect (the focused app intercepted it / didn't receive it / doesn't respond to ⌘V)
         let appBundle = app?.bundleID ?? "unknown"
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
             let changeCountAfterPaste = pb.changeCount
@@ -54,7 +54,7 @@ enum TextInjector {
                 "Pasted to \(appBundle) verified=\(verified ? "Y" : "N") cc=\(changeCountBeforeWrite)→\(changeCountAfterWrite)→\(changeCountAfterPaste)"
             )
 
-            // 再延迟 500ms 恢复剪贴板（只在没被其他操作改的情况下）
+            // Restore the clipboard after another 500ms delay (only if it wasn't changed by another operation in the meantime)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 if pb.changeCount == changeCountAfterPaste, let saved = savedString {
                     pb.clearContents()

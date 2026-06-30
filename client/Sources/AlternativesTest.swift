@@ -1,8 +1,8 @@
 import AVFoundation
 import Speech
 
-/// 测试 SpeechAnalyzer 的 alternativeTranscriptions 返回内容
-/// 用法: WE --test-alternatives <wav-file> [--locale zh-CN]
+/// Tests what SpeechAnalyzer's alternativeTranscriptions returns
+/// Usage: WE --test-alternatives <wav-file> [--locale zh-CN]
 enum AlternativesTest {
     @MainActor
     static func run() async {
@@ -22,7 +22,7 @@ enum AlternativesTest {
             return
         }
 
-        print("=== SpeechAnalyzer alternatives 测试 ===")
+        print("=== SpeechAnalyzer alternatives test ===")
         print("Audio: \(wavPath)")
         print("Locale: \(locale)")
         print()
@@ -30,7 +30,7 @@ enum AlternativesTest {
         do {
             let localeObj = Locale(identifier: locale)
 
-            // 配置 SpeechTranscriber，请求 alternatives
+            // Configure SpeechTranscriber, requesting alternatives
             let transcriber = SpeechTranscriber(
                 locale: localeObj,
                 transcriptionOptions: [],
@@ -38,7 +38,7 @@ enum AlternativesTest {
                 attributeOptions: [.audioTimeRange, .transcriptionConfidence]
             )
 
-            // 确保模型安装
+            // Ensure the model is installed
             let installed = await SpeechTranscriber.installedLocales
             if !installed.contains(where: { $0.language.languageCode == localeObj.language.languageCode }) {
                 print("Downloading speech model...")
@@ -50,7 +50,7 @@ enum AlternativesTest {
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             let audioFile = try AVAudioFile(forReading: URL(fileURLWithPath: wavPath))
 
-            // 收集结果
+            // Collect the results
             let collector = AlternativesCollector()
 
             let resultTask = Task { @Sendable in
@@ -60,7 +60,7 @@ enum AlternativesTest {
 
                         let bestText = String(result.text.characters)
 
-                        // 提取词级置信度
+                        // Extract word-level confidence
                         typealias ConfKey = AttributeScopes.SpeechAttributes.ConfidenceAttribute
                         var wordConfs: [(String, Double)] = []
                         for (confidence, range) in result.text.runs[ConfKey.self] {
@@ -71,7 +71,7 @@ enum AlternativesTest {
                             }
                         }
 
-                        // 收集 alternatives 文本
+                        // Collect the alternatives text
                         var altTexts: [String] = []
                         for alt in result.alternatives {
                             altTexts.append(String(alt.characters))
@@ -88,18 +88,18 @@ enum AlternativesTest {
                 }
             }
 
-            // 喂音频
+            // Feed the audio
             try await analyzer.start(inputAudioFile: audioFile, finishAfterFile: true)
             await resultTask.value
 
-            // 输出结果
+            // Print the results
             let segments = await collector.segments
-            print("\n=== 结果：\(segments.count) 个 final segments ===\n")
+            print("\n=== Results: \(segments.count) final segments ===\n")
 
             for (i, seg) in segments.enumerated() {
                 print("--- Segment \(i + 1) ---")
                 print("Best:         \(seg.best)")
-                print("Alternatives: \(seg.alternatives.count) 个")
+                print("Alternatives: \(seg.alternatives.count)")
 
                 if seg.alternatives.count > 1 {
                     for (j, alt) in seg.alternatives.enumerated() {
@@ -108,10 +108,10 @@ enum AlternativesTest {
                         }
                     }
                 } else {
-                    print("  (无额外候选)")
+                    print("  (no additional candidates)")
                 }
 
-                // 低置信度词
+                // Low-confidence words
                 let lowConf = seg.wordConfidences.filter { $0.1 < 0.8 }
                 if !lowConf.isEmpty {
                     print("Low confidence words:")
@@ -122,10 +122,10 @@ enum AlternativesTest {
                 print()
             }
 
-            // 统计
+            // Statistics
             let totalAlts = segments.reduce(0) { $0 + $1.alternatives.count }
             let hasMultiple = segments.filter { $0.alternatives.count > 1 }.count
-            print("=== 统计 ===")
+            print("=== Statistics ===")
             print("Total segments: \(segments.count)")
             print("Total alternatives across all segments: \(totalAlts)")
             print("Segments with >1 alternative: \(hasMultiple)")

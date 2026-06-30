@@ -2,13 +2,14 @@ import AppKit
 import SwiftUI
 import WECore
 
-/// 会议收尾面板：诊断出说话人后、生成摘要前，让用户给说话人命名并确认会议类型。
-/// 用 NSWindow + NSHostingView（与 HotKeySettingsWindow 同栈）。
-/// `present(...)` 用 withCheckedContinuation 把一次性的用户输入桥接成 async。
+/// Meeting wrap-up panel: after speakers are diagnosed and before the summary is generated,
+/// lets the user name the speakers and confirm the meeting type.
+/// Uses NSWindow + NSHostingView (same approach as HotKeySettingsWindow).
+/// `present(...)` uses withCheckedContinuation to bridge a one-shot user input into async.
 ///
-/// 行为：
-/// - "Summarize"：返回输入的名字 + 选定类型。
-/// - "Skip" 或关闭窗口：返回空名字 + （预选/默认）类型——仍然会生成摘要。
+/// Behavior:
+/// - "Summarize": returns the entered names + selected type.
+/// - "Skip" or closing the window: returns empty names + the (preselected/default) type — a summary is still generated.
 @MainActor
 final class MeetingWrapUpWindow {
     static let shared = MeetingWrapUpWindow()
@@ -17,20 +18,20 @@ final class MeetingWrapUpWindow {
     private var closeDelegate: WindowCloseDelegate?
 
     struct Speaker: Identifiable {
-        let id: String       // speakerId（如 "1"）
+        let id: String       // speakerId (e.g. "1")
         let snippet: String
         var name: String = ""
     }
 
     struct Outcome {
-        let names: [String: String]   // speakerId -> 用户输入的名字
+        let names: [String: String]   // speakerId -> user-entered name
         let type: MeetingType
     }
 
-    /// 当前未完成的 continuation 回调。show() 时设置，resolve 时清空。
+    /// The currently pending continuation callback. Set when show() is called, cleared on resolve.
     private var pendingCompletion: ((Outcome) -> Void)?
 
-    /// 展示面板并等待用户操作。
+    /// Presents the panel and waits for the user to act.
     func present(speakers: [(id: String, snippet: String)], inferredType: MeetingType) async -> Outcome {
         await withCheckedContinuation { (continuation: CheckedContinuation<Outcome, Never>) in
             self.show(speakers: speakers, inferredType: inferredType) { outcome in
@@ -44,8 +45,8 @@ final class MeetingWrapUpWindow {
         inferredType: MeetingType,
         completion: @escaping (Outcome) -> Void
     ) {
-        // 防御：若已有未完成的面板，先关掉旧窗口并用 skip 收尾它的 continuation
-        // （既不丢挂起的 await，也不残留一个孤立的窗口）。
+        // Defensive: if a panel is already pending, close the old window first and resolve
+        // its continuation with a skip (so we neither leak the pending await nor leave an orphaned window).
         if let stale = pendingCompletion {
             pendingCompletion = nil
             close()
@@ -59,8 +60,9 @@ final class MeetingWrapUpWindow {
             selectedType: inferredType
         )
 
-        // 统一收尾：恰好 resolve 一次。fromWindowClose=true 表示 AppKit 已在关窗（X 按钮），
-        // 此时不要再调用 window.close()（避免重入 AppKit 关窗流程）。
+        // Unified resolution: resolves exactly once. fromWindowClose=true means AppKit is already
+        // closing the window (X button), so window.close() must not be called again here
+        // (to avoid re-entering AppKit's window-close flow).
         let resolve: (Outcome, Bool) -> Void = { [weak self] outcome, fromWindowClose in
             guard let self, let comp = self.pendingCompletion else { return }
             self.pendingCompletion = nil
@@ -99,7 +101,7 @@ final class MeetingWrapUpWindow {
         win.center()
         win.isReleasedWhenClosed = false
 
-        // 红叉关闭 == Skip（仍生成摘要）。fromWindowClose=true 避免重入 close()。
+        // Closing via the red X == Skip (a summary is still generated). fromWindowClose=true avoids re-entering close().
         let delegate = WindowCloseDelegate {
             resolve(Outcome(names: [:], type: viewModel.selectedType), true)
         }
@@ -111,10 +113,10 @@ final class MeetingWrapUpWindow {
         self.window = win
     }
 
-    /// 程序主动关窗（按钮路径）。
+    /// Programmatically closes the window (button path).
     func close() {
         guard let win = window else { return }
-        win.delegate = nil          // 先摘代理，关窗不再触发 windowWillClose
+        win.delegate = nil          // Clear the delegate first so closing doesn't trigger windowWillClose
         window = nil
         closeDelegate = nil
         win.orderOut(nil)
@@ -122,7 +124,7 @@ final class MeetingWrapUpWindow {
         win.close()
     }
 
-    /// 仅解除引用（AppKit 已在关窗，X 按钮路径），不再调用 close()。
+    /// Only releases the reference (AppKit is already closing the window, X button path); close() is not called again.
     private func detachWindow() {
         window?.delegate = nil
         window = nil
@@ -130,7 +132,7 @@ final class MeetingWrapUpWindow {
     }
 }
 
-// MARK: - 窗口关闭代理
+// MARK: - Window Close Delegate
 
 private final class WindowCloseDelegate: NSObject, NSWindowDelegate {
     private let onClose: () -> Void
@@ -155,7 +157,7 @@ final class WrapUpViewModel {
     }
 }
 
-// MARK: - SwiftUI 视图
+// MARK: - SwiftUI View
 
 struct MeetingWrapUpContentView: View {
     @Bindable var viewModel: WrapUpViewModel

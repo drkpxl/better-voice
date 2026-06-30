@@ -1,20 +1,23 @@
 @preconcurrency import AVFoundation
 import Speech
 
-/// B4: 样本级混音器
+/// B4: Sample-level mixer
 ///
-/// 同时录 mic + system 的会议模式使用。两路 16kHz Float32 mono 样本到达后，
-/// 定时窗口（100ms）drain + 逐样本相加 + yield 到 SpeechAnalyzer。
+/// Used for meeting mode, which records mic + system simultaneously. After both
+/// 16kHz Float32 mono sample streams arrive, a timed window (100ms) drains them,
+/// sums them sample-by-sample, and yields the result to SpeechAnalyzer.
 ///
-/// 时间对齐策略：定时 drain（非严格对齐）。两路异步到达，drain 时间窗口内各取可用样本，
-/// 短的补 0。~100ms 级时间误差对 SA 转写可接受，也避免了 host-time 严格对齐的复杂度。
+/// Time alignment strategy: timed drain (not strict alignment). The two streams arrive
+/// asynchronously; each drain window takes whatever samples are available, padding the
+/// shorter one with zeros. A timing error on the order of ~100ms is acceptable for SA
+/// transcription and avoids the complexity of strict host-time alignment.
 ///
-/// 混音规则：`mixed = (mic + system) * 0.5`，50-50 叠加防过载。
+/// Mixing rule: `mixed = (mic + system) * 0.5`, a 50-50 blend to prevent overload.
 ///
-/// 线程模型：
-/// - feed 从 capturer 后台队列同步调用（nonisolated + NSLock 保护）
-/// - drainAndMix 在 MainActor 定时触发，内部通过 nonisolated drainBuffers() 拿样本快照（sync + lock），
-///   然后在 MainActor 上做 mix + yield
+/// Threading model:
+/// - feed is called synchronously from the capturer's background queue (nonisolated + protected by NSLock)
+/// - drainAndMix fires on a timer on the MainActor; internally it grabs a sample snapshot via the
+///   nonisolated drainBuffers() (sync + lock), then performs the mix + yield on the MainActor
 @MainActor
 final class AudioMixer {
 
@@ -23,14 +26,14 @@ final class AudioMixer {
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let onDiarizationSamples: @Sendable ([Float]) -> Void
 
-    /// 共享样本缓冲（nonisolated + NSLock）
+    /// Shared sample buffer (nonisolated + NSLock)
     private nonisolated(unsafe) var micBuffer: [Float] = []
     private nonisolated(unsafe) var sysBuffer: [Float] = []
     private nonisolated(unsafe) var _micSamplesFed: Int = 0
     private nonisolated(unsafe) var _sysSamplesFed: Int = 0
     private let bufferLock = NSLock()
 
-    /// MainActor 独享
+    /// MainActor-exclusive
     private var drainTask: Task<Void, Never>?
     private var mixOutputCount: Int = 0
     private let windowMs: Int = 100
@@ -62,13 +65,13 @@ final class AudioMixer {
     func stop() async {
         drainTask?.cancel()
         drainTask = nil
-        // 最后 drain 一次残留样本
+        // Final drain to flush any remaining samples
         await drainAndMix()
         let (micFed, sysFed) = readCounts()
         Logger.log("Meeting", "AudioMixer stopped. micFed=\(micFed) sysFed=\(sysFed) mixed=\(mixOutputCount)")
     }
 
-    // MARK: - 样本投递（nonisolated，后台队列调用）
+    // MARK: - Sample delivery (nonisolated, called from background queue)
 
     nonisolated func feedMic(_ samples: [Float]) {
         bufferLock.lock()
@@ -86,7 +89,7 @@ final class AudioMixer {
 
     // MARK: - Drain + Mix
 
-    /// 取出并清空两路缓冲（sync，lock-protected，async 安全）
+    /// Drain and clear both buffers (sync, lock-protected, async-safe)
     private nonisolated func drainBuffers() -> (mic: [Float], sys: [Float]) {
         bufferLock.lock()
         let m = micBuffer
@@ -97,7 +100,7 @@ final class AudioMixer {
         return (m, s)
     }
 
-    /// 读计数（sync，lock-protected）
+    /// Read the sample counts (sync, lock-protected)
     private nonisolated func readCounts() -> (mic: Int, sys: Int) {
         bufferLock.lock()
         let r = (_micSamplesFed, _sysSamplesFed)
@@ -112,7 +115,7 @@ final class AudioMixer {
             return
         }
 
-        // 对齐到更长的一路，短的补 0
+        // Align to whichever stream is longer, padding the shorter one with zeros
         let len = max(mic.count, sys.count)
         var mixed = [Float](repeating: 0, count: len)
         for i in 0..<len {
@@ -123,17 +126,17 @@ final class AudioMixer {
 
         mixOutputCount += 1
 
-        // 送 SA（转成 analyzerFormat PCM buffer）
+        // Send to SA (converted to an analyzerFormat PCM buffer)
         if let analyzerFormat,
            let pcmBuffer = makeAnalyzerBuffer(from: mixed, targetFormat: analyzerFormat) {
             inputBuilder.yield(AnalyzerInput(buffer: pcmBuffer))
         }
 
-        // 送 diarization
+        // Send to diarization
         onDiarizationSamples(mixed)
     }
 
-    /// 16kHz Float32 mono 样本 → analyzerFormat AVAudioPCMBuffer
+    /// 16kHz Float32 mono samples → analyzerFormat AVAudioPCMBuffer
     private func makeAnalyzerBuffer(from samples: [Float], targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         let srcFormat = diarizationFormat
         guard let srcBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: AVAudioFrameCount(samples.count)) else {
@@ -146,7 +149,7 @@ final class AudioMixer {
             }
         }
 
-        // 如果目标格式就是 Float32 mono 16kHz，直接返回
+        // If the target format is already Float32 mono 16kHz, return it directly
         if srcFormat.sampleRate == targetFormat.sampleRate
             && srcFormat.commonFormat == targetFormat.commonFormat
             && srcFormat.channelCount == targetFormat.channelCount {

@@ -1,8 +1,8 @@
 import Foundation
 
-/// 加载 ~/.we/correction-dictionary.json
-/// 文件格式：{"正确词": {"errors": [...], "frequency": N, "source": "..."}, ...}
-/// 注入 SA 的 contextualStrings，用正确词作为 hint
+/// Loads ~/.we/correction-dictionary.json
+/// File format: {"correct term": {"errors": [...], "frequency": N, "source": "..."}, ...}
+/// Injected into SA's contextualStrings, using the correct terms as hints
 @MainActor
 final class CorrectionDictionary {
     static let shared = CorrectionDictionary()
@@ -12,7 +12,7 @@ final class CorrectionDictionary {
 
     private init() {}
 
-    /// 加载字典，返回是否成功
+    /// Loads the dictionary, returns whether it succeeded
     @discardableResult
     func load(from path: String) -> Bool {
         let expanded = (path as NSString).expandingTildeInPath

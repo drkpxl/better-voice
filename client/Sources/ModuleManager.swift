@@ -4,7 +4,7 @@ import Foundation
 final class ModuleManager {
     private var modules: [String: WEModule] = [:]
 
-    /// 当前激活的模块（热键事件路由到此模块）
+    /// The currently active module (hotkey events are routed to this module)
     var activeModule: WEModule? {
         modules.values.first { $0.isActive }
     }
@@ -15,7 +15,7 @@ final class ModuleManager {
 
     func register(_ module: WEModule) {
         modules[module.name] = module
-        // 第一个注册的模块默认激活
+        // The first registered module is active by default
         if modules.count == 1 {
             module.isActive = true
         }

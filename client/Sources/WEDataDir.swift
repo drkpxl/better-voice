@@ -1,45 +1,45 @@
 import Foundation
 
-/// ~/.we/ 数据目录管理（唯一权威入口）
+/// ~/.we/ data directory management (the single authoritative entry point)
 ///
-/// 所有代码访问 ~/.we/ 都应通过本 enum，不要再写 `WEDataDir.url.appendingPathComponent("foo")` 字面字符串。
+/// All code accessing ~/.we/ should go through this enum, rather than writing literal strings like `WEDataDir.url.appendingPathComponent("foo")`.
 ///
-/// 目录树（含 Phase B 规划的归档子目录）：
+/// Directory tree (including the Phase B planned archive subdirectories):
 ///
 ///   ~/.we/
-///     ├─ config.json                     运行时配置
-///     ├─ debug.log                       全局日志
-///     ├─ correction-dictionary.json      错词字典（蒸馏管线用）
-///     ├─ dictionary.json                 用户私有术语数组（SA contextualStrings 用）
-///     ├─ personal-context.md             用户自由文本个人上下文（注入 L2 润色/摘要提示词）
-///     ├─ voice-history.jsonl             即时录音历史
-///     ├─ meeting-history.jsonl           会议每段 L2 流式记录
-///     ├─ corrections.jsonl               用户手动纠错（如开启）
-///     ├─ audio/                          录音 wav
-///     ├─ meetings/                       会议导出 markdown
-///     ├─ models/                         本地模型（占位）
-///     ├─ archive/                        归档：历史训练快照 / 字典审核中间产物 / 报告
+///     ├─ config.json                     runtime configuration
+///     ├─ debug.log                       global log
+///     ├─ correction-dictionary.json      mistranscription dictionary (used by the distillation pipeline)
+///     ├─ dictionary.json                 user's private terminology array (used by SA contextualStrings)
+///     ├─ personal-context.md             user's free-text personal context (injected into L2 polish/summary prompts)
+///     ├─ voice-history.jsonl             live recording history
+///     ├─ meeting-history.jsonl           per-segment L2 streaming record for meetings
+///     ├─ corrections.jsonl               user manual corrections (if enabled)
+///     ├─ audio/                          recording wavs
+///     ├─ meetings/                       meeting exports (markdown)
+///     ├─ models/                         local models (placeholder)
+///     ├─ archive/                        archive: historical training snapshots / dictionary review intermediates / reports
 ///     │   ├─ dictionaries/
 ///     │   ├─ training-snapshots/
 ///     │   ├─ test-sets/
 ///     │   └─ reports/
-///     └─ kpi/                            KPI 月度结果归档
+///     └─ kpi/                            KPI monthly results archive
 ///
-/// 行为：`ensureExists()` 会创建上述全部子目录（如果不存在），文件按需被各组件首次写入时创建。
+/// Behavior: `ensureExists()` creates all of the above subdirectories (if they don't exist); files are created on demand by each component the first time it writes.
 enum WEDataDir {
-    /// 根目录 URL。
+    /// Root directory URL.
     static let url: URL = {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".we")
     }()
 
-    // MARK: - 子目录 helpers（活跃目录）
+    // MARK: - Subdirectory helpers (active directories)
 
     static var audio: URL    { url.appendingPathComponent("audio") }
     static var meetings: URL { url.appendingPathComponent("meetings") }
     static var models: URL   { url.appendingPathComponent("models") }
     static var kpi: URL      { url.appendingPathComponent("kpi") }
 
-    // MARK: - 子目录 helpers（归档 / 评估产物，Phase B 规划）
+    // MARK: - Subdirectory helpers (archive / evaluation artifacts, Phase B planned)
 
     static var archive: URL                  { url.appendingPathComponent("archive") }
     static var archiveDictionaries: URL      { archive.appendingPathComponent("dictionaries") }
@@ -47,7 +47,7 @@ enum WEDataDir {
     static var archiveTestSets: URL          { archive.appendingPathComponent("test-sets") }
     static var archiveReports: URL           { archive.appendingPathComponent("reports") }
 
-    // MARK: - 活跃文件名常量（避免散落字符串）
+    // MARK: - Active filename constants (avoids scattered string literals)
 
     enum FileName {
         static let config            = "config.json"
@@ -56,11 +56,11 @@ enum WEDataDir {
         static let meetingHistory    = "meeting-history.jsonl"
         static let corrections       = "corrections.jsonl"
         static let correctionDict    = "correction-dictionary.json"
-        static let contextualDict    = "dictionary.json"            // README 文档化的 SA contextualStrings 用
-        static let personalContext   = "personal-context.md"        // 自由文本个人上下文，注入润色/摘要提示词
+        static let contextualDict    = "dictionary.json"            // used for SA contextualStrings, documented in the README
+        static let personalContext   = "personal-context.md"        // free-text personal context, injected into polish/summary prompts
     }
 
-    // MARK: - 完整文件 URL 快捷
+    // MARK: - Full file URL shortcuts
 
     static var configURL: URL         { url.appendingPathComponent(FileName.config) }
     static var logURL: URL            { url.appendingPathComponent(FileName.log) }
@@ -70,24 +70,24 @@ enum WEDataDir {
     static var correctionDictURL: URL { url.appendingPathComponent(FileName.correctionDict) }
     static var personalContextURL: URL { url.appendingPathComponent(FileName.personalContext) }
 
-    // MARK: - 派生路径（按时间戳产生）
+    // MARK: - Derived paths (generated by timestamp)
 
-    /// 生成一个 audio/*.wav 路径（不创建文件）
+    /// Generate an audio/*.wav path (does not create the file)
     static func audioURL(forName name: String, ext: String = "wav") -> URL {
         audio.appendingPathComponent("\(name).\(ext)")
     }
 
-    /// 生成 audio/remote-*.wav 路径
+    /// Generate an audio/remote-*.wav path
     static func remoteAudioURL(timestamp: String) -> URL {
         audio.appendingPathComponent("remote-\(timestamp).wav")
     }
 
-    /// 生成 meetings/*.md 路径
+    /// Generate a meetings/*.md path
     static func meetingMarkdownURL(forName name: String) -> URL {
         meetings.appendingPathComponent("\(name).md")
     }
 
-    /// 解析用户配置的会议保存目录（支持 ~ 展开）。nil/空时回退到默认 meetings 目录。
+    /// Resolve the user-configured meeting save folder (supports ~ expansion). Falls back to the default meetings directory when nil/empty.
     /// Resolve the user-configured meetings save folder (expands ~). Falls back to `meetings`.
     static func resolveMeetingsFolder(_ path: String?) -> URL {
         guard let path, !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -97,9 +97,9 @@ enum WEDataDir {
         return URL(fileURLWithPath: expanded, isDirectory: true)
     }
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
-    /// 确保所有活跃 / 归档子目录存在
+    /// Ensure all active / archive subdirectories exist
     static func ensureExists() {
         let fm = FileManager.default
         let dirs: [URL] = [

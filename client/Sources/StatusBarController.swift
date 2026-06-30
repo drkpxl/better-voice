@@ -10,11 +10,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var isRecording = false
     private var remoteStatus: RemoteInbox.Status = .idle
 
-    // 会议模式
+    // meeting mode
     private var meetingSession: MeetingSession?
     private let transcriptPanel = TranscriptPanelController()
     private var isMeetingActive: Bool { meetingSession?.isRunning ?? false }
-    /// 停止后到收尾流程（分类/命名面板/导出/摘要）结束之间为真，期间禁止开新会议。
+    /// True from when the meeting stops until the wrap-up flow (classification/naming panel/export/summary) finishes; starting a new meeting is blocked during that window.
     private var isFinishingMeeting = false
 
     init(moduleManager: ModuleManager) {
@@ -32,7 +32,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         setupMenu()
     }
 
-    /// 用户点开菜单时实时刷新权限状态（因为去系统设置授权后回来，希望看到 ✓）
+    /// Refresh permission status live when the user opens the menu (since after granting access in System Settings and returning, we want to show a checkmark)
     nonisolated func menuWillOpen(_ menu: NSMenu) {
         Task { @MainActor in self.setupMenu() }
     }
@@ -73,7 +73,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem(title: t("WE Voice Input"), action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
-        // 权限状态行：用户视角直接看 4 项 + 点击跳系统设置
+        // permission status rows: shows the 4 items directly from the user's perspective, plus a click to jump to System Settings
         addPermissionRow(
             to: menu,
             label: t("Global hotkey monitoring"),
@@ -101,7 +101,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // 会议模式
+        // meeting mode
         if isMeetingActive {
             let stopMeeting = NSMenuItem(
                 title: t("Stop Meeting"),
@@ -111,7 +111,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             stopMeeting.target = self
             menu.addItem(stopMeeting)
         } else if isFinishingMeeting {
-            // 收尾中：占位项，禁止开新会议直到摘要流程结束。
+            // wrapping up: placeholder item, starting a new meeting is blocked until the summary flow finishes.
             let finishing = NSMenuItem(title: t("Finishing meeting..."), action: nil, keyEquivalent: "")
             finishing.isEnabled = false
             menu.addItem(finishing)
@@ -125,7 +125,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             menu.addItem(startMeeting)
         }
 
-        // 远程语音
+        // remote voice
         if remoteStatus != .idle {
             menu.addItem(NSMenuItem.separator())
             let port = RuntimeConfig.shared.remoteConfig["port"] as? Int ?? 9800
@@ -135,7 +135,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // 设置（服务器/摘要/会议/快捷键/数据都收进设置窗口）
+        // settings (server/summarization/meeting/hotkeys/data are all collected in the settings window)
         let settingsItem = NSMenuItem(
             title: t("Settings..."),
             action: #selector(openSettings),
@@ -163,7 +163,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func startMeeting() {
-        // 上一场会议的收尾流程（命名/摘要）还没结束时，不允许开新会议。
+        // starting a new meeting is not allowed while the previous meeting's wrap-up flow (naming/summary) hasn't finished.
         guard !isFinishingMeeting else {
             Logger.log("StatusBar", "Ignored start: previous meeting still finishing")
             return
@@ -171,7 +171,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let session = MeetingSession()
         self.meetingSession = session
 
-        // 实时转写回调 → 更新面板
+        // live transcription callback -> update panel
         var wordCount = 0
         session.onTranscriptUpdate = { [weak self] text, isFinal in
             guard let self else { return }
@@ -202,7 +202,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             )
         }
 
-        // 显示转录面板
+        // show the transcript panel
         transcriptPanel.clear()
         transcriptPanel.setRecording(true)
         transcriptPanel.show()
@@ -229,18 +229,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             let result = await session.stop()
             self.meetingSession = nil
 
-            // 更新面板显示最终结果（带说话人标签）
+            // update the panel to show the final result (with speaker labels)
             if !result.segments.isEmpty {
                 self.transcriptPanel.updateTranscript(segments: result.segments)
             }
 
-            // 进入收尾：禁止开新会议直到摘要流程结束。
+            // entering wrap-up: starting a new meeting is blocked until the summary flow finishes.
             self.isFinishingMeeting = true
             self.setupMenu()
             self.updateMeetingIcon()
             Logger.log("StatusBar", "Meeting stopped, \(result.segments.count) segments, \(String(format: "%.0f", result.duration))s")
 
-            // 收尾：分类 → 命名/类型面板 → 导出转录 → 摘要 → 可选删音频。
+            // wrap-up: classify -> naming/type panel -> export transcript -> summarize -> optionally delete audio.
             await self.finishMeeting(result: result)
 
             self.isFinishingMeeting = false
@@ -249,7 +249,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// 会议收尾流程（诊断后）：会议类型分类预选、说话人命名面板、导出转录与摘要、按需删除音频。
+    /// Meeting wrap-up flow (after diagnostics): pre-select meeting type via classification, speaker naming panel, export transcript and summary, delete audio as needed.
     private func finishMeeting(result: MeetingResult) async {
         guard !result.segments.isEmpty else {
             Logger.log("StatusBar", "Empty meeting, skipping wrap-up/summary")
@@ -259,7 +259,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let prefix = t("Speaker")
         let client = SummarizationClient.shared
 
-        // 1. 用一次快速分类预选会议类型。
+        // 1. use a quick classification pass to pre-select the meeting type.
         let rawTranscript = buildSummarizationTranscript(segments: result.segments, speakerPrefix: prefix)
         let inferred: MeetingType
         if client.classifyEnabled, !rawTranscript.isEmpty {
@@ -268,13 +268,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             inferred = client.defaultType
         }
 
-        // 2. 收尾面板（等待用户：命名 + 选类型；Skip 也会摘要）。
+        // 2. wrap-up panel (waits for the user: naming + type selection; Skip still triggers summarization).
         let speakerIds = orderedUniqueSpeakerIds(result.segments)
         let snippets = sampleSnippets(result.segments, maxLen: 100)
         let speakers = speakerIds.map { (id: $0, snippet: snippets[$0] ?? "") }
         let outcome = await MeetingWrapUpWindow.shared.present(speakers: speakers, inferredType: inferred)
 
-        // 3. 应用名字，导出转录。
+        // 3. apply names, export transcript.
         let named = applySpeakerNames(outcome.names, to: result.segments)
         self.transcriptPanel.updateTranscript(segments: named)
         let folder = MeetingExporter.configuredFolder()
@@ -288,7 +288,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             Logger.log("StatusBar", "Meeting transcript exported: \(transcriptURL.lastPathComponent)")
         }
 
-        // 4. 摘要（选定类型，大 num_ctx）+ 写 summary 文件。
+        // 4. summarize (selected type, large num_ctx) + write the summary file.
         if client.summarizationEnabled {
             let namedTranscript = buildSummarizationTranscript(segments: named, speakerPrefix: prefix)
             if let summary = await client.summarize(transcript: namedTranscript, type: outcome.type) {
@@ -309,18 +309,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             }
         }
 
-        // 5. 可选：转录+摘要写完后删除音频（含 .mic.wav / .system.wav 兄弟文件）。
+        // 5. optional: delete audio after the transcript+summary have been written (including the .mic.wav / .system.wav sibling files).
         let autoDelete = config.meetingConfig["auto_delete_audio"] as? Bool ?? false
         if autoDelete, let audioPath = result.audioPath {
             deleteAudioFiles(mainPath: audioPath)
         }
     }
 
-    /// 删除会议音频主文件及其 .mic.wav / .system.wav 兄弟文件。
+    /// Delete the main meeting audio file along with its .mic.wav / .system.wav sibling files.
     private func deleteAudioFiles(mainPath: String) {
         let fm = FileManager.default
         let mainURL = URL(fileURLWithPath: mainPath)
-        let base = mainURL.deletingPathExtension()   // 去掉 .wav
+        let base = mainURL.deletingPathExtension()   // strip the .wav
         let candidates = [
             mainURL,
             base.appendingPathExtension("mic.wav"),
@@ -354,10 +354,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         NSApplication.shared.terminate(nil)
     }
 
-    // MARK: - 权限状态行
+    // MARK: - Permission status rows
 
-    /// 给菜单加一行权限状态。granted=true 时不可点击（信息行）；
-    /// granted=false 时变红，点击跳系统设置对应页面。
+    /// Add a permission status row to the menu. When granted=true it's not clickable (info row);
+    /// when granted=false it turns red, and clicking jumps to the corresponding System Settings page.
     private func addPermissionRow(to menu: NSMenu, label: String, granted: Bool, selector: Selector) {
         let icon = granted ? "✓" : "⚠"
         let statusText = granted
@@ -370,7 +370,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         )
         if !granted {
             item.target = self
-            // 红色高亮提示
+            // red highlight hint
             let attr = NSMutableAttributedString(string: item.title)
             attr.addAttribute(.foregroundColor, value: NSColor.systemRed, range: NSRange(location: 0, length: attr.length))
             item.attributedTitle = attr

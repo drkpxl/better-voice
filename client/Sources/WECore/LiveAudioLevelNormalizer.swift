@@ -1,7 +1,7 @@
 import Foundation
 
-/// 实时音频电平归一化器。自适应跟踪噪声地板与峰值天花板（dB 域），
-/// 输出带快攻慢放平滑的 0...1 显示电平，无需手工设噪声阈值。
+/// Real-time audio level normalizer. Adaptively tracks a noise floor and peak ceiling (in dB),
+/// outputting a fast-attack/slow-release smoothed 0...1 display level without manual noise thresholds.
 ///
 /// Adapted from FreeFlow (github.com/zachlatta/freeflow, MIT) —
 /// `LiveAudioLevelNormalizer`. Auto-tracks a noise floor + peak ceiling so the
@@ -33,7 +33,7 @@ public struct LiveAudioLevelNormalizer {
         displayLevel = 0
     }
 
-    /// 输入原始 RMS（0...1），返回平滑后的显示电平（0...1）。
+    /// Takes the raw RMS (0...1) and returns the smoothed display level (0...1).
     public mutating func normalizedLevel(forRMS rms: Float) -> Float {
         let levelDB = 20 * log10f(max(rms, Self.minimumRMS))
 

@@ -3,20 +3,20 @@ import CoreMedia
 import ScreenCaptureKit
 import Speech
 
-/// 系统音频采集器（B3.2）
+/// System audio capturer (B3.2)
 ///
-/// 使用 ScreenCaptureKit 的 SCStream (capturesAudio=true) 捕获系统音频输出。
-/// 典型场景：会议模式下录制 Zoom / 腾讯会议等应用里对方的声音。
+/// Captures system audio output using ScreenCaptureKit's SCStream (capturesAudio=true).
+/// Typical scenario: recording the other party's voice in apps like Zoom / Tencent Meeting during meeting mode.
 ///
-/// 对外接口与 MeetingCaptureDelegate 对齐：
-/// - 把 PCM 样本 yield 到 inputBuilder（SpeechAnalyzer 消费）
-/// - 推送 16kHz Float32 mono 样本给 onDiarizationSamples（diarization 消费）
-/// - 写入 WAV 文件（持久化音频）
+/// External interface aligns with MeetingCaptureDelegate:
+/// - Yields PCM samples to inputBuilder (consumed by SpeechAnalyzer)
+/// - Pushes 16kHz Float32 mono samples to onDiarizationSamples (consumed by diarization)
+/// - Writes a WAV file (persisted audio)
 ///
-/// 注意：
-/// - ScreenCaptureKit 要求"屏幕录制"权限（TCC），复用项目已有的 checkScreenCapture 流程
-/// - excludesCurrentProcessAudio=true 避免录到 WE 自己发出的声音
-/// - 当前版本不与 mic 混音（B4 独立做）
+/// Notes:
+/// - ScreenCaptureKit requires "Screen Recording" permission (TCC); reuses the project's existing checkScreenCapture flow
+/// - excludesCurrentProcessAudio=true avoids recording WE's own output
+/// - Current version does not mix with the mic (handled separately in B4)
 final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
 
     enum CaptureError: Error {
@@ -30,11 +30,11 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
     private let onDiarizationSamples: @Sendable ([Float]) -> Void
     private let mixer: AudioMixer?
 
-    // 格式转换
+    // Format conversion
     private var analyzerConverter: AVAudioConverter?
     private var diarizationConverter: AVAudioConverter?
 
-    // 分离目标格式：16kHz Float32 mono
+    // Separate target format: 16kHz Float32 mono
     private lazy var diarizationFormat: AVAudioFormat? = {
         AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -44,7 +44,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
         )
     }()
 
-    // WAV 写入
+    // WAV writing
     private var fileHandle: FileHandle?
     private var wavDataSize: UInt32 = 0
     private var wavFormat: AVAudioFormat?
@@ -70,7 +70,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
         super.init()
     }
 
-    /// 启动 SCStream，开始接收系统音频
+    /// Starts the SCStream and begins receiving system audio
     func start() async throws {
         let content = try await SCShareableContent.excludingDesktopWindows(
             false, onScreenWindowsOnly: true
@@ -83,7 +83,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
         let config = SCStreamConfiguration()
         config.capturesAudio = true
         config.excludesCurrentProcessAudio = true
-        // SCStream 要求有视频配置，给最小画面避免耗资源
+        // SCStream requires a video configuration; use a minimal frame to avoid wasting resources
         config.width = 2
         config.height = 2
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
@@ -91,7 +91,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
 
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
-        // 也要 add .screen 输出，否则某些版本会报错；这里丢弃
+        // Must also add a .screen output, otherwise some versions throw errors; we discard it here
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
         try await stream.startCapture()
         self.stream = stream
@@ -99,7 +99,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
         Logger.log("Meeting", "SystemAudioCapturer started (ScreenCaptureKit, excludesCurrentProcess=true)")
     }
 
-    /// 停止采集 + finalize WAV
+    /// Stops capture + finalizes WAV
     func stop() async {
         if let s = stream {
             try? await s.stopCapture()
@@ -116,7 +116,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
     // MARK: - SCStreamOutput
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        // 只处理音频，丢弃视频
+        // Only process audio, discard video
         guard type == .audio else { return }
         bufferCount += 1
 
@@ -129,7 +129,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
             Logger.log("Meeting", "SysAudio #\(bufferCount): \(pcmBuffer.frameLength) frames, fmt=\(pcmBuffer.format)")
         }
 
-        // --- 分支1: 送 SpeechAnalyzer ---
+        // --- Branch 1: feed SpeechAnalyzer ---
         let analyzerBuffer: AVAudioPCMBuffer
         if let targetFormat = analyzerFormat,
            pcmBuffer.format.sampleRate != targetFormat.sampleRate
@@ -149,16 +149,16 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
             analyzerBuffer = pcmBuffer
         }
 
-        // 送 SpeechAnalyzer（B4 混音模式下由 mixer 统一 yield）
+        // Feed SpeechAnalyzer (in B4 mixing mode, the mixer yields uniformly instead)
         if mixer == nil {
             let input = AnalyzerInput(buffer: analyzerBuffer)
             inputBuilder.yield(input)
         }
 
-        // 写 WAV（原始 system 流，混音模式下也保留）
+        // Write WAV (raw system stream, kept even in mixing mode)
         writeToWAV(buffer: analyzerBuffer)
 
-        // --- 分支2: 16kHz Float32 mono 样本 → mixer 或 diarization ---
+        // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
         if let diaFmt = diarizationFormat {
             let diaBuffer: AVAudioPCMBuffer
             if pcmBuffer.format.sampleRate != diaFmt.sampleRate
@@ -195,7 +195,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
         Logger.log("Meeting", "SystemAudioCapturer didStopWithError: \(error)")
     }
 
-    // MARK: - WAV 写入（与 MeetingCaptureDelegate 同构）
+    // MARK: - WAV writing (isomorphic to MeetingCaptureDelegate)
 
     private func writeToWAV(buffer: AVAudioPCMBuffer) {
         if fileHandle == nil {
@@ -252,7 +252,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
         Logger.log("Meeting", "SysAudio WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
     }
 
-    // MARK: - 格式转换（与 MeetingCaptureDelegate 同构）
+    // MARK: - Format conversion (isomorphic to MeetingCaptureDelegate)
 
     private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         let ratio = targetFormat.sampleRate / buffer.format.sampleRate
@@ -275,7 +275,7 @@ final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @un
     }
 }
 
-// MARK: - Data little-endian helpers（独立命名避免冲突）
+// MARK: - Data little-endian helpers (distinct naming to avoid conflicts)
 
 private extension Data {
     mutating func appendSysLE(_ value: UInt16) {

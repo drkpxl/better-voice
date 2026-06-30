@@ -1,6 +1,5 @@
 import Foundation
 
-/// 说话人标签解析：优先用用户指定的名字，否则回退到 "<prefix> <id>"。
 /// Prefer a user-supplied name; otherwise fall back to "<prefix> <id>". Returns
 /// nil when there is no speaker id at all.
 public func resolveSpeakerLabel(speakerId: String?, speakerName: String?, prefix: String) -> String? {
@@ -11,7 +10,6 @@ public func resolveSpeakerLabel(speakerId: String?, speakerName: String?, prefix
     return "\(prefix) \(speakerId)"
 }
 
-/// 把 [speakerId: name] 映射应用到片段上，只改有匹配名字的片段。
 /// Apply a [speakerId: name] map onto segments, leaving unmatched ones untouched.
 public func applySpeakerNames(_ names: [String: String], to segments: [MeetingSegment]) -> [MeetingSegment] {
     guard !names.isEmpty else { return segments }
@@ -34,7 +32,6 @@ public func applySpeakerNames(_ names: [String: String], to segments: [MeetingSe
     }
 }
 
-/// 按首次出现顺序返回去重后的说话人 ID 列表（nil 说话人忽略）。
 /// Unique speaker ids in first-appearance order (nil speakers skipped).
 public func orderedUniqueSpeakerIds(_ segments: [MeetingSegment]) -> [String] {
     var seen = Set<String>()
@@ -47,7 +44,6 @@ public func orderedUniqueSpeakerIds(_ segments: [MeetingSegment]) -> [String] {
     return ordered
 }
 
-/// 每个说话人取「最长一段发言」作为收尾面板的示例片段，截断到 maxLen。
 /// For each speaker, pick their longest turn as a sample snippet, truncated to maxLen.
 public func sampleSnippets(_ segments: [MeetingSegment], maxLen: Int = 80) -> [String: String] {
     var longest: [String: String] = [:]

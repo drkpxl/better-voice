@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 import WECore
 
-/// 设置窗口（Feature 0）。
+/// Settings window (Feature 0).
 ///
-/// 用 NSWindow + NSHostingView 嵌入 SwiftUI（与 HotKeySettingsWindow 同栈）。
-/// 暴露新功能相关配置 + 关键既有项；"Edit Config File..." 仍保留给高级用户。
-/// 保存时按段读-改-写，避免覆盖本窗口不管理的键（如 meeting.l2_*、server.timeout）。
+/// Embeds SwiftUI via NSWindow + NSHostingView (same approach as HotKeySettingsWindow).
+/// Exposes config for new features plus key existing settings; "Edit Config File..." remains available for advanced users.
+/// Saves by reading-modifying-writing each config section, avoiding overwriting keys not managed by this window (e.g. meeting.l2_*, server.timeout).
 @MainActor
 final class SettingsWindow {
     static let shared = SettingsWindow()
@@ -74,7 +74,7 @@ final class SettingsViewModel {
     // Language ("" = follow system)
     var language: String
 
-    // 只读状态
+    // Read-only state
     var serverStatus: ModelServer.Status = ModelServer.shared.status
     var isCheckingConnection = false
 
@@ -114,7 +114,7 @@ final class SettingsViewModel {
         language = cfg.language ?? ""
     }
 
-    /// 读-改-写各配置段，保留未管理的键。
+    /// Reads-modifies-writes each config section, preserving unmanaged keys.
     func persist() {
         let cfg = RuntimeConfig.shared
 
@@ -152,7 +152,7 @@ final class SettingsViewModel {
 
     func openDataFolder() { NSWorkspace.shared.open(WEDataDir.url) }
 
-    /// 打开个人上下文文件；不存在时先用模板创建，方便用户上手。
+    /// Opens the personal context file; creates it from a template first if it doesn't exist, to help users get started.
     func editPersonalContext() {
         let url = WEDataDir.personalContextURL
         if !FileManager.default.fileExists(atPath: url.path) {
@@ -213,7 +213,7 @@ final class SettingsViewModel {
     }
 }
 
-// MARK: - SwiftUI 视图
+// MARK: - SwiftUI View
 
 struct SettingsContentView: View {
     @Bindable var viewModel: SettingsViewModel
@@ -274,7 +274,6 @@ struct SettingsContentView: View {
                     Picker(selection: $viewModel.language) {
                         Text(t("Follow system")).tag("")
                         Text("English").tag("en")
-                        Text("简体中文").tag("zh-Hans")
                     } label: {
                         Text(t("Language"))
                     }

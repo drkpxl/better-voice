@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// 热键设置窗口
+/// Hotkey settings window
 ///
-/// 用 NSWindow + NSHostingView 嵌入 SwiftUI。和 TranscriptPanel 同样的混合栈。
+/// Embeds SwiftUI using NSWindow + NSHostingView. Same hybrid stack as TranscriptPanel.
 @MainActor
 final class HotKeySettingsWindow {
     static let shared = HotKeySettingsWindow()
@@ -20,7 +20,7 @@ final class HotKeySettingsWindow {
         let initialConfig = HotKeyConfig.load(from: RuntimeConfig.shared.hotKeyConfig)
         let viewModel = HotKeySettingsViewModel(current: initialConfig)
         viewModel.onSave = { [weak self] newConfig in
-            // 保存到 config + 重新加载 GlobalHotKey
+            // Save to config + reload GlobalHotKey
             RuntimeConfig.shared.updateHotKeyConfig(newConfig.toDictionary())
             GlobalHotKey.shared.reload(config: newConfig)
             Logger.log("HotKey", "User saved hotkey: \(newConfig.displayName)")
@@ -93,7 +93,7 @@ final class HotKeySettingsViewModel {
     }
 }
 
-// MARK: - SwiftUI 视图
+// MARK: - SwiftUI View
 
 struct HotKeySettingsContentView: View {
     @Bindable var viewModel: HotKeySettingsViewModel
@@ -138,7 +138,7 @@ struct HotKeySettingsContentView: View {
     }
 }
 
-// MARK: - HotKeyRecorder（录制控件）
+// MARK: - HotKeyRecorder (recording control)
 
 struct HotKeyRecorderView: View {
     let current: HotKeyConfig
@@ -184,7 +184,7 @@ struct HotKeyRecorderView: View {
         pressedFlags = []
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             handleEvent(event)
-            return nil  // 阻止事件传给应用
+            return nil  // Block the event from being passed to the app
         }
     }
 
@@ -196,7 +196,7 @@ struct HotKeyRecorderView: View {
     }
 
     private func handleEvent(_ event: NSEvent) {
-        // Esc 退出录制（不捕获）
+        // Esc exits recording (not captured)
         if event.type == .keyDown && event.keyCode == 53 {
             stopMonitor()
             return
@@ -205,7 +205,7 @@ struct HotKeyRecorderView: View {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         if event.type == .keyDown {
-            // 组合键（或纯字母键，但纯字母不推荐——仍接受，由用户决定）
+            // Combination key (or a plain letter key — not recommended, but still accepted; it's the user's choice)
             let cfg = HotKeyConfig(
                 keyCode: event.keyCode,
                 modifierFlags: mods.rawValue,
@@ -219,10 +219,10 @@ struct HotKeyRecorderView: View {
             onCapture(cfg)
             stopMonitor()
         } else if event.type == .flagsChanged {
-            // 检测 modifier-only：先按下若干 modifier，全部松开则视为 modifier-only
+            // Detect modifier-only: if some modifiers are pressed and then all released, treat it as modifier-only
             let newMods = mods
             if newMods.isEmpty && !pressedFlags.isEmpty {
-                // 全部松开。捕获最近一次 flagsChanged 的 keyCode 作为 modifier 键
+                // All released. Capture the keyCode from the most recent flagsChanged event as the modifier key
                 let cfg = HotKeyConfig(
                     keyCode: event.keyCode,
                     modifierFlags: 0,

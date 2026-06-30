@@ -1,22 +1,22 @@
 import Foundation
 import WECore
 
-/// 会议摘要客户端：通过 ModelServer 路由到 Ollama/OpenAI。
-/// - classifyType: 用一次快速调用预选会议类型（收尾面板用）。
-/// - summarize: 用选定类型的提示词生成 Markdown 摘要。
-/// 系统提示词都会经过 `PersonalContext.appended(to:)`，让模型用个人上下文
-/// 消歧人名/术语（与 PolishClient 一致）。
+/// Meeting summarization client: routes through ModelServer to Ollama/OpenAI.
+/// - classifyType: pre-selects the meeting type with one quick call (used by the wrap-up panel).
+/// - summarize: generates a Markdown summary using the prompt for the selected type.
+/// System prompts all pass through `PersonalContext.appended(to:)` so the model can use
+/// personal context to disambiguate names/terms (consistent with PolishClient).
 @MainActor
 final class SummarizationClient {
     static let shared = SummarizationClient()
 
-    // MARK: - 配置读取
+    // MARK: - Config reading
 
     private var summarizationConfig: [String: Any] {
         RuntimeConfig.shared.meetingSummarizationConfig
     }
 
-    /// 摘要模型：server.summarization_model 非空则用之，否则 nil（ModelServer 回退到 server.model）。
+    /// Summarization model: uses server.summarization_model if non-empty, otherwise nil (ModelServer falls back to server.model).
     private var summarizationModel: String? {
         let m = (RuntimeConfig.shared.serverConfig["summarization_model"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -32,31 +32,31 @@ final class SummarizationClient {
         summarizationConfig["prompts"] as? [String: String] ?? [:]
     }
 
-    /// 收尾面板下拉的默认会议类型。
+    /// Default meeting type for the wrap-up panel dropdown.
     var defaultType: MeetingType {
         let raw = RuntimeConfig.shared.meetingConfig["default_type"] as? String ?? "general"
         return MeetingType.from(configKey: raw) ?? .general
     }
 
-    /// 是否启用类型分类预选。
+    /// Whether type classification pre-selection is enabled.
     var classifyEnabled: Bool {
         summarizationConfig["classify_enabled"] as? Bool ?? true
     }
 
-    /// 是否启用摘要。
+    /// Whether summarization is enabled.
     var summarizationEnabled: Bool {
         summarizationConfig["enabled"] as? Bool ?? true
     }
 
-    // MARK: - 推理
+    // MARK: - Inference
 
-    /// 用一次快速调用把转录分类为会议类型，失败回退到默认类型。
+    /// Classifies the transcript into a meeting type with one quick call, falling back to the default type on failure.
     func classifyType(transcript: String) async -> MeetingType {
         let fallback = defaultType
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return fallback }
 
         let system = Prompts.meetingTypeClassificationPrompt(language: language)
-        // 分类只需极短输出；上下文沿用摘要的 num_ctx 以容纳长转录。
+        // Classification only needs a very short output; reuses the summarization num_ctx to accommodate long transcripts.
         let opts = ModelServer.GenerateOptions(
             model: summarizationModel,
             numCtx: numCtx,
@@ -72,7 +72,7 @@ final class SummarizationClient {
         return type
     }
 
-    /// 生成 Markdown 摘要。返回 nil 表示失败或服务器未连接。
+    /// Generates a Markdown summary. Returns nil to indicate failure or the server is not connected.
     func summarize(transcript: String, type: MeetingType) async -> String? {
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
 

@@ -4,36 +4,36 @@ import FluidAudio
 import WECore
 import Speech
 
-// MARK: - 会议录音会话
+// MARK: - Meeting Recording Session
 
-/// 长时间会议录音，支持连续转写 + 批量说话人分离
-/// 音频采集复用 VoiceSession 的 AVCaptureSession 方案（兼容蓝牙设备）
-/// 转写用 SpeechAnalyzer 实时流式处理，分离在录音结束后批量执行
+/// Long-running meeting recording session: continuous transcription + batch speaker diarization.
+/// Audio capture reuses VoiceSession's AVCaptureSession approach (Bluetooth-device compatible).
+/// Transcription runs in real time via SpeechAnalyzer streaming; diarization runs in a batch after recording stops.
 @MainActor
 final class MeetingSession {
 
-    // MARK: - 公开状态
+    // MARK: - Public State
 
     private(set) var isRunning = false
     private(set) var transcriptSegments: [MeetingSegment] = []
     private(set) var duration: TimeInterval = 0
 
-    // MARK: - 回调
+    // MARK: - Callbacks
 
-    /// 实时转写更新（text, isFinal）
+    /// Real-time transcript update (text, isFinal)
     var onTranscriptUpdate: ((String, Bool) -> Void)?
 
-    /// 周期性时长更新（每秒触发）
+    /// Periodic duration update (fires every second)
     var onDurationUpdate: ((TimeInterval) -> Void)?
 
-    // MARK: - 音频采集
+    // MARK: - Audio Capture
 
     private var captureSession: AVCaptureSession?
     private var captureDelegate: MeetingCaptureDelegate?
     private var systemAudioCapturer: SystemAudioCapturer?
     private var audioMixer: AudioMixer?
 
-    // MARK: - SpeechAnalyzer 转写
+    // MARK: - SpeechAnalyzer Transcription
 
     private var analyzer: SpeechAnalyzer?
     private var transcriber: SpeechTranscriber?
@@ -42,40 +42,40 @@ final class MeetingSession {
 
     private var analyzerFormat: AVAudioFormat?
 
-    // MARK: - 分离缓冲区（16kHz Float32 mono）
+    // MARK: - Diarization Buffer (16kHz Float32 mono)
 
     private var diarizationBuffer: [Float] = []
 
-    /// 短语级转写条目（含时间戳），用于 stop() 时按说话人细粒度分组。
+    /// Phrase-level transcript entries (with timestamps), used at stop() for fine-grained per-speaker grouping.
     /// Phrase-level transcript entries with timestamps; used at stop() for
     /// fine-grained per-speaker grouping. Populated only on the live start() path.
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
 
-    // MARK: - 时长计时器
+    // MARK: - Duration Timer
 
     private var durationTimer: Task<Void, Never>?
     private var startDate: Date?
 
-    // MARK: - 音频文件
+    // MARK: - Audio File
 
     private var audioFileURL: URL?
 
-    // MARK: - 中断恢复
+    // MARK: - Interruption Recovery
 
     private var interruptionObservers: [NSObjectProtocol] = []
 
-    // MARK: - 分段 / L2 流水线
+    // MARK: - Segmentation / L2 Pipeline
 
     private var segmentBuffer: SegmentBuffer?
     private var polishedSegments: [MeetingSegment] = []
     private var currentVolatileText: String = ""
 
-    // 流式落盘（每个 segment L2 完成后立刻写一行）
+    // Streamed to disk (one line written immediately after each segment's L2 completes)
     private let meetingHistory = MeetingHistory()
     private var meetingId: String = ""
 
-    // L2 统计（stop 时打 summary）
+    // L2 stats (summary logged at stop)
     private var l2Changed = 0
     private var l2Identity = 0
     private var l2Failed = 0
@@ -85,12 +85,12 @@ final class MeetingSession {
 
     init() {}
 
-    // MARK: - 文件输入模式（评估用）
+    // MARK: - File Input Mode (for evaluation)
 
-    /// 从 WAV 文件运行完整会议链路（转写 + 分离 + 对齐）
-    /// 替代 AVCaptureSession，其余链路完全一致
+    /// Run the full meeting pipeline (transcription + diarization + alignment) from a WAV file.
+    /// Substitutes for AVCaptureSession; the rest of the pipeline is identical.
     func runFromFile(_ fileURL: URL, locale: String = "zh-CN") async -> MeetingResult {
-        // 重置状态
+        // Reset state
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
@@ -105,7 +105,7 @@ final class MeetingSession {
         let localeObj = Locale(identifier: locale)
 
         do {
-            // 1. 配置 SpeechTranscriber（和 start() 完全一致）
+            // 1. Configure SpeechTranscriber (identical to start())
             let bestLocale = await findChineseLocale() ?? localeObj
             Logger.log("Meeting", "[Bench] Using locale: \(bestLocale.identifier(.bcp47))")
 
@@ -118,15 +118,15 @@ final class MeetingSession {
             self.transcriber = transcriber
             try await ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
 
-            // 2. 创建 SpeechAnalyzer（processLifetime 让模型在进程内常驻）
+            // 2. Create SpeechAnalyzer (processLifetime keeps the model resident for the process lifetime)
             let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
             let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
             self.analyzer = analyzer
 
-            // 2.5 上下文注入（字典 + 可选 OCR），和 Remote/Voice 路径统一
+            // 2.5 Contextual injection (dictionary + optional OCR), unified with the Remote/Voice paths
             await injectContextualStrings(analyzer: analyzer)
 
-            // 3. 启动结果处理（和 start() 完全一致的 resultTask）
+            // 3. Start result handling (resultTask identical to start())
             resultTask = Task { [weak self] in
                 do {
                     for try await result in transcriber.results {
@@ -156,7 +156,7 @@ final class MeetingSession {
                 }
             }
 
-            // 4. 从文件读取音频填充 diarizationBuffer（16kHz Float32 mono）
+            // 4. Read audio from file to fill diarizationBuffer (16kHz Float32 mono)
             Logger.log("Meeting", "[Bench] Loading audio: \(fileURL.lastPathComponent)")
             let audioFile = try AVAudioFile(forReading: fileURL)
             let fileFormat = audioFile.processingFormat
@@ -164,7 +164,7 @@ final class MeetingSession {
             duration = Double(frameCount) / fileFormat.sampleRate
             Logger.log("Meeting", "[Bench] Audio: \(String(format: "%.1f", duration))s, \(Int(fileFormat.sampleRate))Hz, \(fileFormat.channelCount)ch")
 
-            // 转换为 16kHz Float32 mono 给 diarization
+            // Convert to 16kHz Float32 mono for diarization
             let diaFormat = AVAudioFormat(
                 commonFormat: .pcmFormatFloat32,
                 sampleRate: Double(diarizationSampleRate),
@@ -205,14 +205,14 @@ final class MeetingSession {
             }
             Logger.log("Meeting", "[Bench] Diarization buffer: \(diarizationBuffer.count) samples")
 
-            // 5. 用 SpeechAnalyzer 文件输入 API（Apple 原生，替代 AVCaptureSession）
+            // 5. Use SpeechAnalyzer's file input API (Apple-native, replaces AVCaptureSession)
             Logger.log("Meeting", "[Bench] Starting SpeechAnalyzer from file...")
             let inputFile = try AVAudioFile(forReading: fileURL)
             let startTime = CFAbsoluteTimeGetCurrent()
             try await analyzer.start(inputAudioFile: inputFile, finishAfterFile: true)
 
-            // start 立即返回，结果通过 transcriber.results 异步到达
-            // 等待 resultTask 跑完（for-await 循环在 analyzer finalize 后终止）
+            // start returns immediately; results arrive asynchronously via transcriber.results
+            // Wait for resultTask to finish (the for-await loop ends once the analyzer finalizes)
             await resultTask?.value
             let transcribeTime = CFAbsoluteTimeGetCurrent() - startTime
             Logger.log("Meeting", "[Bench] Transcription done in \(String(format: "%.1f", transcribeTime))s (RTFx: \(String(format: "%.1f", duration / transcribeTime)))")
@@ -221,23 +221,23 @@ final class MeetingSession {
             self.analyzer = nil
             self.transcriber = nil
 
-            // 冲尾：最后一批 buffer → L2
+            // Flush the tail: last buffer batch → L2
             await segmentBuffer?.flushFinal()
             logL2Summary()
 
             Logger.log("Meeting", "[Bench] L2 pipeline: \(polishedSegments.count) segments produced")
 
-            // 6. 执行说话人分离（和 stop() 完全一致）
+            // 6. Run speaker diarization (identical to stop())
             let diarizedSegments = await performDiarization()
 
-            // 7. 构建结果
+            // 7. Build the result
             let result = MeetingResult(
                 segments: diarizedSegments,
                 duration: duration,
                 audioPath: fileURL.path
             )
 
-            // 清理
+            // Cleanup
             diarizationBuffer = []
             polishedSegments = []
             segmentBuffer = nil
@@ -251,7 +251,7 @@ final class MeetingSession {
         }
     }
 
-    // MARK: - 麦克风启动（正常使用）
+    // MARK: - Microphone Start (normal usage)
 
     func start() async throws {
         guard !isRunning else { return }
@@ -260,7 +260,7 @@ final class MeetingSession {
             throw VoiceError.notAuthorized
         }
 
-        // 重置状态
+        // Reset state
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
@@ -270,14 +270,14 @@ final class MeetingSession {
         resetL2Stats()
         setupSegmentBuffer()
 
-        // 1. 查找最佳中文 locale
+        // 1. Find the best Chinese locale
         let bestLocale = await findChineseLocale()
         guard let bestLocale else {
             throw VoiceError.recognizerUnavailable
         }
         Logger.log("Meeting", "Using locale: \(bestLocale.identifier(.bcp47))")
 
-        // 2. 配置 SpeechTranscriber（含 volatile + audioTimeRange，与 VoiceSession 一致）
+        // 2. Configure SpeechTranscriber (with volatile + audioTimeRange, consistent with VoiceSession)
         let transcriber = SpeechTranscriber(
             locale: bestLocale,
             transcriptionOptions: [],
@@ -286,10 +286,10 @@ final class MeetingSession {
         )
         self.transcriber = transcriber
 
-        // 3. 确保语音模型已安装
+        // 3. Ensure the speech model is installed
         try await ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
 
-        // 4. 创建 SpeechAnalyzer（processLifetime 让模型在长会议期间不被卸载）
+        // 4. Create SpeechAnalyzer (processLifetime keeps the model from being unloaded during a long meeting)
         let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
         let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
         self.analyzer = analyzer
@@ -298,22 +298,22 @@ final class MeetingSession {
         self.analyzerFormat = analyzerFormat
         Logger.log("Meeting", "Analyzer format: \(analyzerFormat as Any)")
 
-        // 4.5 预热模型（会议首段转写延迟从 ~800ms 降到 <100ms）
+        // 4.5 Warm up the model (cuts the first segment's transcription latency from ~800ms to <100ms)
         let prepareT0 = CFAbsoluteTimeGetCurrent()
         try? await analyzer.prepareToAnalyze(in: analyzerFormat)
         Logger.log("Meeting", "prepareToAnalyze took \(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - prepareT0))s")
 
-        // 4.6 上下文注入（字典 + 可选 OCR），和 Remote/Voice 路径统一
+        // 4.6 Contextual injection (dictionary + optional OCR), unified with the Remote/Voice paths
         await injectContextualStrings(analyzer: analyzer)
 
-        // 5. 创建 AsyncStream 输入通道
+        // 5. Create the AsyncStream input channel
         let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
         self.inputBuilder = inputBuilder
 
-        // 6. 启动分析器
+        // 6. Start the analyzer
         try await analyzer.start(inputSequence: inputSequence)
 
-        // 7. 启动结果处理任务
+        // 7. Start the result handling task
         resultTask = Task { [weak self] in
             do {
                 for try await result in transcriber.results {
@@ -321,7 +321,7 @@ final class MeetingSession {
                     let text = String(result.text.characters)
 
                     if result.isFinal {
-                        // 提取 audioTimeRange
+                        // Extract audioTimeRange
                         let timeRange = self.extractTimeRange(from: result.text)
                         let entry = SegmentBuffer.Entry(
                             text: text,
@@ -344,17 +344,17 @@ final class MeetingSession {
             }
         }
 
-        // 8. 准备音频文件路径
+        // 8. Prepare the audio file path
         let fileName = "meeting-" + ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let url = WEDataDir.audioURL(forName: fileName)
         audioFileURL = url
-        meetingId = fileName  // 流式 jsonl 用作会议唯一标识
+        meetingId = fileName  // used as the unique meeting ID for the streamed jsonl
 
-        // 9. 启动音频采集（根据 config 选 mic / system / both）
+        // 9. Start audio capture (mic / system / both, chosen from config)
         let audioSource = (RuntimeConfig.shared.meetingConfig["audio_source"] as? String) ?? "mic"
         Logger.log("Meeting", "Audio source: \(audioSource)")
 
-        // diarization 目标格式（mixer / capturer 统一使用）
+        // Diarization target format (shared by the mixer / capturer)
         let diarizationFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: Double(diarizationSampleRate),
@@ -362,7 +362,7 @@ final class MeetingSession {
             interleaved: false
         )!
 
-        // diarization 回调（共用）
+        // Diarization callback (shared)
         let onDiaSamples: @Sendable ([Float]) -> Void = { [weak self] samples in
             DispatchQueue.main.async {
                 self?.diarizationBuffer.append(contentsOf: samples)
@@ -382,7 +382,7 @@ final class MeetingSession {
             self.systemAudioCapturer = cap
 
         case "both":
-            // B4: mic + system 并行采集 → AudioMixer 样本级混音 → SA
+            // B4: mic + system captured in parallel → AudioMixer sample-level mixing → SA
             let mixer = AudioMixer(
                 analyzerFormat: analyzerFormat,
                 diarizationFormat: diarizationFormat,
@@ -465,7 +465,7 @@ final class MeetingSession {
         isRunning = true
         startDate = Date()
 
-        // 10. 启动时长计时器（每秒更新）
+        // 10. Start the duration timer (updates every second)
         durationTimer = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
@@ -478,9 +478,9 @@ final class MeetingSession {
         Logger.log("Meeting", "Session started")
     }
 
-    // MARK: - 停止 + 分离
+    // MARK: - Stop + Diarization
 
-    /// 停止录音，执行批量说话人分离，返回带 speakerId 的完整结果
+    /// Stop recording, run batch speaker diarization, and return the full result with speakerId
     func stop() async -> MeetingResult {
         guard isRunning else {
             return MeetingResult(segments: [], duration: 0, audioPath: nil)
@@ -488,12 +488,12 @@ final class MeetingSession {
 
         isRunning = false
 
-        // 停止计时器
+        // Stop the timer
         durationTimer?.cancel()
         durationTimer = nil
         let finalDuration = duration
 
-        // 停止音频采集（三种模式都清理）
+        // Stop audio capture (cleans up all three modes)
         removeInterruptionObservers()
         captureSession?.stopRunning()
         captureSession = nil
@@ -508,12 +508,12 @@ final class MeetingSession {
             audioMixer = nil
         }
 
-        // 告诉 SpeechAnalyzer 音频结束
+        // Tell SpeechAnalyzer the audio has ended
         inputBuilder?.finish()
         Logger.log("Meeting", "Input stream finished, waiting for analyzer...")
 
         do {
-            // 60s 熔断：长会议的尾部 audio finalize 可能比实时录音慢得多
+            // 60s circuit breaker: tail audio finalize can be much slower than real-time recording for long meetings
             try await withThrowingTimeout(seconds: 60) {
                 try await self.analyzer?.finalizeAndFinishThroughEndOfInput()
             }
@@ -522,32 +522,32 @@ final class MeetingSession {
             Logger.log("Meeting", "Finalize timeout/error: \(error)")
         }
 
-        // 给 resultTask 短暂时间处理最终结果
+        // Give resultTask a brief moment to process the final results
         try? await Task.sleep(for: .milliseconds(500))
         resultTask?.cancel()
         resultTask = nil
 
-        // 清理 SA 资源
+        // Clean up SA resources
         analyzer = nil
         transcriber = nil
 
-        // 冲尾：最后一批 buffer → L2
+        // Flush the tail: last buffer batch → L2
         await segmentBuffer?.flushFinal()
         logL2Summary()
 
         Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, \(diarizationBuffer.count) audio samples")
 
-        // 执行说话人分离
+        // Run speaker diarization
         let diarizedSegments = await performDiarization()
 
-        // 构建结果
+        // Build the result
         let result = MeetingResult(
             segments: diarizedSegments,
             duration: finalDuration,
             audioPath: audioFileURL?.path
         )
 
-        // 清理缓冲区
+        // Clean up buffers
         diarizationBuffer = []
         polishedSegments = []
         segmentBuffer = nil
@@ -556,21 +556,21 @@ final class MeetingSession {
         return result
     }
 
-    // MARK: - 说话人分离
+    // MARK: - Speaker Diarization
 
-    /// 批量执行 FluidAudio 分离，将结果与 L2 纠错后的批次段对齐
-    /// 注意：方案 D（flush 批次 = 一个 MeetingSegment），diarization 按批次时间范围找说话人
+    /// Run FluidAudio diarization in batch and align the result with L2-corrected batch segments.
+    /// Note: Scheme D (one flush batch = one MeetingSegment) — diarization looks up speakers by each batch's time range.
     private func performDiarization() async -> [MeetingSegment] {
         let buffer = diarizationBuffer
         let segments = polishedSegments
 
-        // 如果没有 L2 段，直接返回空
+        // If there are no L2 segments, return empty right away
         guard !segments.isEmpty else {
             Logger.log("Meeting", "No polished segments to diarize")
             return []
         }
 
-        // 音频太短，跳过分离
+        // Audio too short, skip diarization
         let audioDuration = Double(buffer.count) / Double(diarizationSampleRate)
         guard audioDuration >= 2.0 else {
             Logger.log("Meeting", "Audio too short for diarization (\(String(format: "%.1f", audioDuration))s), skipping")
@@ -580,7 +580,7 @@ final class MeetingSession {
         Logger.log("Meeting", "Starting diarization: \(String(format: "%.1f", audioDuration))s audio")
 
         do {
-            // 下载/加载模型
+            // Download/load models
             Logger.log("Meeting", "Loading diarization models...")
             let models = try await DiarizerModels.downloadIfNeeded(
                 progressHandler: { progress in
@@ -599,7 +599,7 @@ final class MeetingSession {
                 Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
             }
 
-            // 细粒度对齐：短语级按说话人分组，每个连续回合 = 一个 MeetingSegment。
+            // Fine-grained alignment: group phrases by speaker; each consecutive turn = one MeetingSegment.
             // Fine-grained: label each phrase by speaker, group consecutive phrases
             // into speaker turns, polish each turn. Falls back to the coarse
             // per-batch alignment when there are no phrase entries (bench path).
@@ -611,13 +611,13 @@ final class MeetingSession {
 
         } catch {
             Logger.log("Meeting", "Diarization failed: \(error), returning segments without speaker labels")
-            // 分离失败，保留 L2 段，speakerId 为 nil
+            // Diarization failed, keep the L2 segments with speakerId = nil
             return segments
         }
     }
 
-    /// 对齐 L2 批次段与分离段：基于时间重叠度
-    /// 对每个批次段，找到重叠时间最长的分离段，取其 speakerId
+    /// Align L2 batch segments with diarization segments based on time overlap.
+    /// For each batch segment, find the diarization segment with the longest overlap and take its speakerId.
     private func alignTranscriptionWithDiarization(
         segments: [MeetingSegment],
         diarization: [TimedSpeakerSegment]
@@ -626,7 +626,7 @@ final class MeetingSession {
             let tStart = tSeg.startTime
             let tEnd = tSeg.endTime
 
-            // 找重叠最大的分离段
+            // Find the diarization segment with the most overlap
             var bestSpeaker: String? = nil
             var maxOverlap: TimeInterval = 0
 
@@ -656,8 +656,8 @@ final class MeetingSession {
         }
     }
 
-    /// 短语级说话人分配 + 分组：每个连续同说话人回合产出一个 MeetingSegment，
-    /// 并对该回合文本做一次 L2 润色。
+    /// Phrase-level speaker assignment + grouping: each consecutive same-speaker turn
+    /// produces one MeetingSegment, and that turn's text gets a single L2 polish pass.
     /// Assign a speaker to each phrase (max time-overlap with diarization), group
     /// consecutive same-speaker phrases into turns, and polish each turn. This is
     /// what fixes "everything under one speaker": speaker changes mid-conversation
@@ -702,7 +702,7 @@ final class MeetingSession {
         return result
     }
 
-    /// 找与给定时间区间重叠最长的分离段的 speakerId。
+    /// Find the speakerId of the diarization segment with the longest overlap with the given time range.
     /// Speaker whose diarization segment overlaps this time range the most.
     private func speakerForTimeRange(start: TimeInterval, end: TimeInterval, in diarization: [TimedSpeakerSegment]) -> String? {
         var bestSpeaker: String? = nil
@@ -718,20 +718,20 @@ final class MeetingSession {
                 maxOverlap = overlap
                 bestSpeaker = d.speakerId
             }
-            // 到该分离段的时间距离（落在段内为 0），用于无重叠时兜底。
+            // Time distance to this diarization segment (0 if inside it); used as a fallback when there's no overlap.
             let distance = mid < dStart ? dStart - mid : (mid > dEnd ? mid - dEnd : 0)
             if distance < nearestDistance {
                 nearestDistance = distance
                 nearestSpeaker = d.speakerId
             }
         }
-        // 有重叠取重叠最多者；否则取时间上最近的说话人，消除短插话的 "Unknown"。
+        // Prefer the most-overlapping speaker; otherwise take the temporally nearest speaker, eliminating "Unknown" for brief interjections.
         // Prefer the most-overlapping speaker; otherwise snap to the nearest one
         // so brief interjections in diarization gaps aren't labelled "Unknown".
         return bestSpeaker ?? nearestSpeaker
     }
 
-    /// 对一段文本做一次 L2 润色（复用 PolishClient）；禁用或失败时回退原文。
+    /// Run a single L2 polish pass on a chunk of text (reusing PolishClient); falls back to the raw text when disabled or on failure.
     /// Polish a turn's text via PolishClient; falls back to raw on disabled/failure.
     private func polishTurnText(_ raw: String) async -> (text: String, kind: L2Kind) {
         let polishEnabled = (RuntimeConfig.shared.polishConfig["enabled"] as? Bool) == true
@@ -744,12 +744,15 @@ final class MeetingSession {
         return (raw, .failed)
     }
 
-    // MARK: - B3.1 中断恢复
+    // MARK: - B3.1 Interruption Recovery
 
-    /// 订阅 AVCaptureSession 的中断/恢复通知。蓝牙切换、音频路由变化会触发。
-    /// 恢复策略：interruptionEnded 时检查 session 是否仍在运行，未运行则 startRunning。
-    /// 注意：若音频设备切换导致 format 变化（蓝牙 Int16 → 内置 Float32），
-    /// 现有 AVAudioConverter 可能失败，该场景留待后续观察真实日志再决定是否重建采集链。
+    /// Subscribe to AVCaptureSession interruption/resume notifications. Triggered by Bluetooth
+    /// switches or audio route changes.
+    /// Recovery strategy: on interruptionEnded, check whether the session is still running;
+    /// call startRunning() if it isn't.
+    /// Note: if a device switch changes the audio format (Bluetooth Int16 → built-in Float32),
+    /// the existing AVAudioConverter may fail. That scenario is left for later — we'll decide
+    /// whether to rebuild the capture chain once we observe it in real logs.
     private func observeInterruptions(on session: AVCaptureSession) {
         let center = NotificationCenter.default
         let obs1 = center.addObserver(
@@ -757,7 +760,7 @@ final class MeetingSession {
             object: session,
             queue: .main
         ) { _ in
-            // macOS 无 InterruptionReasonKey，只记录事件
+            // macOS has no InterruptionReasonKey, just log the event
             Logger.log("Meeting", "Capture interrupted (audio route changed / device removed)")
         }
         let obs2 = center.addObserver(
@@ -765,7 +768,7 @@ final class MeetingSession {
             object: session,
             queue: .main
         ) { [weak self] _ in
-            // queue: .main 保证 callback 在 main queue 上执行，与 @MainActor 隔离一致
+            // queue: .main ensures the callback runs on the main queue, consistent with @MainActor isolation
             MainActor.assumeIsolated {
                 guard let self, let s = self.captureSession else { return }
                 Logger.log("Meeting", "Capture interruption ended, isRunning=\(s.isRunning)")
@@ -793,9 +796,9 @@ final class MeetingSession {
         interruptionObservers.removeAll()
     }
 
-    // MARK: - B1 辅助：分段 + L2
+    // MARK: - B1 Helpers: Segmentation + L2
 
-    /// 从 config 读阈值，创建 SegmentBuffer 并挂 flush 回调
+    /// Read thresholds from config, create a SegmentBuffer, and attach the flush callback
     private func setupSegmentBuffer() {
         let cfg = RuntimeConfig.shared.meetingConfig
         let pauseSec = (cfg["l2_flush_on_pause_sec"] as? Double) ?? 1.5
@@ -815,7 +818,7 @@ final class MeetingSession {
         self.segmentBuffer = buf
     }
 
-    /// ContextEnhancer 调用 + analyzer.setContext（和 Remote/Voice 路径一致）
+    /// ContextEnhancer call + analyzer.setContext (consistent with the Remote/Voice paths)
     private func injectContextualStrings(analyzer: SpeechAnalyzer) async {
         let polish = RuntimeConfig.shared.polishConfig
         let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
@@ -834,8 +837,8 @@ final class MeetingSession {
         }
     }
 
-    /// 对一个 flush 批次做 L2 纠错，返回最终 MeetingSegment
-    /// L2 失败时 text = rawText（fallback）；每次调用结果立刻 append 到 meeting-history.jsonl
+    /// Run L2 correction on one flush batch and return the final MeetingSegment.
+    /// On L2 failure, text = rawText (fallback); each call's result is appended to meeting-history.jsonl immediately.
     private func polishBatch(_ batch: SegmentBuffer.FlushBatch) async -> MeetingSegment {
         let segNum = segmentBuffer?.flushCount ?? 0
         let polishCfg = RuntimeConfig.shared.polishConfig
@@ -886,7 +889,7 @@ final class MeetingSession {
             }
         }
 
-        // 流式落盘到 meeting-history.jsonl（每个 segment 一行，会议进行中即可见）
+        // Streamed to meeting-history.jsonl (one line per segment, visible while the meeting is in progress)
         let record = MeetingSegmentRecord(
             timestamp: Date(),
             meetingId: meetingId,
@@ -923,8 +926,8 @@ final class MeetingSession {
         l2CallCount = 0
     }
 
-    /// 会议结束时打一行统计汇总（验收用）
-    /// 如果 failed>0 或 fallback_used>0，就是 L2 链路不健康的直接证据
+    /// Log one summary line of stats when the meeting ends (for acceptance checks).
+    /// If failed>0 or fallback_used>0, that's direct evidence the L2 pipeline is unhealthy.
     private func logL2Summary() {
         let total = l2Changed + l2Identity + l2Failed + l2Skipped
         let avgMs = l2CallCount > 0 ? l2TotalElapsedMs / l2CallCount : 0
@@ -932,12 +935,12 @@ final class MeetingSession {
         Logger.log("Meeting", "L2 summary: total=\(total) changed=\(l2Changed) identity=\(l2Identity) failed=\(l2Failed) skipped=\(l2Skipped) avgMs=\(avgMs) fallback_used=\(fallback)")
     }
 
-    // MARK: - 从 AttributedString 提取 audioTimeRange
+    // MARK: - Extracting audioTimeRange from AttributedString
 
     private func extractTimeRange(from attrText: AttributedString) -> (start: TimeInterval, duration: TimeInterval) {
         typealias TimeKey = AttributeScopes.SpeechAttributes.TimeRangeAttribute
 
-        // 遍历 runs 找到整个段的时间范围
+        // Walk the runs to find the time range covering the whole segment
         var earliest: TimeInterval = .infinity
         var latest: TimeInterval = 0
 
@@ -955,15 +958,14 @@ final class MeetingSession {
         return (start: earliest, duration: latest - earliest)
     }
 
-    // MARK: - Locale 查找（与 VoiceSession 相同）
+    // MARK: - Locale Lookup (same as VoiceSession)
 
     private func findChineseLocale() async -> Locale? {
-        // 现在跟随配置/系统语言（见 SpeechUtils.bestLocale）。
         // Now follows the configured/system language (see SpeechUtils.bestLocale).
         await SpeechUtils.bestLocale()
     }
 
-    // MARK: - 模型管理（与 VoiceSession 相同）
+    // MARK: - Model Management (same as VoiceSession)
 
     private func ensureModelInstalled(transcriber: SpeechTranscriber, locale: Locale) async throws {
         let localeID = locale.identifier(.bcp47)
@@ -983,12 +985,12 @@ final class MeetingSession {
     }
 }
 
-// MARK: - 会议音频采集代理
+// MARK: - Meeting Audio Capture Delegate
 
-/// 从 AVCaptureSession 接收音频，分叉到：
-/// 1. SpeechAnalyzer（实时转写）
-/// 2. diarization buffer（16kHz Float32 mono 累积）
-/// 3. WAV 文件（持久化）
+/// Receives audio from AVCaptureSession and fans it out to:
+/// 1. SpeechAnalyzer (real-time transcription)
+/// 2. diarization buffer (16kHz Float32 mono accumulation)
+/// 3. WAV file (persistence)
 final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
@@ -997,11 +999,11 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     private let onDiarizationSamples: ([Float]) -> Void
     private let mixer: AudioMixer?
 
-    // 格式转换器
+    // Format converters
     private var analyzerConverter: AVAudioConverter?
     private var diarizationConverter: AVAudioConverter?
 
-    // 分离目标格式：16kHz Float32 mono
+    // Diarization target format: 16kHz Float32 mono
     private lazy var diarizationFormat: AVAudioFormat? = {
         AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -1011,7 +1013,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         )
     }()
 
-    // WAV 写入
+    // WAV writing
     private var fileHandle: FileHandle?
     private var wavDataSize: UInt32 = 0
     private var wavFormat: AVAudioFormat?
@@ -1042,7 +1044,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         bufferCount += 1
 
-        // CMSampleBuffer → AVAudioPCMBuffer（复用 VoiceSession 的扩展方法）
+        // CMSampleBuffer → AVAudioPCMBuffer (reuses VoiceSession's extension method)
         guard let pcmBuffer = sampleBuffer.toPCMBuffer() else {
             if bufferCount <= 3 { Logger.log("Meeting", "Audio #\(bufferCount): CMSampleBuffer conversion failed") }
             return
@@ -1052,7 +1054,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             Logger.log("Meeting", "Audio #\(bufferCount): \(pcmBuffer.frameLength) frames, fmt=\(pcmBuffer.format)")
         }
 
-        // --- 分支1: 送 SpeechAnalyzer（可能需要格式转换）---
+        // --- Branch 1: feed SpeechAnalyzer (may require format conversion) ---
         let analyzerBuffer: AVAudioPCMBuffer
         if let targetFormat = analyzerFormat,
            pcmBuffer.format.sampleRate != targetFormat.sampleRate
@@ -1072,16 +1074,16 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             analyzerBuffer = pcmBuffer
         }
 
-        // 送 SpeechAnalyzer（B4 混音模式下由 mixer 统一 yield，本 delegate 不直接送）
+        // Feed SpeechAnalyzer (in B4 mixing mode the mixer yields uniformly; this delegate doesn't feed directly)
         if mixer == nil {
             let input = AnalyzerInput(buffer: analyzerBuffer)
             inputBuilder.yield(input)
         }
 
-        // 写 WAV 文件（原始 mic 流，混音模式下也保留便于事后分析）
+        // Write the WAV file (raw mic stream, kept even in mixing mode for later analysis)
         writeToWAV(buffer: analyzerBuffer)
 
-        // --- 分支2: 16kHz Float32 mono 样本 → mixer 或 diarization ---
+        // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
         if let diaFmt = diarizationFormat {
             let diaBuffer: AVAudioPCMBuffer
             if pcmBuffer.format.sampleRate != diaFmt.sampleRate
@@ -1113,7 +1115,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         }
     }
 
-    // MARK: - WAV 手动写入
+    // MARK: - Manual WAV Writing
 
     private func writeToWAV(buffer: AVAudioPCMBuffer) {
         if fileHandle == nil {
@@ -1122,7 +1124,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             FileManager.default.createFile(atPath: audioFileURL.path, contents: nil)
             fileHandle = try? FileHandle(forWritingTo: audioFileURL)
-            fileHandle?.write(Data(count: 44)) // WAV header 占位
+            fileHandle?.write(Data(count: 44)) // WAV header placeholder
             wavDataSize = 0
         }
 
@@ -1170,7 +1172,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         Logger.log("Meeting", "WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
     }
 
-    // MARK: - 格式转换（与 VoiceSession 相同的 block-based API）
+    // MARK: - Format Conversion (same block-based API as VoiceSession)
 
     private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
         let ratio = targetFormat.sampleRate / buffer.format.sampleRate
@@ -1193,7 +1195,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     }
 }
 
-// MARK: - Data little-endian helpers（避免与 VoiceSession 的 private extension 冲突）
+// MARK: - Data little-endian helpers (avoids conflicting with VoiceSession's private extension)
 
 private extension Data {
     mutating func appendMeetingLE(_ value: UInt16) {

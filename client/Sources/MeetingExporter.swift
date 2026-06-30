@@ -1,26 +1,26 @@
 import Foundation
 import WECore
 
-/// 会议转录导出器
-/// 支持导出为 Markdown 格式，保存到 ~/.we/meetings/
+/// Meeting transcript exporter
+/// Supports exporting to Markdown format, saved to ~/.we/meetings/
 @MainActor
 final class MeetingExporter {
 
-    /// 解析保存目录：显式 saveFolder 优先，否则取 config 的 meeting.save_folder（回退默认 meetings）。
+    /// Resolves the save folder: explicit saveFolder takes priority, otherwise uses config's meeting.save_folder (falls back to default meetings).
     static func configuredFolder() -> URL {
         WEDataDir.resolveMeetingsFolder(RuntimeConfig.shared.meetingConfig["save_folder"] as? String)
     }
 
-    /// 文件基名（不含扩展名），转录与摘要共用：yyyy-MM-dd_HH-mm。
+    /// Base file name (no extension), shared by transcript and summary: yyyy-MM-dd_HH-mm.
     static func baseName(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
         return formatter.string(from: date)
     }
 
-    /// 导出会议转录为 Markdown 文件。
-    /// - Parameter saveFolder: 显式保存目录；nil 时用 config / 默认目录。
-    /// - Returns: 导出文件的 URL
+    /// Exports the meeting transcript to a Markdown file.
+    /// - Parameter saveFolder: Explicit save folder; when nil, uses config / default folder.
+    /// - Returns: URL of the exported file
     static func exportMarkdown(
         segments: [MeetingSegment],
         duration: TimeInterval,
@@ -54,7 +54,7 @@ final class MeetingExporter {
         }
     }
 
-    /// 导出会议摘要为 `<baseName>-summary.md`，与转录同目录。
+    /// Exports the meeting summary as `<baseName>-summary.md`, in the same folder as the transcript.
     static func exportSummary(
         _ summary: String,
         baseName: String,
@@ -87,7 +87,7 @@ final class MeetingExporter {
         }
     }
 
-    // MARK: - 格式化
+    // MARK: - Formatting
 
     private static func formatDuration(_ seconds: TimeInterval) -> String {
         let h = Int(seconds) / 3600
