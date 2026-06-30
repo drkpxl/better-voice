@@ -1,4 +1,4 @@
-.PHONY: build run run-raw clean setup install uninstall check-data check-log sync install-sync uninstall-sync
+.PHONY: build run run-raw clean setup install uninstall check-data check-log
 
 APP_BUNDLE = .build/WE.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
@@ -95,36 +95,18 @@ uninstall:
 	@echo "   如需清除用户数据，请手动执行:"
 	@echo "   rm -rf ~/.we/"
 
-# 检查数据落盘
+# 检查数据落盘（本地调试用历史 + 录音）
 check-data:
 	@echo "=== ~/.we/ data files ==="
 	@ls -lh ~/.we/voice-history.jsonl 2>/dev/null || echo "  voice-history.jsonl: not yet"
-	@ls -lh ~/.we/corrections.jsonl 2>/dev/null || echo "  corrections.jsonl: not yet"
-	@ls -lh ~/.we/semantic-diffs.jsonl 2>/dev/null || echo "  semantic-diffs.jsonl: not yet"
+	@ls -lh ~/.we/meeting-history.jsonl 2>/dev/null || echo "  meeting-history.jsonl: not yet"
 	@echo "=== audio files ==="
 	@ls ~/.we/audio/ 2>/dev/null | head -5 || echo "  no audio files yet"
+	@echo "=== personal context ==="
+	@ls -lh ~/.we/personal-context.md 2>/dev/null || echo "  personal-context.md: not set (optional)"
 	@echo "=== config ==="
 	@cat ~/.we/config.json 2>/dev/null || echo "  no config yet (will be created on first run)"
 
 # 查看最近日志
 check-log:
 	@tail -30 ~/.we/debug.log 2>/dev/null || echo "  no log yet"
-
-# 手动同步数据到 4090 服务器
-sync:
-	@bash scripts/sync-to-server.sh
-	@tail -3 ~/.we/sync.log
-
-# 安装自动同步（launchd 监听 voice-history 变化）
-install-sync:
-	@SCRIPT_PATH="$$(cd scripts && pwd)/sync-to-server.sh"; \
-	sed -e "s|__SYNC_SCRIPT__|$$SCRIPT_PATH|g" -e "s|__HOME__|$$HOME|g" \
-		scripts/com.antigravity.we.sync.plist > ~/Library/LaunchAgents/com.antigravity.we.sync.plist
-	@launchctl load ~/Library/LaunchAgents/com.antigravity.we.sync.plist
-	@echo "Auto-sync installed (triggers on voice-history.jsonl change)"
-
-# 卸载自动同步
-uninstall-sync:
-	@launchctl unload ~/Library/LaunchAgents/com.antigravity.we.sync.plist 2>/dev/null || true
-	@rm -f ~/Library/LaunchAgents/com.antigravity.we.sync.plist
-	@echo "Auto-sync uninstalled"

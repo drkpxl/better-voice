@@ -43,9 +43,11 @@ kpi-test/
 | §3.1 L4 #11 ① | Voice input → transcription → text output | `milestones/m11_voice_e2e.sh` |
 | §3.1 L4 #11 ② | Meeting mode can record and transcribe | `milestones/m11_meeting.sh` |
 | §3.1 L4 #11 ③ | Cross-network transmission works | `milestones/m11_remote.sh` |
-| §3.1 L2 #7 ① | Automatically build mis-recognized word list | `milestones/m7_dict_build.sh` |
-| §3.1 L2 #7 ② | Automatic fine-tuning | `milestones/m7_finetune.sh` |
-| §3.1 L2 #7 ③ | Output report | `milestones/m7_report.sh` |
+
+> The §3.1 L2 #7 milestones (auto-build mis-recognized word list, automatic
+> fine-tuning, output report) were removed along with the self-training pipeline.
+> Personalization is now handled by `~/.we/personal-context.md` injected into the
+> polish prompt (see `docs/configuration.md`).
 
 Each script outputs `{status: pass|partial|fail, score: 1.0|0.7|0, evidence: ...}`.
 Corresponds to the §2.1 completion coefficient: complete 1.0 / partially complete (≥70%) 0.7 / not achieved 0.
@@ -120,13 +122,10 @@ Per §2.2 Phase 1 tiers (based on trend):
 **Reused**:
 
 - `WE --bench-meeting <wav>` — existing entry point for running meeting mode end-to-end
-- `server/eval_model.py` — L2 model evaluation
-- `server/eval/benchmarks/run_transcription.sh` — transcription benchmark infrastructure
-- `server/scripts/run_pipeline.sh` — one-click fine-tuning pipeline
+- `client/scripts/kpi-test/baselines/` — transcription/diarization/retention quality baselines
 
 **New**:
 
-- `server/build_dictionary.py` — automatically builds the mis-recognized word list (fills the gap in §3.1 L2 #7 ①)
 - `client/scripts/kpi-test/` — this framework
 
 Does not rewrite existing functionality; this framework only does "KPI-perspective wrapping + test set organization + report generation."

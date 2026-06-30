@@ -42,7 +42,7 @@ Windows PC                                        Mac Mini (mac-dev)
 │  Remote Desktop client        │                │  │   ↓                        │  │
 │  (sees Mac Mini screen)       │ ◄── screen ──── │  │ TextInjector → focused win │  │
 │                                │                │  │   ↓                        │  │
-│                                │                │  │ VoiceHistory (data flywheel)│ │
+│                                │                │  │ VoiceHistory (local debug)  │ │
 └────────────────────────────────┘                └──────────────────────────────────┘
 ```
 
@@ -62,7 +62,7 @@ Windows PC                                        Mac Mini (mac-dev)
 7. WE App's FSEvents detects the new file
 8. SpeechAnalyzer.start(inputAudioFile:, finishAfterFile: true)
 9. VoicePipeline → L1 + L2 → TextInjector → text appears in the focused window
-10. VoiceHistory persists the result (same format as local voice, feeding the distillation flywheel)
+10. VoiceHistory persists the result (same format as local voice; local debug log)
 11. Once processing is done, the WAV in remote-inbox is deleted
 ```
 
@@ -327,20 +327,20 @@ final class RemoteInbox {
 ┌──────────────────────────────────────────────────────────────────┐
 │                  Tailscale Private Network (Headscale)            │
 │                                                                   │
-│  ┌────────┐  ┌────────┐  ┌─────────┐  ┌───────────────────────┐ │
-│  │ hs-vm  │  │  v100  │  │ jp-4080 │  │ mac-dev               │ │
-│  │Headscale│  │Qwen3.5 │  │Error-corr│ │                       │ │
-│  │Portal  │  │Ollama  │  │training │  │ tailscaled            │ │
-│  │NanoClaw│  │        │  │QLoRA    │  │  ├ taildrop (file xfer)│ │
-│  │        │  │        │  │         │  │  └ voicerelay (voice)◄─┼─┼── PeerAPI
-│  └────────┘  └────────┘  └─────────┘  │       ↓ write file     │ │
+│  ┌────────┐  ┌────────┐               ┌───────────────────────┐ │
+│  │ hs-vm  │  │  v100  │               │ mac-dev               │ │
+│  │Headscale│  │Qwen3.5 │               │                       │ │
+│  │Portal  │  │Ollama  │               │ tailscaled            │ │
+│  │NanoClaw│  │(remote │               │  ├ taildrop (file xfer)│ │
+│  │        │  │ polish)│◄──────────────┤  └ voicerelay (voice)◄─┼─┼── PeerAPI
+│  └────────┘  └────────┘               │       ↓ write file     │ │
 │                                        │ ~/.we/remote-inbox/   │ │
 │                                        │       ↓ FSEvents      │ │
 │                                        │ WE App               │ │
 │                                        │  ├ Local voice (hotkey)│ │
 │                                        │  ├ Remote voice (inbox)│ │
 │                                        │  ├ Meeting recording  │ │
-│                                        │  └ Data flywheel      │ │
+│                                        │  └ Local debug logs   │ │
 │                                        └───────────────────────┘ │
 │                                                                   │
 │  Win PC ──────────────────────────────────────────────────────── │
@@ -354,10 +354,10 @@ final class RemoteInbox {
 │  │  └ WASAPI recording → WAV       │                             │
 │  └─────────────────────────────────┘                             │
 │                                                                   │
-│  Data flywheel (consistent local/remote)                         │
+│  Local debug logs (consistent local/remote)                      │
 │  voice-history.jsonl + audio/*.wav                               │
-│   → Whisper distillation (jp-4080) + Gemini Flash correction    │
-│   → QLoRA → 0.6B adapter → WE polish/upgrade                    │
+│   → inspect transcription/polish behavior locally                │
+│  Personalization: ~/.we/personal-context.md → polish prompt      │
 └──────────────────────────────────────────────────────────────────┘
 ```
 

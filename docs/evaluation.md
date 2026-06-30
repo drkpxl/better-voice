@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-WE evaluates quality across four layers, each targeting a different component of the ambient-voice and meeting-transcription pipeline. Evaluating layers independently allows precise attribution of errors.
+WE evaluates quality across three layers, each targeting a different component of the ambient-voice and meeting-transcription pipeline. Evaluating layers independently allows precise attribution of errors.
 
 ```
 Input Audio
@@ -14,16 +14,19 @@ Input Audio
   |         Metric: DER (Diarization Error Rate)
   |
   +---> [Layer C] L2 Polish Model (post-processing quality)
-  |         Metrics: Fix% / Break% / CER / Latency
-  |
-  +---> [Layer D] Training Data Quality (LLM-as-Judge)
-            Metrics: Correctness / Fidelity / Naturalness / Suitability
+            Metrics: Fix% / Break% / CER / Latency
 ```
 
 - **Layer A** measures how accurately Apple SpeechAnalyzer transcribes speech to text.
 - **Layer B** measures how accurately FluidAudio identifies "who spoke when."
-- **Layer C** measures whether the L2 polish model (Qwen, Gemini, or fine-tuned variants) improves or degrades transcription quality.
-- **Layer D** measures the quality of distilled training pairs used to fine-tune the on-device L2 model.
+- **Layer C** measures whether the L2 polish model improves or degrades transcription quality.
+
+> **Note (2026-06):** The standalone `server/eval/` scripts referenced below were
+> removed along with the self-training pipeline. The results are retained as a
+> historical record. Going forward, runtime transcription/diarization/polish
+> quality is tracked via `client/scripts/kpi-test/` (baselines + milestones). A
+> former Layer D ("Training Data Quality") evaluated distilled training pairs and
+> was removed with the pipeline.
 
 All benchmarks were run on a **Mac Mini M4 (10-core CPU, 16GB RAM), macOS 26**.
 
@@ -299,67 +302,7 @@ Notes:
 
 ---
 
-## 5. Layer D: Training Data Quality
-
-### What
-
-Use an LLM-as-Judge (strong model) to score each training pair in the merged dataset. This catches bad distillation outputs before they enter the fine-tuning pipeline.
-
-### Script
-
-```
-server/eval/scripts/judge_data_quality.py
-```
-
-### Scoring Dimensions
-
-| Dimension       | Range | Description |
-|-----------------|-------|-------------|
-| **correctness** | 0-1   | Did the output correctly fix ASR errors without introducing new ones? |
-| **fidelity**    | 0-1   | Does the output preserve the original meaning without over-editing? |
-| **naturalness** | 0-1   | Is the output natural, fluent written language with proper punctuation? |
-| **suitable**    | bool  | Is this pair suitable for training? (false if output is worse than input, truncated, or identical despite errors) |
-
-### How to Run
-
-```bash
-python3 server/eval/scripts/judge_data_quality.py \
-    --data /path/to/merged-pairs.jsonl \
-    --endpoint http://127.0.0.1:8045 \
-    --api-key sk-xxx \
-    --model gpt-4o \
-    --output results/data_quality_full.json
-```
-
-### Results (2026-03-19)
-
-Judge model: gemini-3.1-pro. Dataset: 122 merged training pairs.
-
-**Overall:**
-
-| Metric          | Value       |
-|-----------------|-------------|
-| Total pairs     | 122         |
-| Suitable        | 30 (24.6%)  |
-| Unsuitable      | 92 (75.4%)  |
-| Conflicts       | 44 (36.1%)  |
-| Avg Correctness | 0.423       |
-| Avg Fidelity    | 0.549       |
-| Avg Naturalness | 0.532       |
-
-**By Source:**
-
-| Source   | N  | Suitable | Correctness | Fidelity | Naturalness |
-|----------|----|----------|-------------|----------|-------------|
-| human    | 37 | 1 / 37   | 0.172       | 0.188    | 0.331       |
-| whisper  | 48 | 7 / 48   | 0.430       | 0.580    | 0.532       |
-| gemini   | 37 | 22 / 37  | 0.664       | 0.869    | 0.731       |
-
-Key finding: Gemini-distilled pairs have the highest quality (59% suitable). Human corrections scored lowest, likely because the judge model evaluates against different quality expectations than user-intended corrections. Whisper-distilled pairs sit in the middle. The high unsuitable rate (75.4% overall) indicates significant data cleaning is needed before fine-tuning.
-
----
-
-## 6. Results Summary
+## 5. Results Summary
 
 ### Transcription (Layer A)
 
@@ -384,14 +327,6 @@ Key finding: Gemini-distilled pairs have the highest quality (59% suitable). Hum
 | gemini-3-flash | corrections  | 153.5     | 81.2           | 78.4  | 18.9    | 2.29s   |
 | gemini-3-flash | voice-history | 71.1     | 208.4          | 57.7  | 26.0    | 6.20s   |
 
-### Training Data Quality (Layer D)
-
-| Source  | N  | Suitable % | Avg Correctness | Avg Fidelity | Avg Naturalness |
-|---------|----|-----------:|-----------------|--------------|-----------------|
-| gemini  | 37 | 59.5       | 0.664           | 0.869        | 0.731           |
-| whisper | 48 | 14.6       | 0.430           | 0.580        | 0.532           |
-| human   | 37 | 2.7        | 0.172           | 0.188        | 0.331           |
-
 ### Performance
 
 | Metric               | Value        |
@@ -403,7 +338,7 @@ Key finding: Gemini-distilled pairs have the highest quality (59% suitable). Hum
 
 ---
 
-## 7. Prerequisites
+## 6. Prerequisites
 
 ### System
 
@@ -422,7 +357,7 @@ pip install spy-der     # DER computation (Layer B, AliMeeting)
 
 | Tool | Purpose | Installation |
 |------|---------|-------------|
-| `transcription-bench` | SpeechAnalyzer file-input CLI | `cd server/eval/transcription-bench && swift build -c release` |
+| `transcription-bench` | SpeechAnalyzer file-input CLI (removed with `server/eval/`; historical) | -- |
 | `fluidaudiocli` | Speaker diarization CLI | `cd /tmp && git clone --depth 1 https://github.com/FluidInference/FluidAudio.git && cd FluidAudio && swift build -c release` |
 | ollama | L2 model serving (local/remote) | [ollama.com](https://ollama.com) |
 

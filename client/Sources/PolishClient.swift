@@ -15,9 +15,10 @@ final class PolishClient {
         let config = RuntimeConfig.shared.polishConfig
         guard config["enabled"] as? Bool == true else { return nil }
 
-        let systemPrompt = config["system_prompt"] as? String ?? Prompts.defaultPolish
+        let basePrompt = config["system_prompt"] as? String ?? Prompts.defaultPolish
+        let systemPrompt = PersonalContext.appended(to: basePrompt)
 
-        Logger.log("Polish", "server=\(ModelServer.shared.status.rawValue), app=\(app?.bundleID ?? "none")")
+        Logger.log("Polish", "server=\(ModelServer.shared.status.rawValue), app=\(app?.bundleID ?? "none"), personalContext=\(systemPrompt.count != basePrompt.count)")
 
         return await ModelServer.shared.generate(
             prompt: text,

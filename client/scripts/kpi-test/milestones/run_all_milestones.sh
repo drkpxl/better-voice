@@ -10,9 +10,6 @@ declare -a SCRIPTS=(
     "m11_voice_e2e.sh"
     "m11_meeting.sh"
     "m11_remote.sh"
-    "m7_dict_build.sh"
-    "m7_finetune.sh"
-    "m7_report.sh"
 )
 
 echo "[" > "$OUTPUT"
