@@ -294,17 +294,99 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 self.transcriptPanel.updateTranscript(segments: result.segments)
             }
 
-            // 导出 Markdown
-            if let url = MeetingExporter.exportMarkdown(
-                segments: result.segments,
-                duration: result.duration
-            ) {
-                Logger.log("StatusBar", "Meeting exported: \(url.lastPathComponent)")
-            }
-
             self.setupMenu()
             self.updateMeetingIcon()
             Logger.log("StatusBar", "Meeting stopped, \(result.segments.count) segments, \(String(format: "%.0f", result.duration))s")
+
+            // 收尾：分类 → 命名/类型面板 → 导出转录 → 摘要 → 可选删音频。
+            await self.finishMeeting(result: result)
+        }
+    }
+
+    /// 会议收尾流程（诊断后）：会议类型分类预选、说话人命名面板、导出转录与摘要、按需删除音频。
+    private func finishMeeting(result: MeetingResult) async {
+        guard !result.segments.isEmpty else {
+            Logger.log("StatusBar", "Empty meeting, skipping wrap-up/summary")
+            return
+        }
+
+        let prefix = t("Speaker")
+        let client = SummarizationClient.shared
+
+        // 1. 用一次快速分类预选会议类型。
+        let rawTranscript = buildSummarizationTranscript(segments: result.segments, speakerPrefix: prefix)
+        let inferred: MeetingType
+        if client.classifyEnabled, !rawTranscript.isEmpty {
+            inferred = await client.classifyType(transcript: rawTranscript)
+        } else {
+            inferred = client.defaultType
+        }
+
+        // 2. 收尾面板（等待用户：命名 + 选类型；Skip 也会摘要）。
+        let speakerIds = orderedUniqueSpeakerIds(result.segments)
+        let snippets = sampleSnippets(result.segments, maxLen: 100)
+        let speakers = speakerIds.map { (id: $0, snippet: snippets[$0] ?? "") }
+        let outcome = await MeetingWrapUpWindow.shared.present(speakers: speakers, inferredType: inferred)
+
+        // 3. 应用名字，导出转录。
+        let named = applySpeakerNames(outcome.names, to: result.segments)
+        self.transcriptPanel.updateTranscript(segments: named)
+        let folder = MeetingExporter.configuredFolder()
+        let transcriptURL = MeetingExporter.exportMarkdown(
+            segments: named,
+            duration: result.duration,
+            date: result.date,
+            saveFolder: folder
+        )
+        if let transcriptURL {
+            Logger.log("StatusBar", "Meeting transcript exported: \(transcriptURL.lastPathComponent)")
+        }
+
+        // 4. 摘要（选定类型，大 num_ctx）+ 写 summary 文件。
+        if client.summarizationEnabled {
+            let namedTranscript = buildSummarizationTranscript(segments: named, speakerPrefix: prefix)
+            if let summary = await client.summarize(transcript: namedTranscript, type: outcome.type) {
+                let base = transcriptURL?.deletingPathExtension().lastPathComponent
+                    ?? MeetingExporter.baseName(for: result.date)
+                if let summaryURL = MeetingExporter.exportSummary(
+                    summary,
+                    baseName: base,
+                    type: outcome.type,
+                    duration: result.duration,
+                    date: result.date,
+                    saveFolder: folder
+                ) {
+                    Logger.log("StatusBar", "Meeting summary exported: \(summaryURL.lastPathComponent)")
+                }
+            } else {
+                Logger.log("StatusBar", "Summarization skipped/failed (server unreachable?)")
+            }
+        }
+
+        // 5. 可选：转录+摘要写完后删除音频（含 .mic.wav / .system.wav 兄弟文件）。
+        let autoDelete = config.meetingConfig["auto_delete_audio"] as? Bool ?? false
+        if autoDelete, let audioPath = result.audioPath {
+            deleteAudioFiles(mainPath: audioPath)
+        }
+    }
+
+    /// 删除会议音频主文件及其 .mic.wav / .system.wav 兄弟文件。
+    private func deleteAudioFiles(mainPath: String) {
+        let fm = FileManager.default
+        let mainURL = URL(fileURLWithPath: mainPath)
+        let base = mainURL.deletingPathExtension()   // 去掉 .wav
+        let candidates = [
+            mainURL,
+            base.appendingPathExtension("mic.wav"),
+            base.appendingPathExtension("system.wav"),
+        ]
+        for url in candidates where fm.fileExists(atPath: url.path) {
+            do {
+                try fm.removeItem(at: url)
+                Logger.log("StatusBar", "Deleted audio \(url.lastPathComponent)")
+            } catch {
+                Logger.log("StatusBar", "Audio delete failed for \(url.lastPathComponent): \(error)")
+            }
         }
     }
 
