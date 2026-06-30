@@ -46,7 +46,7 @@ public struct MeetingSegment: Sendable, Identifiable {
     }
 
     /// Display label for the speaker. Prefers the user-specified name, otherwise "<prefix> <id>".
-    /// `prefix` is passed in by the caller (already localized), keeping WECore independent of the localization layer.
+    /// `prefix` is passed in by the caller (already localized), keeping BetterVoiceCore independent of the localization layer.
     public func speakerLabel(prefix: String) -> String? {
         resolveSpeakerLabel(speakerId: speakerId, speakerName: speakerName, prefix: prefix)
     }

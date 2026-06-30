@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import WECore
+import BetterVoiceCore
 
 /// Settings window (Feature 0).
 ///
@@ -107,7 +107,7 @@ final class SettingsViewModel {
         summarizationEnabled = summ["enabled"] as? Bool ?? true
         numCtx = summ["num_ctx"] as? Int ?? 32768
 
-        saveFolder = meeting["save_folder"] as? String ?? WEDataDir.meetings.path
+        saveFolder = meeting["save_folder"] as? String ?? BetterVoiceDataDir.meetings.path
         autoDeleteAudio = meeting["auto_delete_audio"] as? Bool ?? false
         defaultType = MeetingType.from(configKey: meeting["default_type"] as? String ?? "general") ?? .general
 
@@ -150,13 +150,13 @@ final class SettingsViewModel {
 
     func changeHotkey() { HotKeySettingsWindow.shared.show() }
 
-    func openDataFolder() { NSWorkspace.shared.open(WEDataDir.url) }
+    func openDataFolder() { NSWorkspace.shared.open(BetterVoiceDataDir.url) }
 
     /// Opens the personal context file; creates it from a template first if it doesn't exist, to help users get started.
     func editPersonalContext() {
-        let url = WEDataDir.personalContextURL
+        let url = BetterVoiceDataDir.personalContextURL
         if !FileManager.default.fileExists(atPath: url.path) {
-            WEDataDir.ensureExists()
+            BetterVoiceDataDir.ensureExists()
             try? Self.personalContextTemplate.write(to: url, atomically: true, encoding: .utf8)
         }
         NSWorkspace.shared.open(url)
@@ -187,13 +187,13 @@ final class SettingsViewModel {
     """
 
     func editConfigFile() {
-        let url = WEDataDir.configURL
+        let url = BetterVoiceDataDir.configURL
         if !FileManager.default.fileExists(atPath: url.path) { _ = RuntimeConfig.shared }
         NSWorkspace.shared.open(url)
     }
 
     func viewLogs() {
-        let url = WEDataDir.logURL
+        let url = BetterVoiceDataDir.logURL
         if FileManager.default.fileExists(atPath: url.path) { NSWorkspace.shared.open(url) }
     }
 

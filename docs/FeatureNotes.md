@@ -38,7 +38,7 @@
 ### 6. Personalization via personal context (replaces self-training) — DONE
 - **Decision:** rather than fine-tune a tiny model, run a general ~4B model in ollama and add personal context up front (people I meet with, where I work, what I do) so cleanup — and later summarization — produce better output. Editable in seconds, carries meaning, and one file serves both stages.
 - **Removed:** the entire self-training / fine-tuning pipeline (server/ distillation → QLoRA on Qwen3-0.6B → GGUF deploy, client→server sync, KPI m7 milestones).
-- **Added:** free-text `~/.we/personal-context.md` injected into the polish prompt via `PersonalContext.appended(to:)`, gated by `polish.personal_context_enabled`. Default model bumped to `qwen3:4b`.
+- **Added:** free-text `~/.better-voice/personal-context.md` injected into the polish prompt via `PersonalContext.appended(to:)`, gated by `polish.personal_context_enabled`. Default model bumped to `qwen3:4b`.
 - **Next:** reuse the same `PersonalContext.appended(to:)` in the summarization prompt (#2–#4).
 
 ### Update check and update button in UI

@@ -1,8 +1,8 @@
-# WE Remote Voice Architecture Plan
+# Better Voice Remote Voice Architecture Plan
 
 ## 1. Problem
 
-The Windows PC controls the Mac Mini via Remote Desktop. The screen belongs to the Mac Mini, but the microphone is on the Windows side. WE depends on Apple's SpeechAnalyzer, which only runs on macOS. We need to get the audio from Windows over to WE on the Mac Mini, with the resulting text injected directly into the focused window.
+The Windows PC controls the Mac Mini via Remote Desktop. The screen belongs to the Mac Mini, but the microphone is on the Windows side. Better Voice depends on Apple's SpeechAnalyzer, which only runs on macOS. We need to get the audio from Windows over to Better Voice on the Mac Mini, with the resulting text injected directly into the focused window.
 
 ## 2. Design Principle: Modeled on Taildrop
 
@@ -13,7 +13,7 @@ Taildrop (file transfer) is a first-class citizen feature of Tailscale:
 - **CLI** `tailscale file cp` is the thin client for sending
 - The build flag `ts_omit_taildrop` can remove it
 
-VoiceRelay fully replicates this pattern. Voice is essentially a special kind of "file transfer" — what's sent is a WAV file, and the receiving side writes it into WE's directory.
+VoiceRelay fully replicates this pattern. Voice is essentially a special kind of "file transfer" — what's sent is a WAV file, and the receiving side writes it into Better Voice's directory.
 
 ## 3. System Topology
 
@@ -27,14 +27,14 @@ Windows PC                                        Mac Mini (mac-dev)
 │  │                          │  │   Tailnet      │  │                          │    │
 │  │ LocalAPI:                │  │   WireGuard    │  │ PeerAPI:                 │    │
 │  │ POST /voice-send/{node} │  │                │  │ PUT /v0/voice/{file}     │    │
-│  │  ↑ recv WAV → fwd PeerAPI│  │                │  │  → ~/.we/remote-inbox/   │    │
+│  │  ↑ recv WAV → fwd PeerAPI│  │                │  │  → ~/.better-voice/remote-inbox/   │    │
 │  └──────────────────────────┘  │                │  └──────────────────────────┘    │
 │           ↑ LocalAPI                            │             │ write file          │
 │  ┌────────┴───────────────┐    │                │  ┌──────────▼─────────────────┐  │
-│  │ tailscale voice        │    │                │  │ WE App                     │  │
+│  │ tailscale voice        │    │                │  │ Better Voice App                     │  │
 │  │ (CLI, persistent       │    │                │  │                            │  │
 │  │  user-mode process)    │    │                │  │ FSEvents watcher           │  │
-│  │ • Global hotkey (RAlt) │    │                │  │ ~/.we/remote-inbox/        │  │
+│  │ • Global hotkey (RAlt) │    │                │  │ ~/.better-voice/remote-inbox/        │  │
 │  │ • Mic recording(WASAPI)│    │                │  │   ↓                        │  │
 │  │ • WAV → LocalAPI POST  │    │                │  │ SpeechAnalyzer (file input)│  │
 │  └────────────────────────┘    │                │  │   ↓                        │  │
@@ -58,8 +58,8 @@ Windows PC                                        Mac Mini (mac-dev)
 5. tailscaled Extension receives it → forwards via PeerAPI:
    PUT {mac-dev-PeerAPI}/v0/voice/{timestamp}.wav
    (exactly symmetric to Taildrop's PUT /v0/put/{filename})
-6. Mac Mini's tailscaled Extension receives it → writes to ~/.we/remote-inbox/{timestamp}.wav
-7. WE App's FSEvents detects the new file
+6. Mac Mini's tailscaled Extension receives it → writes to ~/.better-voice/remote-inbox/{timestamp}.wav
+7. Better Voice App's FSEvents detects the new file
 8. SpeechAnalyzer.start(inputAudioFile:, finishAfterFile: true)
 9. VoicePipeline → L1 + L2 → TextInjector → text appears in the focused window
 10. VoiceHistory persists the result (same format as local voice; local debug log)
@@ -76,7 +76,7 @@ client/feature/voicerelay/
 ├── peerapi.go                PeerAPI handler: PUT /v0/voice/{filename}
 ├── localapi.go               LocalAPI handler: POST /localapi/v0/voice-send/{stableID}
 ├── voicerelay.go             Core logic (receive & save file, send & forward)
-└── paths.go                  Inbox directory path (~/.we/remote-inbox/)
+└── paths.go                  Inbox directory path (~/.better-voice/remote-inbox/)
 
 client/feature/buildfeatures/
 ├── feature_voicerelay_enabled.go     const HasVoiceRelay = true
@@ -103,7 +103,7 @@ func init() {
 
 type extension struct {
     host   ipnext.Host
-    inboxDir string  // ~/.we/remote-inbox/ (Mac) or empty (other platforms)
+    inboxDir string  // ~/.better-voice/remote-inbox/ (Mac) or empty (other platforms)
 }
 
 func newExtension(h ipnext.Host) (ipnext.Extension, error) {
@@ -128,12 +128,12 @@ func newExtension(h ipnext.Host) (ipnext.Extension, error) {
 func (ext *extension) handlePeerVoice(w http.ResponseWriter, r *http.Request) {
     filename := path.Base(r.URL.Path)
     
-    // Write to ~/.we/remote-inbox/
+    // Write to ~/.better-voice/remote-inbox/
     dst := filepath.Join(ext.inboxDir, filename)
     f, _ := os.Create(dst + ".partial")
     io.Copy(f, r.Body)
     f.Close()
-    os.Rename(dst+".partial", dst)  // Atomic rename, WE only ever sees complete files
+    os.Rename(dst+".partial", dst)  // Atomic rename, Better Voice only ever sees complete files
     
     w.WriteHeader(http.StatusOK)
 }
@@ -231,23 +231,23 @@ The user configures `tailscale voice --target mac-dev` once, and afterward it st
 
 ---
 
-## 6. WE Side: Directory Watching
+## 6. Better Voice Side: Directory Watching
 
 ### 6.1 Design Choice
 
 | Option | Notes |
 |------|------|
-| ~~WE opens an HTTP port~~ | WE would become a network server, increasing attack surface and complexity |
-| **WE watches a local directory** | tailscaled writes the file, WE reads it. The two are decoupled via the filesystem |
+| ~~Better Voice opens an HTTP port~~ | Better Voice would become a network server, increasing attack surface and complexity |
+| **Better Voice watches a local directory** | tailscaled writes the file, Better Voice reads it. The two are decoupled via the filesystem |
 
 The directory-watching approach is exactly the same as Taildrop's "relay pattern": the daemon writes files to a local directory, and the upper-level app consumes them.
 
 ### 6.2 File Structure
 
 ```
-client/Sources/              (WE project)
+client/Sources/              (Better Voice project)
 ├── RemoteInbox.swift        (new: FSEvents directory watcher + SA processing)
-├── WEApp.swift              (changed: AppDelegate starts RemoteInbox)
+├── BetterVoiceApp.swift              (changed: AppDelegate starts RemoteInbox)
 ├── StatusBarController.swift (changed: menu shows remote status)
 └── ... other files untouched
 ```
@@ -259,12 +259,12 @@ Only one new file is added, and two files are modified. No RemoteServer, no NWLi
 ```swift
 // Sources/RemoteInbox.swift
 
-/// Watches the ~/.we/remote-inbox/ directory
+/// Watches the ~/.better-voice/remote-inbox/ directory
 /// The tailscaled voicerelay Extension writes WAV files here
 /// On detecting a new WAV → SpeechAnalyzer → Pipeline → TextInjector
 @MainActor
 final class RemoteInbox {
-    private let inboxURL = WEDataDir.url.appendingPathComponent("remote-inbox")
+    private let inboxURL = BetterVoiceDataDir.url.appendingPathComponent("remote-inbox")
     private var watcher: DispatchSourceFileSystemObject?
     private let pipeline = VoicePipeline()
     
@@ -311,13 +311,13 @@ final class RemoteInbox {
 
 | Previous approach | Current approach |
 |---------|---------|
-| WE opens an NWListener HTTP port | WE opens no ports at all |
-| Windows connects directly to WE's :9800 | Windows → tailscaled → PeerAPI → tailscaled → file → WE |
-| WE has to do its own authentication | Already authenticated by Tailscale (PeerAPI does capability checks) |
-| WE becomes a network service | WE stays a purely local app |
+| Better Voice opens an NWListener HTTP port | Better Voice opens no ports at all |
+| Windows connects directly to Better Voice's :9800 | Windows → tailscaled → PeerAPI → tailscaled → file → Better Voice |
+| Better Voice has to do its own authentication | Already authenticated by Tailscale (PeerAPI does capability checks) |
+| Better Voice becomes a network service | Better Voice stays a purely local app |
 | Bypasses Tailscale | Uses Tailscale's native transport |
 
-**The only thing WE adds is a directory watcher.** Network transport is handled entirely by Tailscale.
+**The only thing Better Voice adds is a directory watcher.** Network transport is handled entirely by Tailscale.
 
 ---
 
@@ -334,9 +334,9 @@ final class RemoteInbox {
 │  │NanoClaw│  │(remote │               │  ├ taildrop (file xfer)│ │
 │  │        │  │ polish)│◄──────────────┤  └ voicerelay (voice)◄─┼─┼── PeerAPI
 │  └────────┘  └────────┘               │       ↓ write file     │ │
-│                                        │ ~/.we/remote-inbox/   │ │
+│                                        │ ~/.better-voice/remote-inbox/   │ │
 │                                        │       ↓ FSEvents      │ │
-│                                        │ WE App               │ │
+│                                        │ Better Voice App               │ │
 │                                        │  ├ Local voice (hotkey)│ │
 │                                        │  ├ Remote voice (inbox)│ │
 │                                        │  ├ Meeting recording  │ │
@@ -357,7 +357,7 @@ final class RemoteInbox {
 │  Local debug logs (consistent local/remote)                      │
 │  voice-history.jsonl + audio/*.wav                               │
 │   → inspect transcription/polish behavior locally                │
-│  Personalization: ~/.we/personal-context.md → polish prompt      │
+│  Personalization: ~/.better-voice/personal-context.md → polish prompt      │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -377,12 +377,12 @@ final class RemoteInbox {
 | `cmd/tailscale/cli/voice.go` | New | Modeled on `cli/file.go` |
 | `cmd/tailscale/cli/voice_windows.go` | New | Hotkey + WASAPI recording |
 
-### WE (Swift)
+### Better Voice (Swift)
 
 | File | Type | Notes |
 |------|------|------|
 | `Sources/RemoteInbox.swift` | New | FSEvents directory watcher + SA file processing |
-| `Sources/WEApp.swift` | Changed | AppDelegate starts RemoteInbox |
+| `Sources/BetterVoiceApp.swift` | Changed | AppDelegate starts RemoteInbox |
 | `Sources/StatusBarController.swift` | Changed | Menu shows remote status |
 
 ### Unchanged
@@ -402,9 +402,9 @@ Phase 1: Tailscale Extension skeleton
   ├── ext.go: registration + PeerAPI handler (receive and write file)
   ├── localapi.go: LocalAPI handler (forwarding)
   ├── Build flag + condregister
-  └── Verify: curl the LocalAPI → a WAV appears in the Mac Mini's ~/.we/remote-inbox/
+  └── Verify: curl the LocalAPI → a WAV appears in the Mac Mini's ~/.better-voice/remote-inbox/
 
-Phase 2: WE RemoteInbox
+Phase 2: Better Voice RemoteInbox
   ├── RemoteInbox.swift: FSEvents directory watcher
   ├── Detect WAV → SA file input → Pipeline → TextInjector
   ├── AppDelegate integration
@@ -418,13 +418,13 @@ Phase 3: CLI tailscale voice
 Phase 4: Auto-start and experience polish
   ├── Windows auto-start registration
   ├── Recording/sending/ready status feedback (sound cue or Windows Toast)
-  └── WE StatusBar shows remote connection count
+  └── Better Voice StatusBar shows remote connection count
 ```
 
 ## 10. Design Principles
 
 1. **Copy the Taildrop pattern** — Extension + PeerAPI + LocalAPI + CLI, no new pattern invented
-2. **WE opens no ports** — decoupled via the filesystem, WE stays a purely local app
+2. **Better Voice opens no ports** — decoupled via the filesystem, Better Voice stays a purely local app
 3. **Enabled by default** — the Extension auto-loads with tailscaled, just like Taildrop
 4. **No changes to existing code** — VoiceSession/Pipeline/TextInjector/VoiceHistory are fully reused
 5. **Removable at build time** — the `ts_omit_voicerelay` tag can fully strip this feature out

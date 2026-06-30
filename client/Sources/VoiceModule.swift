@@ -3,7 +3,7 @@ import Foundation
 /// Voice module
 /// Interaction: press right Command to start recording+transcription -> press right Command again to stop -> auto-inject
 @MainActor
-final class VoiceModule: WEModule {
+final class VoiceModule: BetterVoiceModule {
     let name = "Voice"
     var isActive = false
 

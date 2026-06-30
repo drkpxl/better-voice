@@ -1,14 +1,14 @@
 import Foundation
-import WECore
+import BetterVoiceCore
 
 /// Meeting transcript exporter
-/// Supports exporting to Markdown format, saved to ~/.we/meetings/
+/// Supports exporting to Markdown format, saved to ~/.better-voice/meetings/
 @MainActor
 final class MeetingExporter {
 
     /// Resolves the save folder: explicit saveFolder takes priority, otherwise uses config's meeting.save_folder (falls back to default meetings).
     static func configuredFolder() -> URL {
-        WEDataDir.resolveMeetingsFolder(RuntimeConfig.shared.meetingConfig["save_folder"] as? String)
+        BetterVoiceDataDir.resolveMeetingsFolder(RuntimeConfig.shared.meetingConfig["save_folder"] as? String)
     }
 
     /// Base file name (no extension), shared by transcript and summary: yyyy-MM-dd_HH-mm.

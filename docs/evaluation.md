@@ -1,8 +1,8 @@
-# WE Evaluation Framework
+# Better Voice Evaluation Framework
 
 ## 1. Overview
 
-WE evaluates quality across three layers, each targeting a different component of the ambient-voice and meeting-transcription pipeline. Evaluating layers independently allows precise attribution of errors.
+Better Voice evaluates quality across three layers, each targeting a different component of the ambient-voice and meeting-transcription pipeline. Evaluating layers independently allows precise attribution of errors.
 
 ```
 Input Audio
@@ -253,7 +253,7 @@ Supports both `ollama` and OpenAI-compatible API backends. Can evaluate single o
 ```bash
 # Against user corrections (highest-quality ground truth)
 python3 server/eval/scripts/eval_l2_model.py \
-    --test-data ~/.we/corrections.jsonl \
+    --test-data ~/.better-voice/corrections.jsonl \
     --test-type corrections \
     --endpoint http://100.64.0.3:11434 \
     --api ollama \
@@ -262,7 +262,7 @@ python3 server/eval/scripts/eval_l2_model.py \
 
 # Against voice-history (polishedText as reference)
 python3 server/eval/scripts/eval_l2_model.py \
-    --test-data ~/.we/voice-history.jsonl \
+    --test-data ~/.better-voice/voice-history.jsonl \
     --test-type voice-history \
     --endpoint http://127.0.0.1:8045 \
     --api openai \
@@ -271,7 +271,7 @@ python3 server/eval/scripts/eval_l2_model.py \
 
 # Compare multiple models
 python3 server/eval/scripts/eval_l2_model.py \
-    --test-data ~/.we/corrections.jsonl \
+    --test-data ~/.better-voice/corrections.jsonl \
     --test-type corrections \
     --endpoint http://100.64.0.3:11434 \
     --api ollama \

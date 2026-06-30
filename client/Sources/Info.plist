@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>WE</string>
+	<string>BetterVoice</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.antigravity.we</string>
+	<string>com.drkpxl.bettervoice</string>
 	<key>CFBundleName</key>
-	<string>WE</string>
+	<string>BetterVoice</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -22,8 +22,8 @@
 		<true/>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>WE needs microphone access to transcribe your speech.</string>
+	<string>Better Voice needs microphone access to transcribe your speech.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>WE needs speech recognition to transcribe on-device.</string>
+	<string>Better Voice needs speech recognition to transcribe on-device.</string>
 </dict>
 </plist>

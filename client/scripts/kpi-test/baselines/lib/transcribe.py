@@ -4,8 +4,8 @@
 辅助模式：rawSA 可作为诊断对照（不计入 KPI 主指标）。
 
 实现策略：
-  - finalText: 调 WE `--bench-meeting` 单条入口（已含 SA + 全链路），从结果 JSON 取 hypothesis
-                或调一个专门的 `WE --bench-voice <wav>` 入口（目前不存在，会在 milestones 阶段加）
+  - finalText: 调 BetterVoice `--bench-meeting` 单条入口（已含 SA + 全链路），从结果 JSON 取 hypothesis
+                或调一个专门的 `BetterVoice --bench-voice <wav>` 入口（目前不存在，会在 milestones 阶段加）
   - rawSA:     直接调用 Apple Speech 框架（Python 端通过命令行包装层）
 
 当前为 stub，等 milestones/m11_voice_e2e.sh 落地后填实。
@@ -30,20 +30,20 @@ class TranscribeResult:
 
 
 def _find_we_binary() -> Path:
-    """定位编译好的 WE 可执行文件。"""
+    """定位编译好的 BetterVoice 可执行文件。"""
     here = Path(__file__).resolve().parent
     # 从 client/scripts/kpi-test/baselines/lib/ 回到 client/
     client_dir = here.parents[3]
     candidates = [
-        client_dir / ".build" / "WE.app" / "Contents" / "MacOS" / "WE",
-        client_dir / ".build" / "release" / "WE",
-        client_dir / ".build" / "debug" / "WE",
+        client_dir / ".build" / "BetterVoice.app" / "Contents" / "MacOS" / "BetterVoice",
+        client_dir / ".build" / "release" / "BetterVoice",
+        client_dir / ".build" / "debug" / "BetterVoice",
     ]
     for c in candidates:
         if c.exists():
             return c
     raise FileNotFoundError(
-        f"WE binary not found. Run `cd client && make build` first. "
+        f"BetterVoice binary not found. Run `cd client && make build` first. "
         f"Searched: {[str(c) for c in candidates]}"
     )
 
@@ -52,12 +52,12 @@ def transcribe_final(audio_path: str | Path, locale: str = "zh-CN") -> Transcrib
     """走完整 VoicePipeline：SA → L1 → L2 polish → 注入前的 finalText。
 
     实现路径（待 milestones 阶段提供专门 CLI 入口后接入）：
-        WE --bench-voice <wav> [--locale zh-CN] --output <result.json>
+        BetterVoice --bench-voice <wav> [--locale zh-CN] --output <result.json>
 
     返回 result.json 中的 finalText 字段。
     """
     raise NotImplementedError(
-        "transcribe_final() awaits `WE --bench-voice` CLI entry. "
+        "transcribe_final() awaits `BetterVoice --bench-voice` CLI entry. "
         "Will be filled in Stage 2 (milestones)."
     )
 
@@ -65,7 +65,7 @@ def transcribe_final(audio_path: str | Path, locale: str = "zh-CN") -> Transcrib
 def transcribe_meeting(audio_path: str | Path, locale: str = "zh-CN") -> TranscribeResult:
     """走完整 MeetingSession：SA → SegmentBuffer → polishBatch → diarize → markdown.
 
-    实现：调用现有 `WE --bench-meeting <wav> --output result.json`，
+    实现：调用现有 `BetterVoice --bench-meeting <wav> --output result.json`，
     从结果中拼接所有 segments 的 finalText 作为完整 hypothesis。
     """
     we = _find_we_binary()
@@ -81,7 +81,7 @@ def transcribe_meeting(audio_path: str | Path, locale: str = "zh-CN") -> Transcr
             capture_output=True, text=True, timeout=600
         )
         if proc.returncode != 0:
-            raise RuntimeError(f"WE --bench-meeting failed:\n{proc.stderr}")
+            raise RuntimeError(f"BetterVoice --bench-meeting failed:\n{proc.stderr}")
 
         with open(out_path) as f:
             data = json.load(f)
@@ -101,10 +101,10 @@ def transcribe_raw_sa(audio_path: str | Path, locale: str = "zh-CN") -> Transcri
     用途：定位"finalText 错"的根因——是 SA 没听对，还是 L2 改坏了。
     **不计入 KPI 主指标**，仅作为分析辅助。
 
-    实现路径：待 `WE --bench-voice --no-polish` 接入后填实。
+    实现路径：待 `BetterVoice --bench-voice --no-polish` 接入后填实。
     """
     raise NotImplementedError(
-        "transcribe_raw_sa() awaits `WE --bench-voice --no-polish`. "
+        "transcribe_raw_sa() awaits `BetterVoice --bench-voice --no-polish`. "
         "Will be filled in Stage 2."
     )
 

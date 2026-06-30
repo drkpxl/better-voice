@@ -15,7 +15,7 @@ import Speech
 ///
 /// Notes:
 /// - ScreenCaptureKit requires "Screen Recording" permission (TCC); reuses the project's existing checkScreenCapture flow
-/// - excludesCurrentProcessAudio=true avoids recording WE's own output
+/// - excludesCurrentProcessAudio=true avoids recording Better Voice's own output
 /// - Current version does not mix with the mic (handled separately in B4)
 final class SystemAudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
 

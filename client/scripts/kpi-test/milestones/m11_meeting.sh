@@ -1,7 +1,7 @@
 #!/bin/bash
 # §3.1 L4 #11 ② 完成标准：会议模式可录可转
 #
-# 用户视角全链路：调 WE --bench-meeting 对一段已知 ground truth 的会议音频，
+# 用户视角全链路：调 BetterVoice --bench-meeting 对一段已知 ground truth 的会议音频，
 # 校验：
 #   (a) 输出 JSON 有 hypothesis（即转写产物存在）
 #   (b) n_segments > 0（说明分段逻辑工作）
@@ -18,11 +18,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KPI_ROOT="$(dirname "$SCRIPT_DIR")"
 PROJECT_DIR="$(cd "$KPI_ROOT/../../.." && pwd)"
 
-WE_BIN="$PROJECT_DIR/client/.build/WE.app/Contents/MacOS/WE"
-[ -x "$WE_BIN" ] || WE_BIN="$PROJECT_DIR/client/.build/release/WE"
-[ -x "$WE_BIN" ] || WE_BIN="$PROJECT_DIR/client/.build/debug/WE"
+BV_BIN="$PROJECT_DIR/client/.build/BetterVoice.app/Contents/MacOS/BetterVoice"
+[ -x "$BV_BIN" ] || BV_BIN="$PROJECT_DIR/client/.build/release/BetterVoice"
+[ -x "$BV_BIN" ] || BV_BIN="$PROJECT_DIR/client/.build/debug/BetterVoice"
 
-if [ ! -x "$WE_BIN" ]; then
+if [ ! -x "$BV_BIN" ]; then
     cat <<EOF
 {
   "pdf_ref": "§3.1 L4 #11 ②",
@@ -30,7 +30,7 @@ if [ ! -x "$WE_BIN" ]; then
   "status": "fail",
   "score": 0,
   "evidence": null,
-  "note": "WE binary not found; run 'cd client && make build'"
+  "note": "BetterVoice binary not found; run 'cd client && make build'"
 }
 EOF
     exit 0
@@ -55,7 +55,7 @@ fi
 RESULT_JSON=$(mktemp -t m11_meeting_result.XXXXXX.json)
 trap 'rm -f "$RESULT_JSON"' EXIT
 
-if ! "$WE_BIN" --bench-meeting "$TEST_AUDIO" --output "$RESULT_JSON" >/dev/null 2>&1; then
+if ! "$BV_BIN" --bench-meeting "$TEST_AUDIO" --output "$RESULT_JSON" >/dev/null 2>&1; then
     cat <<EOF
 {
   "pdf_ref": "§3.1 L4 #11 ②",
@@ -63,7 +63,7 @@ if ! "$WE_BIN" --bench-meeting "$TEST_AUDIO" --output "$RESULT_JSON" >/dev/null 
   "status": "fail",
   "score": 0,
   "evidence": null,
-  "note": "WE --bench-meeting failed"
+  "note": "BetterVoice --bench-meeting failed"
 }
 EOF
     exit 0

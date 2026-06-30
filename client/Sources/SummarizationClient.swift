@@ -1,5 +1,5 @@
 import Foundation
-import WECore
+import BetterVoiceCore
 
 /// Meeting summarization client: routes through ModelServer to Ollama/OpenAI.
 /// - classifyType: pre-selects the meeting type with one quick call (used by the wrap-up panel).

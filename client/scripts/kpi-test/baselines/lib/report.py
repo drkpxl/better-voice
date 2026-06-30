@@ -96,7 +96,7 @@ def write_md_report(
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# WE — KPI 测试报告",
+        f"# BetterVoice — KPI 测试报告",
         f"",
         f"- 阶段：**{phase}**",
         f"- 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",

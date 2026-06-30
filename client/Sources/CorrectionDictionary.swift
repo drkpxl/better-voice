@@ -1,6 +1,6 @@
 import Foundation
 
-/// Loads ~/.we/correction-dictionary.json
+/// Loads ~/.better-voice/correction-dictionary.json
 /// File format: {"correct term": {"errors": [...], "frequency": N, "source": "..."}, ...}
 /// Injected into SA's contextualStrings, using the correct terms as hints
 @MainActor

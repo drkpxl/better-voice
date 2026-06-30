@@ -4,7 +4,7 @@ import Speech
 /// Truncation test: simulates VoiceSession's streaming input + stop() logic
 /// Verifies whether SA loses trailing content during the stop sequence
 ///
-/// Usage: WE --test-truncation <wav-file> [--locale zh-CN]
+/// Usage: BetterVoice --test-truncation <wav-file> [--locale zh-CN]
 ///
 /// Test flow:
 /// 1. Read the WAV file and slice it into small buffers in 20ms chunks (simulating AVCaptureSession's live input)
@@ -12,7 +12,7 @@ import Speech
 /// 3. Once all buffers are sent, run the same shutdown logic as VoiceSession.stop()
 /// 4. Log the timestamp and SA state at each step, then print a diagnostic report
 enum TruncationTest {
-    private static let outputURL = WEDataDir.archiveReports.appendingPathComponent("truncation-test.log")
+    private static let outputURL = BetterVoiceDataDir.archiveReports.appendingPathComponent("truncation-test.log")
     nonisolated(unsafe) private static var logHandle: FileHandle?
 
     private static func log(_ msg: String) {
@@ -27,14 +27,14 @@ enum TruncationTest {
     @MainActor
     static func run() async {
         // Initialize the log file
-        WEDataDir.ensureExists()
+        BetterVoiceDataDir.ensureExists()
         FileManager.default.createFile(atPath: outputURL.path, contents: nil)
         logHandle = try? FileHandle(forWritingTo: outputURL)
 
         let args = CommandLine.arguments
 
         guard let idx = args.firstIndex(of: "--test-truncation"), idx + 1 < args.count else {
-            log("Usage: WE --test-truncation <wav-file> [--locale zh-CN]")
+            log("Usage: BetterVoice --test-truncation <wav-file> [--locale zh-CN]")
             return
         }
 

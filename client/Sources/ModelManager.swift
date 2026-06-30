@@ -5,7 +5,7 @@ import Foundation
 final class ModelManager {
     static let shared = ModelManager()
 
-    private let modelsDir = WEDataDir.models
+    private let modelsDir = BetterVoiceDataDir.models
 
     struct ManifestEntry: Codable {
         let filename: String

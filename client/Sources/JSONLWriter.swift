@@ -7,7 +7,7 @@ final class JSONLWriter: Sendable {
     private let encoder: JSONEncoder
 
     init(filename: String) {
-        self.fileURL = WEDataDir.url.appendingPathComponent(filename)
+        self.fileURL = BetterVoiceDataDir.url.appendingPathComponent(filename)
         self.queue = DispatchQueue(label: "we.jsonl.\(filename)", qos: .utility)
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601

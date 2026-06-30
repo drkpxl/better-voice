@@ -4,8 +4,8 @@ import Speech
 
 /// Entry point for evaluating instant-recording mode
 /// Usage:
-///   WE --bench-voice <wav> [--locale zh-CN] [--output result.json]
-///   WE --bench-voice --batch <manifest.jsonl> [--output-dir results/]
+///   BetterVoice --bench-voice <wav> [--locale zh-CN] [--output result.json]
+///   BetterVoice --bench-voice --batch <manifest.jsonl> [--output-dir results/]
 ///
 /// Runs the full ContextEnhancer + SpeechAnalyzer + L2 polish pipeline, outputting rawSA + finalText.
 /// **Does not call TextInjector** (no cursor injection), **does not write voice-history.jsonl** (keeps history clean) —
@@ -17,12 +17,12 @@ enum VoiceBenchmark {
 
     @MainActor
     static func run() async {
-        WEDataDir.ensureExists()
+        BetterVoiceDataDir.ensureExists()
         let args = CommandLine.arguments
 
         guard let benchIdx = args.firstIndex(of: "--bench-voice"), benchIdx + 1 < args.count else {
-            print("Usage: WE --bench-voice <wav-file> [--locale zh-CN] [--output result.json]")
-            print("       WE --bench-voice --batch <manifest.jsonl> [--output-dir results/]")
+            print("Usage: BetterVoice --bench-voice <wav-file> [--locale zh-CN] [--output result.json]")
+            print("       BetterVoice --bench-voice --batch <manifest.jsonl> [--output-dir results/]")
             return
         }
 

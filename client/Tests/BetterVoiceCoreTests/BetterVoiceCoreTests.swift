@@ -1,7 +1,7 @@
 import XCTest
-@testable import WECore
+@testable import BetterVoiceCore
 
-final class WECoreTests: XCTestCase {
+final class BetterVoiceCoreTests: XCTestCase {
 
     // MARK: - Helpers
 

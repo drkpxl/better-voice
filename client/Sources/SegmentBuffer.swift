@@ -1,5 +1,5 @@
 import Foundation
-import WECore
+import BetterVoiceCore
 
 /// Segment buffer for meeting mode.
 /// Accumulates SA final segments and flushes whenever any of the following triggers fires:

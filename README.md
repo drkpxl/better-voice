@@ -21,7 +21,7 @@ Grant: **System Settings → Privacy & Security** → Input Monitoring (for glob
 
 **Dictation** — Hold `Right Option`, speak, release. Text is pasted into the focused app.
 
-**Meeting** — Menu bar `WE` → Start Meeting. Floating transcript, speaker diarization, Markdown export to `~/.we/meetings/`.
+**Meeting** — Menu bar `Better Voice` → Start Meeting. Floating transcript, speaker diarization, Markdown export to `~/.better-voice/meetings/`.
 
 ## Architecture
 
@@ -35,9 +35,9 @@ Hold Right Option
 
 ## Remote Voice (Remote Voice Input)
 
-Press the hotkey on Windows to speak → audio is sent over the Tailscale private network to the Mac → WE transcribes it and injects the text at the cursor.
+Press the hotkey on Windows to speak → audio is sent over the Tailscale private network to the Mac → Better Voice transcribes it and injects the text at the cursor.
 
-**Mac side**: WE automatically listens on :9800 once started, no extra steps needed. Make sure config.json contains:
+**Mac side**: Better Voice automatically listens on :9800 once started, no extra steps needed. Make sure config.json contains:
 
 ```json
 {
@@ -57,7 +57,7 @@ Hold Right Alt to speak, release to send.
 
 ## Config
 
-`~/.we/config.json` — hot-reloads on save.
+`~/.better-voice/config.json` — hot-reloads on save.
 
 ```json
 {
@@ -68,7 +68,7 @@ Hold Right Alt to speak, release to send.
 
 > **Note on `server.model`**: Default is `qwen3.5:4b-mlx`. A general ~4B model produces good cleanup out of the box. Point `server.model` at any model your ollama has (`ollama list`); smaller models are faster but lower quality.
 
-`~/.we/dictionary.json` — your private terms. Optional, used by SpeechAnalyzer contextualStrings to bias recognition.
+`~/.better-voice/dictionary.json` — your private terms. Optional, used by SpeechAnalyzer contextualStrings to bias recognition.
 
 ```json
 { "terms": ["Claude Code", "MCP", "ollama", "SpeechAnalyzer"] }
@@ -76,7 +76,7 @@ Hold Right Alt to speak, release to send.
 
 ## Personal context
 
-`~/.we/personal-context.md` is a free-text file you edit by hand. Its contents are
+`~/.better-voice/personal-context.md` is a free-text file you edit by hand. Its contents are
 injected into the polish prompt (and, in future, the summarization prompt) so the
 model can disambiguate names, jargon, and references using your real-world
 background — who you meet with, your role, your company, recurring topics.
@@ -106,7 +106,7 @@ make uninstall      # Remove
 This project began as a fork of [Marvinngg/ambient-voice](https://github.com/Marvinngg/ambient-voice)
 and has since diverged substantially — most notably, the self-training / QLoRA
 fine-tuning pipeline was removed in v0.3.0 in favor of prompt-based
-personalization (`~/.we/personal-context.md`). Original portions remain credited
+personalization (`~/.better-voice/personal-context.md`). Original portions remain credited
 to the upstream authors.
 
 Licensed under the MIT License — see [LICENSE](LICENSE).

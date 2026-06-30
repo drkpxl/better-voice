@@ -1,10 +1,10 @@
 import Foundation
 
-/// Simple logger that writes to ~/.we/debug.log + the console
+/// Simple logger that writes to ~/.better-voice/debug.log + the console
 /// Automatically truncates and keeps the most recent half when over maxSize
 enum Logger {
-    private static let logURL = WEDataDir.logURL
-    private static let queue = DispatchQueue(label: "we.logger", qos: .utility)
+    private static let logURL = BetterVoiceDataDir.logURL
+    private static let queue = DispatchQueue(label: "bettervoice.logger", qos: .utility)
     private static let maxSize: UInt64 = 5 * 1024 * 1024  // 5 MB
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -14,7 +14,7 @@ enum Logger {
 
     static func log(_ tag: String, _ message: String) {
         let timestamp = dateFormatter.string(from: Date())
-        let line = "[\(timestamp)] WE:\(tag) \(message)"
+        let line = "[\(timestamp)] BetterVoice:\(tag) \(message)"
 
         // Console
         print(line)

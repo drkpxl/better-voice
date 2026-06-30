@@ -1,7 +1,7 @@
 @preconcurrency import AVFoundation
 import CoreMedia
 import Speech
-import WECore
+import BetterVoiceCore
 
 // MARK: - Transcription Data Types
 
@@ -145,7 +145,7 @@ final class VoiceSession {
 
         // 8. Prepare the audio file
         let fileName = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let url = WEDataDir.audioURL(forName: fileName)
+        let url = BetterVoiceDataDir.audioURL(forName: fileName)
         audioFileURL = url
 
         // 9. Start AVCaptureSession (replaces AVAudioEngine, compatible with Bluetooth devices)

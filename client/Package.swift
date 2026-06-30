@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "WE",
+    name: "BetterVoice",
     defaultLocalization: "en",
     platforms: [.macOS(.v26)],
     dependencies: [
@@ -12,25 +12,25 @@ let package = Package(
         // Foundation-only pure-logic library so it can be unit-tested without the
         // macOS 26 Speech/ScreenCaptureKit/FluidAudio surface or TCC permissions.
         .target(
-            name: "WECore",
-            path: "Sources/WECore"
+            name: "BetterVoiceCore",
+            path: "Sources/BetterVoiceCore"
         ),
         .executableTarget(
-            name: "WE",
+            name: "BetterVoice",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
-                "WECore"
+                "BetterVoiceCore"
             ],
             path: "Sources",
-            exclude: ["WECore"],
+            exclude: ["BetterVoiceCore"],
             resources: [
                 .process("Resources")
             ]
         ),
         .testTarget(
-            name: "WECoreTests",
-            dependencies: ["WECore"],
-            path: "Tests/WECoreTests"
+            name: "BetterVoiceCoreTests",
+            dependencies: ["BetterVoiceCore"],
+            path: "Tests/BetterVoiceCoreTests"
         )
     ]
 )

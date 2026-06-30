@@ -2,7 +2,7 @@ import Foundation
 
 /// Personal context (personalization)
 ///
-/// A free-text markdown file `~/.we/personal-context.md`, manually edited by the user.
+/// A free-text markdown file `~/.better-voice/personal-context.md`, manually edited by the user.
 /// The content describes the user's semantic background -- common meeting participants,
 /// company, job title, recurring terms/topics, etc. At inference time it is appended
 /// after the system prompt to help the model disambiguate names, terms, and references
@@ -14,7 +14,7 @@ import Foundation
 enum PersonalContext {
 
     /// Path to the personal context file.
-    static var fileURL: URL { WEDataDir.personalContextURL }
+    static var fileURL: URL { BetterVoiceDataDir.personalContextURL }
 
     /// Reads the personal context text. Returns nil if the file doesn't exist or is empty.
     static func load() -> String? {

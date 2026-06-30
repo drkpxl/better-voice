@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
-import WECore
+import BetterVoiceCore
 
 @main
-struct WEApp {
+struct BetterVoiceApp {
     static func main() {
         // contextualStrings capacity test
         if CommandLine.arguments.contains("--test-context-capacity") {
@@ -17,7 +17,7 @@ struct WEApp {
             return
         }
 
-        // alternatives test: WE --test-alternatives <wav-file>
+        // alternatives test: BetterVoice --test-alternatives <wav-file>
         if CommandLine.arguments.contains("--test-alternatives") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -29,7 +29,7 @@ struct WEApp {
             return
         }
 
-        // truncation test: WE --test-truncation <wav-file> [--locale zh-CN]
+        // truncation test: BetterVoice --test-truncation <wav-file> [--locale zh-CN]
         if CommandLine.arguments.contains("--test-truncation") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -41,7 +41,7 @@ struct WEApp {
             return
         }
 
-        // evaluation mode: WE --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]
+        // evaluation mode: BetterVoice --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]
         if CommandLine.arguments.contains("--bench-meeting") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -53,7 +53,7 @@ struct WEApp {
             return
         }
 
-        // live recording evaluation: WE --bench-voice <wav> [--locale zh-CN] [--output result.json]
+        // live recording evaluation: BetterVoice --bench-voice <wav> [--locale zh-CN] [--output result.json]
         // Runs the full ContextEnhancer + SA + L2 polish pipeline (from the user's perspective), but does not inject at the cursor or write history
         if CommandLine.arguments.contains("--bench-voice") {
             let app = NSApplication.shared
@@ -75,17 +75,17 @@ struct WEApp {
 }
 
 /// Meeting mode evaluation entry point
-/// Usage: WE --bench-meeting <wav> [--locale zh-CN] [--output result.json]
-///   or: WE --bench-meeting --batch <manifest.jsonl> [--output-dir results/]
+/// Usage: BetterVoice --bench-meeting <wav> [--locale zh-CN] [--output result.json]
+///   or: BetterVoice --bench-meeting --batch <manifest.jsonl> [--output-dir results/]
 enum MeetingBenchmark {
     @MainActor
     static func run() async {
-        WEDataDir.ensureExists()
+        BetterVoiceDataDir.ensureExists()
         let args = CommandLine.arguments
 
         guard let benchIdx = args.firstIndex(of: "--bench-meeting"), benchIdx + 1 < args.count else {
-            print("Usage: WE --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]")
-            print("       WE --bench-meeting --batch <manifest.jsonl> [--output-dir results/]")
+            print("Usage: BetterVoice --bench-meeting <wav-file> [--locale zh-CN] [--output result.json]")
+            print("       BetterVoice --bench-meeting --batch <manifest.jsonl> [--output-dir results/]")
             return
         }
 
@@ -233,14 +233,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // initialize data directory
-        WEDataDir.ensureExists()
+        BetterVoiceDataDir.ensureExists()
 
         // check permissions
         let axOK = PermissionManager.checkAccessibility()
         let screenOK = PermissionManager.checkScreenCapture()
         // Input Monitoring is the permission actually needed for CGEventTap to listen for the global hotkey (not Accessibility)
         let inputOK = PermissionManager.checkInputMonitoring()
-        Logger.log("WE", "Accessibility: \(axOK), Input Monitoring: \(inputOK), Screen capture: \(screenOK)")
+        Logger.log("App", "Accessibility: \(axOK), Input Monitoring: \(inputOK), Screen capture: \(screenOK)")
 
         // initialize the menu bar
         statusBar = StatusBarController(moduleManager: moduleManager)
@@ -289,7 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.statusBar?.setRemoteStatus(status)
             }
             remoteInbox.start(port: UInt16(port), authToken: token)
-            Logger.log("WE", "Remote inbox: ON (:\(port))")
+            Logger.log("App", "Remote inbox: ON (:\(port))")
         }
 
         // G1 ambient mode (toggled via config)
@@ -306,11 +306,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 vm.onHotKeyDown()  // reuse the hotkey flow: stop and process
             }
             ambient.start()
-            Logger.log("WE", "Ambient mode: ON")
+            Logger.log("App", "Ambient mode: ON")
         }
 
-        Logger.log("WE", "App launched, modules: \(moduleManager.moduleNames)")
-        Logger.log("WE", "Server endpoint: \(config.serverConfig["endpoint"] as? String ?? "not set")")
+        Logger.log("App", "App launched, modules: \(moduleManager.moduleNames)")
+        Logger.log("App", "Server endpoint: \(config.serverConfig["endpoint"] as? String ?? "not set")")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -318,6 +318,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AmbientController.shared.stop()
         ModelServer.shared.stopHealthCheck()
         remoteInbox.stop()
-        Logger.log("WE", "App terminated")
+        Logger.log("App", "App terminated")
     }
 }

@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import WECore
+import BetterVoiceCore
 
 /// Meeting wrap-up panel: after speakers are diagnosed and before the summary is generated,
 /// lets the user name the speakers and confirm the meeting type.

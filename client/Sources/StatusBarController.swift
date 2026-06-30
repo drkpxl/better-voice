@@ -1,5 +1,5 @@
 import AppKit
-import WECore
+import BetterVoiceCore
 
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {
@@ -47,11 +47,23 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         setupMenu()
     }
 
+    /// Status-bar glyph: a template icon (auto-tints for light/dark menu bars) plus a
+    /// trailing state badge, replacing the old "WE" text-based glyph.
+    /// NOTE: this uses a placeholder SF Symbol. Swap in the real Better Voice icon by
+    /// adding an image asset (e.g. "MenuBarIcon" in Resources) and changing the
+    /// NSImage lookup below to `NSImage(named: "MenuBarIcon")`.
+    private static let menuBarSymbolName = "waveform"
+
     private func updateIcon() {
         guard let button = statusItem.button else { return }
 
+        let icon = NSImage(systemSymbolName: Self.menuBarSymbolName, accessibilityDescription: t("Better Voice"))
+        icon?.isTemplate = true
+        button.image = icon
+        button.imagePosition = .imageLeading
+
         if isRecording {
-            button.title = "WE●"
+            button.title = "●"
             button.contentTintColor = .systemRed
             return
         }
@@ -59,18 +71,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         button.contentTintColor = nil
         switch ModelServer.shared.status {
         case .connected:
-            button.title = "WE"
+            button.title = ""
         case .disconnected:
-            button.title = "WE·"
+            button.title = "·"
         case .unknown:
-            button.title = "WE?"
+            button.title = "?"
         }
     }
 
     private func setupMenu() {
         let menu = NSMenu()
 
-        menu.addItem(NSMenuItem(title: t("WE Voice Input"), action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: t("Better Voice"), action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
         // permission status rows: shows the 4 items directly from the user's perspective, plus a click to jump to System Settings
@@ -339,7 +351,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func updateMeetingIcon() {
         guard let button = statusItem.button else { return }
         if isMeetingActive {
-            button.title = "WE◉"
+            button.title = "◉"
             button.contentTintColor = .systemOrange
         } else if !isRecording {
             updateIcon()

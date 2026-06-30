@@ -1,14 +1,14 @@
 #!/bin/bash
-# WE DMG 打包脚本
+# BetterVoice DMG 打包脚本
 #
 # 用法:
-#   ./scripts/build-dmg.sh           # 用 Info.plist 里的版本号
+#   ./scripts/build-dmg.sh           # 用 Info.plist version
 #   ./scripts/build-dmg.sh 0.2.0     # 显式覆盖版本号
 #
-# 输出: .build/WE-<version>.dmg
+# 输出: .build/BetterVoice-<version>.dmg
 #
 # 签名策略: ad-hoc 签名（codesign -s -）
-# 用户首次安装需要执行 xattr -cr /Applications/WE.app 绕过 Gatekeeper
+# 用户首次安装需要执行 xattr -cr /Applications/BetterVoice.app 绕过 Gatekeeper
 # 详细安装步骤见 scripts/INSTALL.txt
 
 set -euo pipefail
@@ -18,7 +18,7 @@ cd "$(dirname "$0")/.."
 
 INFO_PLIST="Sources/Info.plist"
 BUILD_DIR=".build"
-APP_BUNDLE="$BUILD_DIR/WE.app"
+APP_BUNDLE="$BUILD_DIR/BetterVoice.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 
@@ -28,12 +28,12 @@ if [ $# -ge 1 ]; then
 else
     VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")
 fi
-DMG_NAME="WE-${VERSION}.dmg"
-VOL_NAME="WE ${VERSION}"
+DMG_NAME="BetterVoice-${VERSION}.dmg"
+VOL_NAME="Better Voice ${VERSION}"
 STAGING="$BUILD_DIR/dmg-staging"
 DMG_PATH="$BUILD_DIR/$DMG_NAME"
 
-echo "=== Building WE ${VERSION} ==="
+echo "=== Building Better Voice ${VERSION} ==="
 
 # 2) Release 构建
 echo "[1/5] swift build -c release..."
@@ -43,7 +43,7 @@ swift build -c release
 echo "[2/5] Assembling app bundle..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
-cp "$BUILD_DIR/release/WE" "$APP_MACOS/WE"
+cp "$BUILD_DIR/release/BetterVoice" "$APP_MACOS/BetterVoice"
 cp "$INFO_PLIST" "$APP_CONTENTS/Info.plist"
 # PkgInfo: macOS LaunchServices 用它识别 bundle 类型（type=APPL/creator=????）
 # 没有这个文件 LaunchServices 可能不注册 bundle id，导致 TCC 找不到 app，
@@ -67,7 +67,7 @@ codesign --verify --deep --strict "$APP_BUNDLE" || {
 echo "[4/5] Staging DMG content..."
 rm -rf "$STAGING"
 mkdir -p "$STAGING"
-cp -R "$APP_BUNDLE" "$STAGING/WE.app"
+cp -R "$APP_BUNDLE" "$STAGING/BetterVoice.app"
 ln -s /Applications "$STAGING/Applications"
 cp scripts/INSTALL.txt "$STAGING/INSTALL.txt"
 
@@ -93,5 +93,5 @@ echo "  Size:    $SIZE"
 echo "  Version: $VERSION"
 echo ""
 echo "Test:    open $DMG_PATH"
-echo "Install: drag WE.app to /Applications, then run:"
-echo "         xattr -cr /Applications/WE.app"
+echo "Install: drag BetterVoice.app to /Applications, then run:"
+echo "         xattr -cr /Applications/BetterVoice.app"

@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import WECore
+import BetterVoiceCore
 
 /// Recording indicator: a black bar "hanging" from the top of the screen, with a live audio waveform. Used only for instant dictation.
 ///

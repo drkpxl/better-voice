@@ -3,7 +3,7 @@
 #
 # 用户视角全链路：模拟 Windows 端 tailscale voice 发音频到 Mac 端 :9800，
 # 校验：
-#   (a) WE 进程存在且 RemoteInbox 监听 :9800
+#   (a) BetterVoice 进程存在且 RemoteInbox 监听 :9800
 #   (b) HTTP POST WAV → 返回 200
 #   (c) debug.log 出现 Remote Received WAV + Transcribed + Timing 完整链路
 #   (d) voice-history.jsonl 在测试时间窗口内新增一条
@@ -14,11 +14,11 @@ set -uo pipefail   # 注意：不带 -e（允许各步骤失败但仍输出 JSON
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KPI_ROOT="$(dirname "$SCRIPT_DIR")"
-WE_LOG="$HOME/.we/debug.log"
-VOICE_HISTORY="$HOME/.we/voice-history.jsonl"
+BV_LOG="$HOME/.better-voice/debug.log"
+VOICE_HISTORY="$HOME/.better-voice/voice-history.jsonl"
 
 # 找一个真实 WAV 测试
-TEST_AUDIO=$(ls -t "$HOME/.we/audio"/*.wav 2>/dev/null | head -1)
+TEST_AUDIO=$(ls -t "$HOME/.better-voice/audio"/*.wav 2>/dev/null | head -1)
 
 # 步骤值（默认全 0/false）
 process_listening_9800=False
@@ -30,11 +30,11 @@ voice_history_new=0
 note=""
 
 if [ -z "${TEST_AUDIO:-}" ] || [ ! -f "${TEST_AUDIO:-}" ]; then
-    note="no test audio in ~/.we/audio/"
+    note="no test audio in ~/.better-voice/audio/"
 else
-    PID=$(pgrep -x WE 2>/dev/null | head -1)
+    PID=$(pgrep -x BetterVoice 2>/dev/null | head -1)
     if [ -z "${PID:-}" ]; then
-        note="WE process not running; start WE first"
+        note="BetterVoice process not running; start BetterVoice first"
     else
         # (a) 监听 :9800?
         LSOF_OUT=$(lsof -nP -p "$PID" 2>/dev/null || true)
@@ -53,7 +53,7 @@ else
         sleep 4
 
         # (c) 日志链路
-        LOG_TAIL=$(tail -80 "$WE_LOG" 2>/dev/null || echo "")
+        LOG_TAIL=$(tail -80 "$BV_LOG" 2>/dev/null || echo "")
         log_received=$(echo "$LOG_TAIL" | grep -c "Remote Received WAV" 2>/dev/null || echo 0)
         log_transcribed=$(echo "$LOG_TAIL" | grep -c "Remote Transcribed:" 2>/dev/null || echo 0)
         log_timing=$(echo "$LOG_TAIL" | grep -c "Remote Timing:" 2>/dev/null || echo 0)

@@ -2,10 +2,10 @@ import Foundation
 
 @MainActor
 final class ModuleManager {
-    private var modules: [String: WEModule] = [:]
+    private var modules: [String: BetterVoiceModule] = [:]
 
     /// The currently active module (hotkey events are routed to this module)
-    var activeModule: WEModule? {
+    var activeModule: BetterVoiceModule? {
         modules.values.first { $0.isActive }
     }
 
@@ -13,7 +13,7 @@ final class ModuleManager {
         Array(modules.keys)
     }
 
-    func register(_ module: WEModule) {
+    func register(_ module: BetterVoiceModule) {
         modules[module.name] = module
         // The first registered module is active by default
         if modules.count == 1 {

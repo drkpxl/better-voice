@@ -1,7 +1,7 @@
 @preconcurrency import AVFoundation
 import CoreMedia
 import FluidAudio
-import WECore
+import BetterVoiceCore
 import Speech
 
 // MARK: - Meeting Recording Session
@@ -346,7 +346,7 @@ final class MeetingSession {
 
         // 8. Prepare the audio file path
         let fileName = "meeting-" + ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let url = WEDataDir.audioURL(forName: fileName)
+        let url = BetterVoiceDataDir.audioURL(forName: fileName)
         audioFileURL = url
         meetingId = fileName  // used as the unique meeting ID for the streamed jsonl
 

@@ -1,5 +1,5 @@
 import Foundation
-import WECore
+import BetterVoiceCore
 
 /// System prompts (English).
 enum Prompts {

@@ -1,12 +1,12 @@
 import Foundation
 
-/// ~/.we/ data directory management (the single authoritative entry point)
+/// ~/.better-voice/ data directory management (the single authoritative entry point)
 ///
-/// All code accessing ~/.we/ should go through this enum, rather than writing literal strings like `WEDataDir.url.appendingPathComponent("foo")`.
+/// All code accessing ~/.better-voice/ should go through this enum, rather than writing literal strings like `BetterVoiceDataDir.url.appendingPathComponent("foo")`.
 ///
 /// Directory tree (including the Phase B planned archive subdirectories):
 ///
-///   ~/.we/
+///   ~/.better-voice/
 ///     ├─ config.json                     runtime configuration
 ///     ├─ debug.log                       global log
 ///     ├─ correction-dictionary.json      mistranscription dictionary (used by the distillation pipeline)
@@ -26,10 +26,10 @@ import Foundation
 ///     └─ kpi/                            KPI monthly results archive
 ///
 /// Behavior: `ensureExists()` creates all of the above subdirectories (if they don't exist); files are created on demand by each component the first time it writes.
-enum WEDataDir {
+enum BetterVoiceDataDir {
     /// Root directory URL.
     static let url: URL = {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".we")
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".better-voice")
     }()
 
     // MARK: - Subdirectory helpers (active directories)
@@ -119,6 +119,6 @@ enum WEDataDir {
                 try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
             }
         }
-        Logger.log("DataDir", "Ensured ~/.we/ structure exists")
+        Logger.log("DataDir", "Ensured ~/.better-voice/ structure exists")
     }
 }

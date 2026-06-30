@@ -2,15 +2,15 @@ import AVFoundation
 import Speech
 
 /// Tests the capacity limit of SpeechAnalyzer's contextualStrings
-/// Usage: WE --test-context-capacity <wav-file>
+/// Usage: BetterVoice --test-context-capacity <wav-file>
 enum ContextCapacityTest {
     @MainActor
     static func run() async {
-        WEDataDir.ensureExists()
+        BetterVoiceDataDir.ensureExists()
         let args = CommandLine.arguments
 
         guard let idx = args.firstIndex(of: "--test-context-capacity"), idx + 1 < args.count else {
-            print("Usage: WE --test-context-capacity <wav-file>")
+            print("Usage: BetterVoice --test-context-capacity <wav-file>")
             return
         }
 

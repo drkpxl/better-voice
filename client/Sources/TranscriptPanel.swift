@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import WECore
+import BetterVoiceCore
 
 // MARK: - ViewModel
 
@@ -149,7 +149,7 @@ final class TranscriptPanelController {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.titlebarAppearsTransparent = true
-        panel.title = t("WE Meeting Transcript")
+        panel.title = t("Better Voice Meeting Transcript")
         panel.isMovableByWindowBackground = true
         panel.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95)
         panel.minSize = NSSize(width: 280, height: 200)

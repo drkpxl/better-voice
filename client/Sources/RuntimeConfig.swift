@@ -1,6 +1,6 @@
 import Foundation
 
-/// Runtime configuration, loaded from ~/.we/config.json
+/// Runtime configuration, loaded from ~/.better-voice/config.json
 /// Supports hot reload (automatically reloads when the file changes)
 @MainActor
 final class RuntimeConfig {
@@ -82,7 +82,7 @@ final class RuntimeConfig {
     }
 
     private init() {
-        self.configURL = WEDataDir.configURL
+        self.configURL = BetterVoiceDataDir.configURL
         load()
         watchFile()
     }
@@ -106,7 +106,7 @@ final class RuntimeConfig {
                     "system_prompt": Prompts.defaultPolish,
                     "personal_context_enabled": true,
                     "context_dictionary_enabled": false,
-                    "context_dictionary_path": WEDataDir.correctionDictURL.path
+                    "context_dictionary_path": BetterVoiceDataDir.correctionDictURL.path
                 ],
                 "downloads": [:],
                 "remote": [
@@ -120,7 +120,7 @@ final class RuntimeConfig {
                     "l2_min_chars": 30,
                     "audio_source": "mic",
                     // save directory for meeting transcripts + summaries (supports ~ expansion).
-                    "save_folder": WEDataDir.meetings.path,
+                    "save_folder": BetterVoiceDataDir.meetings.path,
                     // whether to automatically delete the audio wav after transcription finishes (off by default).
                     "auto_delete_audio": false,
                     // default value for the meeting type dropdown in the wrap-up panel (general / one_on_one / standup).

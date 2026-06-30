@@ -1,8 +1,8 @@
 import Foundation
 
-/// Pure Markdown rendering for transcript + summary. File IO stays in the WE layer;
+/// Pure Markdown rendering for transcript + summary. File IO stays in the BetterVoice layer;
 /// all human-facing strings (title, metadata lines, labels) are passed in already
-/// localized so WECore stays free of the localization layer.
+/// localized so BetterVoiceCore stays free of the localization layer.
 public enum MeetingMarkdown {
 
     /// Render the speaker-grouped transcript. `metadataLines` are emitted as `- line`.

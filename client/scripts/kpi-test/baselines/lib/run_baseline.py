@@ -3,7 +3,7 @@
 
 流程：
   1. 加载 manifest.jsonl
-  2. 调 WE --bench-voice --batch（或 --bench-meeting）跑全链路转写
+  2. 调 BetterVoice --bench-voice --batch（或 --bench-meeting）跑全链路转写
   3. 对每条 sample 算指定 metric
   4. 输出 per-sample jsonl + 汇总 JSON
 
@@ -79,18 +79,18 @@ BASELINE_SPECS = {
 
 
 def _find_we_binary() -> Path:
-    """定位 WE 可执行文件。"""
+    """定位 BetterVoice 可执行文件。"""
     here = Path(__file__).resolve()
     # client/scripts/kpi-test/baselines/lib/run_baseline.py → client/.build/...
     client_dir = here.parents[4]
     for c in (
-        client_dir / ".build" / "WE.app" / "Contents" / "MacOS" / "WE",
-        client_dir / ".build" / "release" / "WE",
-        client_dir / ".build" / "debug" / "WE",
+        client_dir / ".build" / "BetterVoice.app" / "Contents" / "MacOS" / "BetterVoice",
+        client_dir / ".build" / "release" / "BetterVoice",
+        client_dir / ".build" / "debug" / "BetterVoice",
     ):
         if c.exists():
             return c
-    raise FileNotFoundError("WE binary not found. Run `cd client && make build` first.")
+    raise FileNotFoundError("BetterVoice binary not found. Run `cd client && make build` first.")
 
 
 def _data_root() -> Path:
@@ -103,7 +103,7 @@ def run_batch(
     tool: str,
     we_bin: Path,
 ) -> Path:
-    """跑 WE --bench-voice --batch（或 --bench-meeting），返回结果目录。
+    """跑 BetterVoice --bench-voice --batch（或 --bench-meeting），返回结果目录。
 
     每个 sample 输出一个 <id>.json，含 finalText 等。
     """
@@ -117,7 +117,7 @@ def run_batch(
     print(f"  Running: {' '.join(cmd)}", file=sys.stderr)
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
     if proc.returncode != 0:
-        print(f"  WE batch returncode={proc.returncode}", file=sys.stderr)
+        print(f"  BetterVoice batch returncode={proc.returncode}", file=sys.stderr)
         print(f"  stderr: {proc.stderr[-500:]}", file=sys.stderr)
     return out_dir
 

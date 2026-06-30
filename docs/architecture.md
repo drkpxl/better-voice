@@ -1,8 +1,8 @@
-# WE Technical Architecture
+# Better Voice Technical Architecture
 
 ## System Overview
 
-WE is a macOS menu bar application that provides two core capabilities: **dictation mode** (ambient or hotkey-triggered voice-to-text input into any application) and **meeting mode** (long-form meeting recording with real-time transcription, speaker diarization, and Markdown export). The client is built in Swift 6.2 targeting macOS 26 (Tahoe), using Apple's SpeechAnalyzer framework for on-device speech recognition and AVCaptureSession for audio capture. Post-processing (L2 polish) is handled by a local LLM served via ollama, personalized through a free-text `~/.we/personal-context.md` injected into the prompt.
+Better Voice is a macOS menu bar application that provides two core capabilities: **dictation mode** (ambient or hotkey-triggered voice-to-text input into any application) and **meeting mode** (long-form meeting recording with real-time transcription, speaker diarization, and Markdown export). The client is built in Swift 6.2 targeting macOS 26 (Tahoe), using Apple's SpeechAnalyzer framework for on-device speech recognition and AVCaptureSession for audio capture. Post-processing (L2 polish) is handled by a local LLM served via ollama, personalized through a free-text `~/.better-voice/personal-context.md` injected into the prompt.
 
 ## Dictation Mode Flow
 
@@ -47,11 +47,11 @@ When `correction_enabled` is true, `CorrectionCapture` opens a 30-second monitor
 1. **Trigger** -- Listens for Enter key via `GlobalHotKey.onEnterKey`, or waits for the 30s timeout.
 2. **Text reading** -- Uses the Accessibility API (`AXUIElementCopyAttributeValue` with `kAXValueAttribute`) to read the focused text element in the target application.
 3. **Correction extraction** -- For short text (editor-like apps), directly compares. For long text (terminal buffers), searches the last 100 lines using LCS similarity, stripping common shell prompt prefixes.
-4. **Storage** -- Corrections are saved to `~/.we/corrections.jsonl` and `~/.we/semantic-diffs.jsonl` via `CorrectionStore`. These entries feed back into L1 AlternativeSwap.
+4. **Storage** -- Corrections are saved to `~/.better-voice/corrections.jsonl` and `~/.better-voice/semantic-diffs.jsonl` via `CorrectionStore`. These entries feed back into L1 AlternativeSwap.
 
 ### Voice History Persistence
 
-Every dictation session is recorded to `~/.we/voice-history.jsonl` by `VoiceHistory`, regardless of correction capture settings. Each entry contains the raw SA output, L1 text, polished text, final text, word-level info with confidence and timing, audio file path, and target application identity. This file (paired with the saved `audio/*.wav`) is a local debugging log for inspecting transcription/polish behavior.
+Every dictation session is recorded to `~/.better-voice/voice-history.jsonl` by `VoiceHistory`, regardless of correction capture settings. Each entry contains the raw SA output, L1 text, polished text, final text, word-level info with confidence and timing, audio file path, and target application identity. This file (paired with the saved `audio/*.wav`) is a local debugging log for inspecting transcription/polish behavior.
 
 ## Meeting Mode Flow
 
@@ -95,7 +95,7 @@ Audio shorter than 2 seconds skips diarization entirely.
 
 ### Markdown Export
 
-`MeetingExporter.exportMarkdown()` writes a structured Markdown file to `~/.we/meetings/`:
+`MeetingExporter.exportMarkdown()` writes a structured Markdown file to `~/.better-voice/meetings/`:
 
 - Header with date, duration, and total word count
 - Segments grouped by speaker, each prefixed with a `MM:SS` timestamp
@@ -109,8 +109,8 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 
 | Source File | Role |
 |---|---|
-| `WEApp.swift` | Application entry point, `AppDelegate` initialization, benchmark CLI mode |
-| `WEModule.swift` | Module protocol (`onHotKeyDown`/`onHotKeyUp`) for extensible input modes |
+| `BetterVoiceApp.swift` | Application entry point, `AppDelegate` initialization, benchmark CLI mode |
+| `BetterVoiceModule.swift` | Module protocol (`onHotKeyDown`/`onHotKeyUp`) for extensible input modes |
 | `ModuleManager.swift` | Module registry and hotkey event routing |
 | `VoiceModule.swift` | Dictation mode state machine (idle/recording/processing) |
 | `VoiceSession.swift` | Audio capture (AVCaptureSession) + SpeechAnalyzer streaming transcription |
@@ -132,13 +132,13 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 | `TranscriptPanel.swift` | Floating NSPanel + SwiftUI view for real-time meeting transcript |
 | `StatusBarController.swift` | Menu bar UI, meeting mode controls, server status display |
 | `RecordingIndicator.swift` | Floating HUD panel with pulsing mic icon during recording |
-| `RuntimeConfig.swift` | JSON config loader (~/.we/config.json) with file-watch hot reload |
+| `RuntimeConfig.swift` | JSON config loader (~/.better-voice/config.json) with file-watch hot reload |
 | `PermissionManager.swift` | Accessibility, microphone, and screen-recording (meeting audio) permission checks |
 | `AppIdentity.swift` | Frontmost application identification (bundle ID, PID, name) |
 | `Logger.swift` | File + console logger with 5MB auto-trim |
 | `JSONLWriter.swift` | Thread-safe JSONL append writer (local debug logs) |
-| `WEDataDir.swift` | ~/.we/ directory structure management |
-| `PersonalContext.swift` | Loads `~/.we/personal-context.md` and appends it to the polish (and future summarization) system prompt |
+| `BetterVoiceDataDir.swift` | ~/.better-voice/ directory structure management |
+| `PersonalContext.swift` | Loads `~/.better-voice/personal-context.md` and appends it to the polish (and future summarization) system prompt |
 
 ## Audio Pipeline
 
@@ -182,7 +182,7 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
                 |                  |              |
                 v                  v              |
            WAV file         TranscriptionResult   |
-           (~/.we/audio/)    (text + words +      |
+           (~/.better-voice/audio/)    (text + words +      |
                               confidence)         |
                                                   |
                                                   v
@@ -225,7 +225,7 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
           |                     |                        |
           v                     v                        v
     SpeechAnalyzer        Diarization Buffer          WAV File
-    (streaming ASR)       (16kHz Float32 mono         (~/.we/audio/
+    (streaming ASR)       (16kHz Float32 mono         (~/.better-voice/audio/
      via AsyncStream)      in-memory accumulation)     meeting-*.wav)
           |
           v
@@ -254,6 +254,6 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
                           ┌─────────┴─────────┐
                           v                   v
                    TranscriptPanel      MeetingExporter
-                   (updated with        -> ~/.we/meetings/
+                   (updated with        -> ~/.better-voice/meetings/
                     speaker labels)        YYYY-MM-DD_HH-mm.md
 ```

@@ -1,5 +1,5 @@
 #!/bin/bash
-# WE — KPI 自动化测试顶层入口
+# Better Voice — KPI 自动化测试顶层入口
 #
 # 用法：
 #   ./run_kpi.sh                          # 跑所有里程碑 + 基线（用 latest 子目录）
@@ -48,7 +48,7 @@ fi
 
 mkdir -p "$OUT_DIR"
 
-echo "=== WE KPI Test Run ==="
+echo "=== Better Voice KPI Test Run ==="
 echo "Phase:      $PHASE"
 echo "Output dir: $OUT_DIR"
 echo ""
@@ -82,7 +82,7 @@ milestones = json.loads(milestones_path.read_text()) if milestones_path.exists()
 baselines = json.loads(baselines_path.read_text()) if baselines_path.exists() else []
 
 lines = [
-    f"# WE — KPI 测试报告",
+    f"# Better Voice — KPI 测试报告",
     "",
     f"- 阶段：**{phase}**",
     f"- 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",

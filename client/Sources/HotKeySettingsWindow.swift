@@ -39,7 +39,7 @@ final class HotKeySettingsWindow {
             backing: .buffered,
             defer: false
         )
-        win.title = t("WE Set Hotkey")
+        win.title = t("Better Voice Set Hotkey")
         win.contentView = host
         win.center()
         win.isReleasedWhenClosed = false

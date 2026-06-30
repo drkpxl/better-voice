@@ -7,7 +7,7 @@ import CoreGraphics
 /// 1. modifier-only (e.g. Right Option pressed alone): keyCode is the modifier keyCode (61 = Right Option, etc.), modifiers is empty
 /// 2. key combination (e.g. Cmd+Shift+R): keyCode is a letter/number keyCode, modifiers is the set of modifier flag bits
 ///
-/// Storage format (JSON in ~/.we/config.json):
+/// Storage format (JSON in ~/.better-voice/config.json):
 /// ```json
 /// "hotkey": {
 ///   "keyCode": 61,

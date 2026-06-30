@@ -1,7 +1,7 @@
 import Foundation
 
 /// History record for each voice session
-/// Written to ~/.we/voice-history.jsonl
+/// Written to ~/.better-voice/voice-history.jsonl
 /// The distillation pipeline reads training data from this file
 struct VoiceHistoryEntry: Codable {
     let timestamp: Date

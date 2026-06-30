@@ -1,10 +1,10 @@
 import Foundation
-import WECore
+import BetterVoiceCore
 
 /// Streaming segment-level persistence for meeting mode
 ///
 /// Every time a SegmentBuffer flush + L2 call completes (changed/identity/failed/skipped all get written),
-/// a line is immediately appended to `~/.we/meeting-history.jsonl`.
+/// a line is immediately appended to `~/.better-voice/meeting-history.jsonl`.
 ///
 /// Data uses:
 /// - Distillation / evaluation / A-B comparison (rawText vs polishedText)

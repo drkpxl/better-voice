@@ -1,4 +1,4 @@
-# WE — KPI Automated Testing Framework
+# Better Voice — KPI Automated Testing Framework
 
 Automated testing + monthly report generation, based strictly on the milestone/baseline metrics defined in the "Marvin Personal Performance Incentive Plan" PDF (`~/.claude/skills/marvin-kpi/references/kpi-plan.md`).
 
@@ -46,13 +46,13 @@ kpi-test/
 
 > The §3.1 L2 #7 milestones (auto-build mis-recognized word list, automatic
 > fine-tuning, output report) were removed along with the self-training pipeline.
-> Personalization is now handled by `~/.we/personal-context.md` injected into the
+> Personalization is now handled by `~/.better-voice/personal-context.md` injected into the
 > polish prompt (see `docs/configuration.md`).
 
 Each script outputs `{status: pass|partial|fail, score: 1.0|0.7|0, evidence: ...}`.
 Corresponds to the §2.1 completion coefficient: complete 1.0 / partially complete (≥70%) 0.7 / not achieved 0.
 
-### Baseline Layer (Phase 1, Five L4 Items — Directly Relevant to WE)
+### Baseline Layer (Phase 1, Five L4 Items — Directly Relevant to Better Voice)
 
 | KPI Clause | Calculation Method (PDF original text) | Script |
 |---|---|---|
@@ -117,11 +117,11 @@ Per §2.2 Phase 1 tiers (based on trend):
 
 ---
 
-## 5. Relationship to Existing WE Code
+## 5. Relationship to Existing Better Voice Code
 
 **Reused**:
 
-- `WE --bench-meeting <wav>` — existing entry point for running meeting mode end-to-end
+- `BetterVoice --bench-meeting <wav>` — existing entry point for running meeting mode end-to-end
 - `client/scripts/kpi-test/baselines/` — transcription/diarization/retention quality baselines
 
 **New**:

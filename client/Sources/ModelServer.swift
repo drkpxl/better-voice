@@ -1,5 +1,5 @@
 import Foundation
-import WECore
+import BetterVoiceCore
 
 /// Model inference server connection management
 /// Supports direct LAN connection / Tailscale / localhost, with automatic health checks + disconnect fallback

@@ -208,7 +208,7 @@ final class RemoteInbox {
 
         // 1. write the temp file
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let tempURL = WEDataDir.remoteAudioURL(timestamp: timestamp)
+        let tempURL = BetterVoiceDataDir.remoteAudioURL(timestamp: timestamp)
         do {
             try wavData.write(to: tempURL)
         } catch {

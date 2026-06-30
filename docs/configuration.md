@@ -2,7 +2,7 @@
 
 ## Overview
 
-WE reads its configuration from `~/.we/config.json`. On first launch, the app creates this file with sensible defaults. The file is monitored for changes at runtime -- edits are picked up automatically without restarting the app (hot-reload via `DispatchSource` file watcher).
+Better Voice reads its configuration from `~/.better-voice/config.json`. On first launch, the app creates this file with sensible defaults. The file is monitored for changes at runtime -- edits are picked up automatically without restarting the app (hot-reload via `DispatchSource` file watcher).
 
 All sections are optional. Missing keys fall back to their defaults.
 
@@ -10,7 +10,7 @@ All sections are optional. Missing keys fall back to their defaults.
 
 ## Server Settings
 
-The `server` object controls how WE connects to the model inference backend for L2 polish (text refinement). Two API protocols are supported: Ollama (default) and OpenAI-compatible.
+The `server` object controls how Better Voice connects to the model inference backend for L2 polish (text refinement). Two API protocols are supported: Ollama (default) and OpenAI-compatible.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -67,15 +67,15 @@ The `polish` object controls the L2 semantic polish stage, which refines raw spe
 |-----|------|---------|-------------|
 | `polish.enabled` | bool | `true` | Master switch for the polish pipeline. When `false`, raw transcription is used as-is (L1 only). |
 | `polish.system_prompt` | string | (locale-aware default from `Prompts.swift`) | System prompt sent to the model. Controls the style of text refinement. |
-| `polish.personal_context_enabled` | bool | `true` | When `true`, the contents of `~/.we/personal-context.md` (if present and non-empty) are appended to the system prompt for disambiguation. See **Personal Context** below. |
+| `polish.personal_context_enabled` | bool | `true` | When `true`, the contents of `~/.better-voice/personal-context.md` (if present and non-empty) are appended to the system prompt for disambiguation. See **Personal Context** below. |
 | `polish.context_dictionary_enabled` | bool | `false` | When `true`, terms from the dictionary at `context_dictionary_path` are fed to SpeechAnalyzer as contextual hints to bias recognition (a transcription-layer aid, separate from the polish prompt). |
-| `polish.context_dictionary_path` | string | `~/.we/correction-dictionary.json` | Path to the dictionary used for SpeechAnalyzer biasing. |
+| `polish.context_dictionary_path` | string | `~/.better-voice/correction-dictionary.json` | Path to the dictionary used for SpeechAnalyzer biasing. |
 
 ---
 
 ## Personal Context
 
-`~/.we/personal-context.md` is a free-text Markdown file you edit by hand. Its
+`~/.better-voice/personal-context.md` is a free-text Markdown file you edit by hand. Its
 contents are appended to the L2 polish system prompt (and, in future, the
 summarization prompt) so the model can disambiguate names, jargon, acronyms, and
 references using your real-world background. This replaces the old fine-tuning
@@ -107,7 +107,7 @@ Top-level boolean flags that enable or disable major features.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `correction_enabled` | bool | `false` | Enable correction capture. When `true`, the app monitors the active text field after text injection and records any manual edits the user makes to `~/.we/corrections.jsonl` (a local log). |
+| `correction_enabled` | bool | `false` | Enable correction capture. When `true`, the app monitors the active text field after text injection and records any manual edits the user makes to `~/.better-voice/corrections.jsonl` (a local log). |
 | `ambient_enabled` | bool | `false` | Enable ambient (always-listening) mode. When `true`, the app continuously captures audio and segments speech automatically, rather than requiring the hotkey to be held. Intended for meeting transcription scenarios. |
 
 ---
@@ -140,11 +140,11 @@ Top-level boolean flags that enable or disable major features.
 
 ## macOS Permissions
 
-WE requires the following macOS permissions to function. The system will prompt on first use; they can also be granted in **System Settings > Privacy & Security**.
+Better Voice requires the following macOS permissions to function. The system will prompt on first use; they can also be granted in **System Settings > Privacy & Security**.
 
 ### Accessibility
 
-**Required.** WE uses a `CGEventTap` to listen for the Right Option key (hotkey for push-to-talk) and to inject transcribed text into the active application via synthetic key events (`TextInjector`). Without Accessibility access, hotkey detection and text injection will not work.
+**Required.** Better Voice uses a `CGEventTap` to listen for the Right Option key (hotkey for push-to-talk) and to inject transcribed text into the active application via synthetic key events (`TextInjector`). Without Accessibility access, hotkey detection and text injection will not work.
 
 Grant in: **Privacy & Security > Accessibility**
 
@@ -156,7 +156,7 @@ Grant in: **Privacy & Security > Input Monitoring**
 
 ### Microphone
 
-**Required.** WE captures audio via `AVCaptureSession` for speech recognition. The app's `Info.plist` includes `NSMicrophoneUsageDescription`. Without microphone access, no audio can be captured.
+**Required.** Better Voice captures audio via `AVCaptureSession` for speech recognition. The app's `Info.plist` includes `NSMicrophoneUsageDescription`. Without microphone access, no audio can be captured.
 
 Grant in: **Privacy & Security > Microphone**
 

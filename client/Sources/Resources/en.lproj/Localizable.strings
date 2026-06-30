@@ -2,7 +2,7 @@
    To add a language, copy this folder to <lang>.lproj and translate the values. */
 
 /* --- Status bar menu --- */
-"WE Voice Input" = "WE Voice Input";
+"Better Voice" = "Better Voice";
 "Check server connection" = "Check server connection";
 "Global hotkey monitoring" = "Global hotkey monitoring";
 "Text injection (cursor)" = "Text injection (cursor)";
@@ -34,7 +34,7 @@
 "Inactive" = "Inactive";
 
 /* --- Meeting transcript panel --- */
-"WE Meeting Transcript" = "WE Meeting Transcript";
+"Better Voice Meeting Transcript" = "Better Voice Meeting Transcript";
 "Recording" = "Recording";
 "Stopped" = "Stopped";
 "%@ characters" = "%@ characters";
@@ -52,7 +52,7 @@
 "yyyy-MM-dd HH:mm" = "yyyy-MM-dd HH:mm";
 
 /* --- Hotkey settings window --- */
-"WE Set Hotkey" = "WE Set Hotkey";
+"Better Voice Set Hotkey" = "Better Voice Set Hotkey";
 "This shortcut may conflict with system shortcuts." = "This shortcut may conflict with system shortcuts.";
 "Record / Stop Hotkey" = "Record / Stop Hotkey";
 "Click the button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌘+⇧+R). Press Esc to cancel." = "Click the button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌘+⇧+R). Press Esc to cancel.";

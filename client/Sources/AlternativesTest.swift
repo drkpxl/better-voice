@@ -2,15 +2,15 @@ import AVFoundation
 import Speech
 
 /// Tests what SpeechAnalyzer's alternativeTranscriptions returns
-/// Usage: WE --test-alternatives <wav-file> [--locale zh-CN]
+/// Usage: BetterVoice --test-alternatives <wav-file> [--locale zh-CN]
 enum AlternativesTest {
     @MainActor
     static func run() async {
-        WEDataDir.ensureExists()
+        BetterVoiceDataDir.ensureExists()
         let args = CommandLine.arguments
 
         guard let idx = args.firstIndex(of: "--test-alternatives"), idx + 1 < args.count else {
-            print("Usage: WE --test-alternatives <wav-file> [--locale zh-CN]")
+            print("Usage: BetterVoice --test-alternatives <wav-file> [--locale zh-CN]")
             return
         }
 

@@ -1,56 +1,56 @@
 ============================================
-  WE 安装说明
+  Better Voice 安装说明
 ============================================
 
-WE 是一个本地语音转写 + 智能纠错的 macOS 工具。
+Better Voice 是一个本地语音转写 + 智能纠错的 macOS 工具。
 本 DMG 使用自签名构建，因此首次安装需要绕过一次系统签名验证。
 
 ----------------------------
   安装步骤（4 步）
 ----------------------------
 
-1) 把 WE.app 拖到「应用程序」文件夹
+1) 把 BetterVoice.app 拖到「应用程序」文件夹
 
 2) 打开「终端」应用（聚焦 → 输入 Terminal），
    复制粘贴下面这两行命令并按回车：
 
-   xattr -cr /Applications/WE.app
-   /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/WE.app
+   xattr -cr /Applications/BetterVoice.app
+   /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/BetterVoice.app
 
    第一行：清除 macOS 给"网络下载文件"打的隔离标记，让系统不再因为「无法验证开发者」而阻止启动。
    第二行：强制 LaunchServices 注册 app（否则 TCC 系统可能不认这个 bundle，导致麦克风权限弹窗不出现）。
 
-3) 双击启动 /Applications/WE.app
+3) 双击启动 /Applications/BetterVoice.app
 
 4) 首次启动会弹出几个权限请求，请逐一允许：
    - 麦克风（用于录音转写）
    - 语音识别（端侧转写需要）
    - 【输入监听 Input Monitoring】（**全局热键真正需要的权限**）：
-     系统设置 → 隐私与安全性 → 输入监听 → 添加 WE 并打开开关
+     系统设置 → 隐私与安全性 → 输入监听 → 添加 Better Voice 并打开开关
    - 辅助功能（用于把文字注入到光标位置）：
-     系统设置 → 隐私与安全性 → 辅助功能 → 添加 WE 并打开开关
+     系统设置 → 隐私与安全性 → 辅助功能 → 添加 Better Voice 并打开开关
    - 屏幕录制（仅当你启用「会议模式录系统音频」时需要）
 
    ⚠️ 输入监听 vs 辅助功能：很多人混淆这俩。CGEventTap 监听 Right Option
    按键真正需要的是「输入监听」；辅助功能只是用于注入文字到光标。两个权限
-   都给了 WE 才能正常工作。
+   都给了 Better Voice 才能正常工作。
 
-   授权后**重启 WE 一次**（macOS 在权限授予后需要 app 重启才能生效）。
+   授权后**重启 Better Voice 一次**（macOS 在权限授予后需要 app 重启才能生效）。
 
 ----------------------------
   使用方式
 ----------------------------
 
-启动后，状态栏右上角会出现 WE 图标。
+启动后，状态栏右上角会出现 Better Voice 图标。
 
 - 即时录音：按 Right Option（默认热键）开始录音 → 再按一次停止 → 转写结果自动注入光标位置
-- 修改热键：菜单栏 WE 图标 → "设置热键..." 中录制新组合
-- 会议模式：菜单栏 WE 图标 → "开始会议" → "停止会议"，结果导出为 Markdown
-- 配置文件：菜单栏 WE 图标 → "编辑配置文件..."（路径 ~/.we/config.json）
+- 修改热键：菜单栏 Better Voice 图标 → "设置热键..." 中录制新组合
+- 会议模式：菜单栏 Better Voice 图标 → "开始会议" → "停止会议"，结果导出为 Markdown
+- 配置文件：菜单栏 Better Voice 图标 → "编辑配置文件..."（路径 ~/.better-voice/config.json）
 
 ----------------------------
   问题反馈
 ----------------------------
 
-GitHub: https://github.com/Marvinngg/ambient-voice
-日志路径：~/.we/debug.log
+GitHub: https://github.com/drkpxl/better-voice
+日志路径：~/.better-voice/debug.log
