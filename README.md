@@ -7,8 +7,8 @@ Built on Apple SpeechAnalyzer (macOS 26), on-device transcription plus a local L
 ## Install
 
 ```bash
-git clone https://github.com/Marvinngg/ambient-voice.git
-cd ambient-voice/client
+git clone https://github.com/drkpxl/better-voice.git
+cd better-voice/client
 make setup      # Code signing certificate (one-time)
 make install    # Build + install + auto-start
 ```
