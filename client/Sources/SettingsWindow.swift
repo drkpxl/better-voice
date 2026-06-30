@@ -71,21 +71,33 @@ final class SettingsViewModel {
     var saveFolder: String
     var autoDeleteAudio: Bool
     var defaultType: MeetingType
-    // Waveform
-    var noiseFloor: Double
-    var sensitivity: Double
     // Language ("" = follow system)
     var language: String
 
+    // 只读状态
+    var serverStatus: ModelServer.Status = ModelServer.shared.status
+    var isCheckingConnection = false
+
     var onSave: (() -> Void)?
     var onCancel: (() -> Void)?
+
+    var hotkeyDisplayName: String {
+        HotKeyConfig.load(from: RuntimeConfig.shared.hotKeyConfig).displayName
+    }
+
+    var serverStatusText: String {
+        switch serverStatus {
+        case .connected: return t("Connected")
+        case .disconnected: return t("Disconnected")
+        case .unknown: return t("Unknown")
+        }
+    }
 
     init() {
         let cfg = RuntimeConfig.shared
         let server = cfg.serverConfig
         let meeting = cfg.meetingConfig
         let summ = cfg.meetingSummarizationConfig
-        let wave = cfg.waveformConfig
 
         endpoint = server["endpoint"] as? String ?? "http://localhost:11434"
         model = server["model"] as? String ?? "qwen3.5:4b-mlx"
@@ -98,9 +110,6 @@ final class SettingsViewModel {
         saveFolder = meeting["save_folder"] as? String ?? WEDataDir.meetings.path
         autoDeleteAudio = meeting["auto_delete_audio"] as? Bool ?? false
         defaultType = MeetingType.from(configKey: meeting["default_type"] as? String ?? "general") ?? .general
-
-        noiseFloor = wave["noise_floor"] as? Double ?? 0.02
-        sensitivity = wave["sensitivity"] as? Double ?? 1.0
 
         language = cfg.language ?? ""
     }
@@ -126,13 +135,32 @@ final class SettingsViewModel {
         meeting["summarization"] = summ
         cfg.updateSection("meeting", meeting)
 
-        var wave = cfg.waveformConfig
-        wave["noise_floor"] = noiseFloor
-        wave["sensitivity"] = sensitivity
-        cfg.updateSection("waveform", wave)
-
         let lang = language.trimmingCharacters(in: .whitespacesAndNewlines)
         cfg.updateTopLevel("language", lang.isEmpty ? nil : lang)
+    }
+
+    func checkConnection() {
+        isCheckingConnection = true
+        Task {
+            await ModelServer.shared.checkHealth()
+            self.serverStatus = ModelServer.shared.status
+            self.isCheckingConnection = false
+        }
+    }
+
+    func changeHotkey() { HotKeySettingsWindow.shared.show() }
+
+    func openDataFolder() { NSWorkspace.shared.open(WEDataDir.url) }
+
+    func editConfigFile() {
+        let url = WEDataDir.configURL
+        if !FileManager.default.fileExists(atPath: url.path) { _ = RuntimeConfig.shared }
+        NSWorkspace.shared.open(url)
+    }
+
+    func viewLogs() {
+        let url = WEDataDir.logURL
+        if FileManager.default.fileExists(atPath: url.path) { NSWorkspace.shared.open(url) }
     }
 
     func chooseSaveFolder() {
@@ -168,6 +196,14 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("API type"))
                     }
+                    HStack {
+                        Text(t("Status"))
+                        Spacer()
+                        Text(viewModel.serverStatusText)
+                            .foregroundStyle(viewModel.serverStatus == .connected ? .green : .secondary)
+                        Button(t("Check")) { viewModel.checkConnection() }
+                            .disabled(viewModel.isCheckingConnection)
+                    }
                 }
 
                 Section(t("Summarization")) {
@@ -200,19 +236,6 @@ struct SettingsContentView: View {
                     }
                 }
 
-                Section(t("Waveform indicator")) {
-                    VStack(alignment: .leading) {
-                        Text(t("Noise floor: \(String(format: "%.3f", viewModel.noiseFloor))"))
-                            .font(.caption)
-                        Slider(value: $viewModel.noiseFloor, in: 0...0.2)
-                    }
-                    VStack(alignment: .leading) {
-                        Text(t("Sensitivity: \(String(format: "%.1f", viewModel.sensitivity))"))
-                            .font(.caption)
-                        Slider(value: $viewModel.sensitivity, in: 0.2...5)
-                    }
-                }
-
                 Section(t("Language")) {
                     Picker(selection: $viewModel.language) {
                         Text(t("Follow system")).tag("")
@@ -221,6 +244,22 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Language"))
                     }
+                }
+
+                Section(t("Hotkey")) {
+                    HStack {
+                        Text(t("Dictation hotkey"))
+                        Spacer()
+                        Text(viewModel.hotkeyDisplayName)
+                            .foregroundStyle(.secondary)
+                        Button(t("Change...")) { viewModel.changeHotkey() }
+                    }
+                }
+
+                Section(t("Data")) {
+                    Button(t("Open Data Folder...")) { viewModel.openDataFolder() }
+                    Button(t("Edit Config File...")) { viewModel.editConfigFile() }
+                    Button(t("View Logs...")) { viewModel.viewLogs() }
                 }
             }
             .formStyle(.grouped)

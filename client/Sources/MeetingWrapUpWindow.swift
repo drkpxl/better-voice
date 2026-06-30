@@ -27,7 +27,10 @@ final class MeetingWrapUpWindow {
         let type: MeetingType
     }
 
-    /// 展示面板并等待用户操作。窗口已开时直接返回默认（不应发生）。
+    /// 当前未完成的 continuation 回调。show() 时设置，resolve 时清空。
+    private var pendingCompletion: ((Outcome) -> Void)?
+
+    /// 展示面板并等待用户操作。
     func present(speakers: [(id: String, snippet: String)], inferredType: MeetingType) async -> Outcome {
         await withCheckedContinuation { (continuation: CheckedContinuation<Outcome, Never>) in
             self.show(speakers: speakers, inferredType: inferredType) { outcome in
@@ -41,20 +44,31 @@ final class MeetingWrapUpWindow {
         inferredType: MeetingType,
         completion: @escaping (Outcome) -> Void
     ) {
-        // 防御：若已有窗口，先收尾旧的（理论上不会并发）。
-        if window != nil { close() }
+        // 防御：若已有未完成的面板，先用 skip 收尾它的 continuation（绝不丢挂起的 await）。
+        if let stale = pendingCompletion {
+            pendingCompletion = nil
+            detachWindow()
+            stale(Outcome(names: [:], type: inferredType))
+        }
+
+        pendingCompletion = completion
 
         let viewModel = WrapUpViewModel(
             speakers: speakers.map { Speaker(id: $0.id, snippet: $0.snippet) },
             selectedType: inferredType
         )
 
-        var didComplete = false
-        let finish: (Outcome) -> Void = { [weak self] outcome in
-            guard !didComplete else { return }
-            didComplete = true
-            self?.close()
-            completion(outcome)
+        // 统一收尾：恰好 resolve 一次。fromWindowClose=true 表示 AppKit 已在关窗（X 按钮），
+        // 此时不要再调用 window.close()（避免重入 AppKit 关窗流程）。
+        let resolve: (Outcome, Bool) -> Void = { [weak self] outcome, fromWindowClose in
+            guard let self, let comp = self.pendingCompletion else { return }
+            self.pendingCompletion = nil
+            if fromWindowClose {
+                self.detachWindow()
+            } else {
+                self.close()
+            }
+            comp(outcome)
         }
 
         viewModel.onSummarize = { vm in
@@ -63,10 +77,10 @@ final class MeetingWrapUpWindow {
                 let n = s.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !n.isEmpty { names[s.id] = n }
             }
-            finish(Outcome(names: names, type: vm.selectedType))
+            resolve(Outcome(names: names, type: vm.selectedType), false)
         }
         viewModel.onSkip = { vm in
-            finish(Outcome(names: [:], type: vm.selectedType))
+            resolve(Outcome(names: [:], type: vm.selectedType), false)
         }
 
         let host = NSHostingView(rootView: MeetingWrapUpContentView(viewModel: viewModel))
@@ -84,8 +98,10 @@ final class MeetingWrapUpWindow {
         win.center()
         win.isReleasedWhenClosed = false
 
-        // 红叉关闭 == Skip（仍生成摘要）。
-        let delegate = WindowCloseDelegate { viewModel.onSkip?(viewModel) }
+        // 红叉关闭 == Skip（仍生成摘要）。fromWindowClose=true 避免重入 close()。
+        let delegate = WindowCloseDelegate {
+            resolve(Outcome(names: [:], type: viewModel.selectedType), true)
+        }
         win.delegate = delegate
         self.closeDelegate = delegate
 
@@ -94,9 +110,20 @@ final class MeetingWrapUpWindow {
         self.window = win
     }
 
+    /// 程序主动关窗（按钮路径）。
     func close() {
+        guard let win = window else { return }
+        win.delegate = nil          // 先摘代理，关窗不再触发 windowWillClose
+        window = nil
+        closeDelegate = nil
+        win.orderOut(nil)
+        win.contentView = nil
+        win.close()
+    }
+
+    /// 仅解除引用（AppKit 已在关窗，X 按钮路径），不再调用 close()。
+    private func detachWindow() {
         window?.delegate = nil
-        window?.close()
         window = nil
         closeDelegate = nil
     }

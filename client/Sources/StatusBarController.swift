@@ -14,6 +14,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var meetingSession: MeetingSession?
     private let transcriptPanel = TranscriptPanelController()
     private var isMeetingActive: Bool { meetingSession?.isRunning ?? false }
+    /// 停止后到收尾流程（分类/命名面板/导出/摘要）结束之间为真，期间禁止开新会议。
+    private var isFinishingMeeting = false
 
     init(moduleManager: ModuleManager) {
         self.moduleManager = moduleManager
@@ -71,23 +73,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem(title: t("WE Voice Input"), action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
-        // 服务器状态
-        let serverItem = NSMenuItem(title: serverMenuTitle, action: nil, keyEquivalent: "")
-        menu.addItem(serverItem)
-
-        let modelItem = NSMenuItem(title: modelMenuTitle, action: nil, keyEquivalent: "")
-        menu.addItem(modelItem)
-
-        let reconnectItem = NSMenuItem(
-            title: t("Check server connection"),
-            action: #selector(checkServer),
-            keyEquivalent: ""
-        )
-        reconnectItem.target = self
-        menu.addItem(reconnectItem)
-
-        menu.addItem(NSMenuItem.separator())
-
         // 权限状态行：用户视角直接看 4 项 + 点击跳系统设置
         addPermissionRow(
             to: menu,
@@ -125,6 +110,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             )
             stopMeeting.target = self
             menu.addItem(stopMeeting)
+        } else if isFinishingMeeting {
+            // 收尾中：占位项，禁止开新会议直到摘要流程结束。
+            let finishing = NSMenuItem(title: t("Finishing meeting..."), action: nil, keyEquivalent: "")
+            finishing.isEnabled = false
+            menu.addItem(finishing)
         } else {
             let startMeeting = NSMenuItem(
                 title: t("Start Meeting Recording"),
@@ -145,19 +135,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // 配置与数据
-        let hotkeyTitle: String = {
-            let cfg = HotKeyConfig.load(from: RuntimeConfig.shared.hotKeyConfig)
-            return t("Set Hotkey... (\(cfg.displayName))")
-        }()
-        let hotkeyItem = NSMenuItem(
-            title: hotkeyTitle,
-            action: #selector(openHotKeySettings),
-            keyEquivalent: ""
-        )
-        hotkeyItem.target = self
-        menu.addItem(hotkeyItem)
-
+        // 设置（服务器/摘要/会议/快捷键/数据都收进设置窗口）
         let settingsItem = NSMenuItem(
             title: t("Settings..."),
             action: #selector(openSettings),
@@ -165,30 +143,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         )
         settingsItem.target = self
         menu.addItem(settingsItem)
-
-        let configItem = NSMenuItem(
-            title: t("Edit Config File..."),
-            action: #selector(openConfig),
-            keyEquivalent: ""
-        )
-        configItem.target = self
-        menu.addItem(configItem)
-
-        let dataItem = NSMenuItem(
-            title: t("Open Data Folder..."),
-            action: #selector(openDataDir),
-            keyEquivalent: ""
-        )
-        dataItem.target = self
-        menu.addItem(dataItem)
-
-        let logItem = NSMenuItem(
-            title: t("View Logs..."),
-            action: #selector(openLog),
-            keyEquivalent: ""
-        )
-        logItem.target = self
-        menu.addItem(logItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -200,33 +154,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
-    private var serverMenuTitle: String {
-        let status = ModelServer.shared.status
-        let endpoint = RuntimeConfig.shared.serverConfig["endpoint"] as? String ?? t("not configured")
-        switch status {
-        case .connected:
-            return t("Server: connected (\(endpoint))")
-        case .disconnected:
-            return t("Server: disconnected (\(endpoint))")
-        case .unknown:
-            return t("Server: checking...")
-        }
-    }
-
-    private var modelMenuTitle: String {
-        let model = RuntimeConfig.shared.serverConfig["model"] as? String ?? t("not configured")
-        return t("Model: \(model)")
-    }
-
-
-    @objc private func checkServer() {
-        Task {
-            await ModelServer.shared.checkHealth()
-            setupMenu()
-            updateIcon()
-        }
-    }
-
     @objc private func toggleMeeting() {
         if isMeetingActive {
             stopMeeting()
@@ -236,6 +163,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func startMeeting() {
+        // 上一场会议的收尾流程（命名/摘要）还没结束时，不允许开新会议。
+        guard !isFinishingMeeting else {
+            Logger.log("StatusBar", "Ignored start: previous meeting still finishing")
+            return
+        }
         let session = MeetingSession()
         self.meetingSession = session
 
@@ -302,12 +234,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 self.transcriptPanel.updateTranscript(segments: result.segments)
             }
 
+            // 进入收尾：禁止开新会议直到摘要流程结束。
+            self.isFinishingMeeting = true
             self.setupMenu()
             self.updateMeetingIcon()
             Logger.log("StatusBar", "Meeting stopped, \(result.segments.count) segments, \(String(format: "%.0f", result.duration))s")
 
             // 收尾：分类 → 命名/类型面板 → 导出转录 → 摘要 → 可选删音频。
             await self.finishMeeting(result: result)
+
+            self.isFinishingMeeting = false
+            self.setupMenu()
+            self.updateMeetingIcon()
         }
     }
 
@@ -408,32 +346,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    @objc private func openHotKeySettings() {
-        HotKeySettingsWindow.shared.show()
-    }
-
     @objc private func openSettings() {
         SettingsWindow.shared.show()
-    }
-
-    @objc private func openConfig() {
-        let configURL = WEDataDir.configURL
-        // 确保配置文件存在
-        if !FileManager.default.fileExists(atPath: configURL.path) {
-            _ = RuntimeConfig.shared  // 触发默认配置创建
-        }
-        NSWorkspace.shared.open(configURL)
-    }
-
-    @objc private func openDataDir() {
-        NSWorkspace.shared.open(WEDataDir.url)
-    }
-
-    @objc private func openLog() {
-        let logURL = WEDataDir.logURL
-        if FileManager.default.fileExists(atPath: logURL.path) {
-            NSWorkspace.shared.open(logURL)
-        }
     }
 
     @objc private func quit() {
