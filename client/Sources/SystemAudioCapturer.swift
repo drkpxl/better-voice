@@ -105,8 +105,15 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         }
         tapFormat = format
 
-        // 3. Build a private aggregate device that includes the tap (and the default output
-        //    device as the clock source, so playback continues normally while we tap it).
+        // 3. Build a private aggregate device that includes the tap. Its main sub-device is the
+        //    *clock* for the IO proc — the tap itself captures all system audio regardless of which
+        //    device that is. We normally anchor to the default output device so the clock matches
+        //    playback. BUT when the default output is a Bluetooth device that's ALSO the mic (AirPods
+        //    used for both), macOS switches it to hands-free SCO, and pulling that same SCO endpoint
+        //    into our capture aggregate contends with the system's duplex link — playback to the
+        //    user's ears cuts out entirely. So when the output is Bluetooth we anchor the clock to a
+        //    built-in output instead: the AirPods stay free for normal SCO playback, and we get a
+        //    rock-solid 48kHz clock (which also structurally avoids the SCO 2× speed bug).
         let aggregateUID = UUID().uuidString
         var description: [String: Any] = [
             kAudioAggregateDeviceNameKey: "BetterVoice-SystemTap",
@@ -119,9 +126,9 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
                 kAudioSubTapUIDKey: tapDescription.uuid.uuidString
             ]]
         ]
-        if let outputUID = Self.defaultOutputDeviceUID() {
-            description[kAudioAggregateDeviceMainSubDeviceKey] = outputUID
-            description[kAudioAggregateDeviceSubDeviceListKey] = [[kAudioSubDeviceUIDKey: outputUID]]
+        if let clockUID = Self.aggregateClockDeviceUID() {
+            description[kAudioAggregateDeviceMainSubDeviceKey] = clockUID
+            description[kAudioAggregateDeviceSubDeviceListKey] = [[kAudioSubDeviceUIDKey: clockUID]]
         }
 
         var newAggID = AudioObjectID(kAudioObjectUnknown)
@@ -386,17 +393,80 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         return status == noErr && rate > 0 ? rate : nil
     }
 
-    private static func defaultOutputDeviceUID() -> String? {
-        guard let deviceID = defaultOutputDeviceID() else { return nil }
-        var uidAddress = AudioObjectPropertyAddress(
+    /// The UID to use as the aggregate's clock/main sub-device. Normally the default output device
+    /// (so the tap clock matches playback). But a Bluetooth output that's also the active mic gets
+    /// switched to hands-free SCO, and wrapping that SCO endpoint in our capture aggregate cuts the
+    /// user's playback out — so when the default output is Bluetooth we anchor to a built-in output
+    /// instead (stable 48kHz, no SCO contention). Falls back to the default output when there's no
+    /// built-in output to borrow.
+    private static func aggregateClockDeviceUID() -> String? {
+        guard let outID = defaultOutputDeviceID() else { return nil }
+        if deviceTransportType(outID).map(isBluetoothTransport) == true,
+           let builtIn = builtInOutputDeviceUID() {
+            Logger.log("Meeting", "System tap: default output is Bluetooth — anchoring aggregate clock to built-in output to avoid SCO playback cutout")
+            return builtIn
+        }
+        return deviceUID(outID)
+    }
+
+    private static func isBluetoothTransport(_ transport: UInt32) -> Bool {
+        transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
+
+    /// A device's UID string.
+    private static func deviceUID(_ deviceID: AudioObjectID) -> String? {
+        var addr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceUID,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
         var uid: Unmanaged<CFString>?
-        var uidSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        let status = AudioObjectGetPropertyData(deviceID, &uidAddress, 0, nil, &uidSize, &uid)
-        guard status == noErr else { return nil }
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &uid) == noErr else { return nil }
         return uid?.takeRetainedValue() as String?
+    }
+
+    /// A device's transport type (e.g. built-in, Bluetooth, USB), or nil if unavailable.
+    private static func deviceTransportType(_ deviceID: AudioObjectID) -> UInt32? {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var transport = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &transport) == noErr else { return nil }
+        return transport
+    }
+
+    private static func deviceHasOutputStreams(_ deviceID: AudioObjectID) -> Bool {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioObjectPropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(deviceID, &addr, 0, nil, &size) == noErr else { return false }
+        return size > 0
+    }
+
+    /// UID of a built-in output device (stable, never SCO) to use as a safe aggregate clock; nil if none.
+    private static func builtInOutputDeviceUID() -> String? {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size = UInt32(0)
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        guard AudioObjectGetPropertyDataSize(system, &addr, 0, nil, &size) == noErr else { return nil }
+        let count = Int(size) / MemoryLayout<AudioObjectID>.size
+        guard count > 0 else { return nil }
+        var devices = [AudioObjectID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &devices) == noErr else { return nil }
+        for dev in devices where deviceTransportType(dev) == kAudioDeviceTransportTypeBuiltIn && deviceHasOutputStreams(dev) {
+            return deviceUID(dev)
+        }
+        return nil
     }
 }
