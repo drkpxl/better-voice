@@ -92,7 +92,12 @@ final class SystemDiarizationChunker: Sendable {
         }
 
         // DiarizerManager is NOT Sendable — created and used only here, confined to this task.
-        let diarizer = DiarizerManager(config: DiarizerConfig())
+        // clusteringThreshold: lower = more speakers. FluidAudio's default 0.7 over-merges (a
+        // clean 9-speaker clip collapsed to 4); 0.55 recovers the true count on multi-speaker
+        // content. TODO(Task 5.1): make this configurable via meeting.diarization in RuntimeConfig.
+        var diarizerConfig = DiarizerConfig()
+        diarizerConfig.clusteringThreshold = 0.55
+        let diarizer = DiarizerManager(config: diarizerConfig)
         diarizer.initialize(models: models)
         Logger.log("Meeting", "[Chunker] Models ready; chunk=\(chunkSize) samples (~\(chunkSize / max(sampleRate, 1))s)")
 
