@@ -66,6 +66,18 @@ final class SpeakerAlignmentTests: XCTestCase {
         XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
     }
 
+    func testTieBreaksDeterministicallyBySpeakerId() {
+        // Both speakers overlap the phrase for exactly 1.5s each -> exact tie.
+        // Tie-break is deterministic by speakerId (the lower id wins with the current rule).
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 1.5),
+                   SpeakerInterval(speakerId: "2", start: 1.5, end: 3)]
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 3), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        // Interval order must not change the winner — the tie-break is stable.
+        let b = assignSpeaker(to: PhraseSpan(start: 0, end: 3), among: ivs.reversed())
+        XCTAssertEqual(b.speakerId, "1")
+    }
+
     func testNotOverlappedWhenSecondSpeakerBelowThreshold() {
         // Speaker "2" overlaps only 0.05s out of a 3s phrase (< 0.15 * 3 = 0.45).
         let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2.95),
@@ -130,11 +142,22 @@ final class SpeakerAlignmentTests: XCTestCase {
         // interval so its confidence is lower.
         let phrases = [(span: PhraseSpan(start: 8, end: 12), text: "a "),
                        (span: PhraseSpan(start: 5, end: 6), text: "b")]
-        // Reorder so consecutive same-speaker; both map to "1".
+        // Both phrases map to speaker "1", so they collapse into one turn.
         let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
         XCTAssertEqual(turns.count, 1)
         XCTAssertEqual(turns[0].embedding, [9, 9])
         XCTAssertEqual(turns[0].minConfidence, 0.5, accuracy: 0.001) // first phrase: 2s overlap / 4s
+    }
+
+    func testConsecutiveNilSpeakerPhrasesMergeIntoOneNilTurn() {
+        // No diarization intervals -> every phrase is unattributed (nil). Consecutive nil
+        // phrases collapse into a single nil turn. Locks in nearest-snap removal at turn level.
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "Hello "),
+                       (span: PhraseSpan(start: 1, end: 2), text: "world.")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: [])
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertNil(turns[0].speakerId)
+        XCTAssertEqual(turns[0].text, "Hello world.")
     }
 
     func testEmptyPhrasesYieldsNoTurns() {

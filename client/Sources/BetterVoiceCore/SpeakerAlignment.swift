@@ -131,8 +131,12 @@ public func assignSpeaker(to phrase: PhraseSpan,
         return SpeakerAssignment(speakerId: nil, embedding: nil, confidence: 0, overlapped: false)
     }
 
-    // Pick the speaker with the greatest total overlap.
-    let best = totalOverlapBySpeaker.max { lhs, rhs in lhs.value < rhs.value }!
+    // Pick the speaker with the greatest total overlap. On an exact tie, break
+    // deterministically by speakerId (higher id wins) so results are stable run-to-run —
+    // Dictionary iteration order is otherwise randomized.
+    let best = totalOverlapBySpeaker.max { lhs, rhs in
+        lhs.value != rhs.value ? lhs.value < rhs.value : lhs.key > rhs.key
+    }!
     let bestSpeaker = best.key
     let bestOverlap = best.value
     let embedding = bestEmbeddingBySpeaker[bestSpeaker] ?? nil
@@ -162,16 +166,9 @@ public func assignSpeaker(to phrase: PhraseSpan,
 /// - Parameters:
 ///   - phrases: ordered `(span, text)` pairs to attribute and group.
 ///   - intervals: diarization intervals to attribute against.
-///   - minConfidenceToSplit: reserved for a later task that will split a turn when a phrase's
-///     confidence drops below this threshold. The default `0.0` preserves the current grouping
-///     behavior (no extra splitting).
 /// - Returns: one `SpeakerTurn` per consecutive same-speaker run, in order.
 public func groupIntoTurns(phrases: [(span: PhraseSpan, text: String)],
-                           intervals: [SpeakerInterval],
-                           minConfidenceToSplit: Double = 0.0) -> [SpeakerTurn] {
-    // Reserved for a later splitting task; referenced here so the parameter is wired.
-    _ = minConfidenceToSplit
-
+                           intervals: [SpeakerInterval]) -> [SpeakerTurn] {
     // 1. Assign each phrase.
     let assigned = phrases.map { phrase -> (span: PhraseSpan, text: String, assignment: SpeakerAssignment) in
         (phrase.span, phrase.text, assignSpeaker(to: phrase.span, among: intervals))
