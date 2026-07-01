@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import BetterVoiceCore
 import Speech
 
 /// B4: Sample-level mixer
@@ -42,6 +43,18 @@ final class AudioMixer {
     private var mixOutputCount: Int = 0
     private let windowMs: Int = 100
 
+    /// Phase-lock carry buffers for the mixed-for-transcription stream. Touched ONLY inside
+    /// `drainAndMix()` on the MainActor, so no lock is needed. Leftover samples from whichever
+    /// channel delivered more in a window are carried to align against the other channel's
+    /// future samples (rather than zero-padded), avoiding progressive desync from independent
+    /// capture clocks. Bounded by `maxMixCarrySamples` (see `alignAndMix` drift cap).
+    private var micMixCarry: [Float] = []
+    private var sysMixCarry: [Float] = []
+
+    /// Max carried samples before the drift cap drops the oldest excess. ~0.5s at the
+    /// diarization/analyzer sample rate (16kHz → 8000).
+    private var maxMixCarrySamples: Int { Int(diarizationFormat.sampleRate * 0.5) }
+
     init(
         analyzerFormat: AVAudioFormat?,
         diarizationFormat: AVAudioFormat,
@@ -69,6 +82,11 @@ final class AudioMixer {
         drainTask = nil
         // Final drain to flush any remaining samples
         await drainAndMix()
+        // Flush residual carry so trailing audio isn't lost. After the last drainAndMix() at most
+        // one carry is non-empty (a solo tail from the channel that delivered more). We zero-pad
+        // that final tail into the mix so trailing speech still reaches SA — safe here since no
+        // further windows follow, so this final zero-pad cannot cause progressive desync.
+        flushMixCarry()
         let (micFed, sysFed) = readCounts()
         Logger.log("Meeting", "AudioMixer stopped. micFed=\(micFed) sysFed=\(sysFed) mixed=\(mixOutputCount)")
     }
@@ -117,23 +135,51 @@ final class AudioMixer {
             return
         }
 
-        // Per-channel (pre-mix) samples → the two diarization buffers.
+        // Per-channel (pre-mix) samples → the two diarization buffers. Unchanged: diarization
+        // is per-channel and must receive EVERY sample in order.
         onMicSamples?(mic)
         onSysSamples?(sys)
 
-        // Align to whichever stream is longer, padding the shorter one with zeros
-        let len = max(mic.count, sys.count)
-        var mixed = [Float](repeating: 0, count: len)
-        for i in 0..<len {
-            let m = i < mic.count ? mic[i] : 0
-            let s = i < sys.count ? sys[i] : 0
-            mixed[i] = (m + s) * 0.5
+        // Phase-locked mix for transcription: append this window's samples to the carry buffers,
+        // mix the aligned prefix, and carry the leftover from the longer channel to align against
+        // the other channel's future samples (no zero-padding → no progressive desync).
+        micMixCarry.append(contentsOf: mic)
+        sysMixCarry.append(contentsOf: sys)
+        let r = alignAndMix(mic: micMixCarry, sys: sysMixCarry, maxCarry: maxMixCarrySamples)
+        micMixCarry = r.micRemainder
+        sysMixCarry = r.sysRemainder
+
+        if r.droppedForDrift > 0 {
+            Logger.log("Meeting", "AudioMixer drift resync: dropped \(r.droppedForDrift) samples")
         }
+
+        guard !r.mixed.isEmpty else { return }
 
         mixOutputCount += 1
 
         // Send to SA (converted to an analyzerFormat PCM buffer). Transcription
         // still uses the mix; diarization now uses the per-channel streams above.
+        if let analyzerFormat,
+           let pcmBuffer = makeAnalyzerBuffer(from: r.mixed, targetFormat: analyzerFormat) {
+            inputBuilder.yield(AnalyzerInput(buffer: pcmBuffer))
+        }
+    }
+
+    /// Final flush of any residual mix carry (called once on stop, after the last drain).
+    /// Zero-pads the leftover solo tail so trailing audio still reaches SA. MainActor-only.
+    private func flushMixCarry() {
+        let len = max(micMixCarry.count, sysMixCarry.count)
+        guard len > 0 else { return }
+        var mixed = [Float](repeating: 0, count: len)
+        for i in 0..<len {
+            let m = i < micMixCarry.count ? micMixCarry[i] : 0
+            let s = i < sysMixCarry.count ? sysMixCarry[i] : 0
+            mixed[i] = (m + s) * 0.5
+        }
+        micMixCarry.removeAll(keepingCapacity: false)
+        sysMixCarry.removeAll(keepingCapacity: false)
+
+        mixOutputCount += 1
         if let analyzerFormat,
            let pcmBuffer = makeAnalyzerBuffer(from: mixed, targetFormat: analyzerFormat) {
             inputBuilder.yield(AnalyzerInput(buffer: pcmBuffer))
