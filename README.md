@@ -38,7 +38,7 @@ Free, open source, no accounts, no telemetry.
 - **Captures the whole conversation** — microphone **and** system audio (Zoom, Teams, Meet, anything playing), or either one. No bot joins your call. Uses a lightweight **Core Audio process tap** (needs only *System Audio Recording* consent — not full Screen Recording).
 - **Speaker diarization** via [FluidAudio](https://github.com/FluidInference/FluidAudio): your own voice (the mic) is labeled **"You"** automatically, and the other participants are separated per-voice; rename any of them in the post-meeting wrap-up.
 - **AI summaries that fit the meeting.** Better Voice classifies the meeting (**1:1 / standup / general**) and uses a matching summary template — decisions, action items, and the points that actually matter — with your personal context mixed in.
-- Notes accrue **live** during the meeting; exports a clean `transcript.md` + `-summary.md` to `~/.better-voice/meetings/`.
+- When you stop, exports a clean `transcript.md` + `-summary.md` to `~/.better-voice/meetings/`.
 
 ### 🧠 Personalized to you
 - `~/.better-voice/personal-context.md` — free-text Markdown you edit by hand. No schema, no fine-tuning, no GPU. Carries meaning, not just spellings, and powers both cleanup and summaries.
@@ -86,7 +86,7 @@ Granted during onboarding, or in **System Settings → Privacy & Security**:
 
 **Dictation** — Press **Right Option** to start, speak, press again to stop. The polished text is typed into the focused app.
 
-**Meeting** — Press **Right Option+M** (or menu bar → **Start Meeting Recording**). Watch the live transcript; your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the other participants' voices don't leak back into your microphone.
+**Meeting** — Press **Right Option+M** (or menu bar → **Start Meeting Recording**). Your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the other participants' voices don't leak back into your microphone.
 
 ---
 

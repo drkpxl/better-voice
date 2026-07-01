@@ -60,7 +60,7 @@
   <div class="card">
     <p><strong>1.</strong> Download and install Ollama from <a href="https://ollama.com/download">ollama.com/download</a> (or <code>brew install ollama</code>).</p>
     <p><strong>2.</strong> Pull a model in Terminal:</p>
-    <pre><code>ollama pull qwen3.5:4b</code></pre>
+    <pre><code>ollama pull qwen3.5:4b-mlx</code></pre>
     <p class="muted">Ollama runs in the background and serves the model automatically. Better Voice's default endpoint <code>http://localhost:11434</code> will just work.</p>
   </div>
 
@@ -69,9 +69,9 @@
   <div class="table-scroll">
     <table>
       <tr><th>Model</th><th>Good for</th><th>Notes</th></tr>
-      <tr><td><code>qwen3.5:4b</code></td><td>Default: dictation polish + summaries</td><td>Fast, low memory, solid quality.</td></tr>
+      <tr><td><code>qwen3.5:4b-mlx</code></td><td>Default: dictation polish + summaries</td><td>Fast, low memory, solid quality. Matches Better Voice's out-of-the-box config.</td></tr>
       <tr><td><code>llama3.1:8b</code></td><td>Nicer summaries</td><td>Heavier; better on 32&nbsp;GB+ Macs.</td></tr>
-      <tr><td><code>qwen3.5:1.5b</code></td><td>Older / low-RAM Macs</td><td>Snappiest; simpler output.</td></tr>
+      <tr><td><code>qwen3.5:1.5b</code></td><td>Low-RAM Macs</td><td>Snappiest; simpler output.</td></tr>
     </table>
   </div>
   <p class="muted">Set the model name in Better Voice's onboarding (or Settings) to match whatever you pulled. Long meeting summaries benefit from a model with a large context window.</p>
