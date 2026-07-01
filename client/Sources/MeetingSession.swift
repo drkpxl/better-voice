@@ -622,41 +622,41 @@ final class MeetingSession {
     }
 
     /// Align L2 batch segments with diarization segments based on time overlap.
-    /// For each batch segment, find the diarization segment with the longest overlap and take its speakerId.
+    /// Delegates the overlap math to `BetterVoiceCore.assignSpeaker`. Segments that do not
+    /// overlap any diarization interval now get a `nil` speakerId (the old "snap to nearest
+    /// speaker" behavior was intentionally removed — it mislabeled interruptions).
     private func alignTranscriptionWithDiarization(
         segments: [MeetingSegment],
         diarization: [TimedSpeakerSegment]
     ) -> [MeetingSegment] {
+        let intervals = speakerIntervals(from: diarization)
         return segments.map { tSeg in
-            let tStart = tSeg.startTime
-            let tEnd = tSeg.endTime
-
-            // Find the diarization segment with the most overlap
-            var bestSpeaker: String? = nil
-            var maxOverlap: TimeInterval = 0
-
-            for dSeg in diarization {
-                let dStart = TimeInterval(dSeg.startTimeSeconds)
-                let dEnd = TimeInterval(dSeg.endTimeSeconds)
-
-                let overlapStart = max(tStart, dStart)
-                let overlapEnd = min(tEnd, dEnd)
-                let overlap = max(0, overlapEnd - overlapStart)
-
-                if overlap > maxOverlap {
-                    maxOverlap = overlap
-                    bestSpeaker = dSeg.speakerId
-                }
-            }
-
+            let assignment = assignSpeaker(
+                to: PhraseSpan(start: tSeg.startTime, end: tSeg.endTime),
+                among: intervals
+            )
             return MeetingSegment(
                 text: tSeg.text,
                 rawText: tSeg.rawText,
                 startTime: tSeg.startTime,
                 endTime: tSeg.endTime,
-                speakerId: bestSpeaker,
+                speakerId: assignment.speakerId,
                 l2Kind: tSeg.l2Kind,
                 isFinal: tSeg.isFinal
+            )
+        }
+    }
+
+    /// Convert FluidAudio diarization segments into pure-Core `SpeakerInterval`s.
+    private func speakerIntervals(from diarization: [TimedSpeakerSegment]) -> [SpeakerInterval] {
+        diarization.map { d in
+            SpeakerInterval(
+                speakerId: d.speakerId,
+                start: TimeInterval(d.startTimeSeconds),
+                end: TimeInterval(d.endTimeSeconds),
+                embedding: d.embedding,
+                quality: d.qualityScore,
+                source: .system
             )
         }
     }
@@ -671,33 +671,22 @@ final class MeetingSession {
         entries: [SegmentBuffer.Entry],
         diarization: [TimedSpeakerSegment]
     ) async -> [MeetingSegment] {
-        // 1. label each phrase by speaker
-        let labeled = entries.map { entry -> (entry: SegmentBuffer.Entry, speaker: String?) in
-            (entry, speakerForTimeRange(start: entry.startTime, end: entry.endTime, in: diarization))
-        }
+        // Assign + group phrases into speaker turns in pure Core (tested seam).
+        let phrases = entries.map { (span: PhraseSpan(start: $0.startTime, end: $0.endTime), text: $0.text) }
+        let intervals = speakerIntervals(from: diarization)
+        let turns = groupIntoTurns(phrases: phrases, intervals: intervals)
 
-        // 2. group consecutive phrases by speaker into turns
-        var turns: [(speaker: String?, entries: [SegmentBuffer.Entry])] = []
-        for item in labeled {
-            if !turns.isEmpty, turns[turns.count - 1].speaker == item.speaker {
-                turns[turns.count - 1].entries.append(item.entry)
-            } else {
-                turns.append((speaker: item.speaker, entries: [item.entry]))
-            }
-        }
-
-        // 3. polish each turn → one MeetingSegment per speaker turn
+        // Polish each turn → one MeetingSegment per speaker turn.
         var result: [MeetingSegment] = []
         for turn in turns {
-            guard let first = turn.entries.first, let last = turn.entries.last else { continue }
-            let raw = turn.entries.map(\.text).joined()
+            let raw = turn.text
             let polished = await polishTurnText(raw)
             result.append(MeetingSegment(
                 text: polished.text,
                 rawText: raw,
-                startTime: first.startTime,
-                endTime: last.endTime,
-                speakerId: turn.speaker,
+                startTime: turn.start,
+                endTime: turn.end,
+                speakerId: turn.speakerId,
                 l2Kind: polished.kind,
                 isFinal: true
             ))
@@ -705,35 +694,6 @@ final class MeetingSession {
         let speakerCount = Set(result.compactMap(\.speakerId)).count
         Logger.log("Meeting", "Speaker turns: \(result.count) turns from \(entries.count) phrases, \(speakerCount) distinct speakers")
         return result
-    }
-
-    /// Find the speakerId of the diarization segment with the longest overlap with the given time range.
-    /// Speaker whose diarization segment overlaps this time range the most.
-    private func speakerForTimeRange(start: TimeInterval, end: TimeInterval, in diarization: [TimedSpeakerSegment]) -> String? {
-        var bestSpeaker: String? = nil
-        var maxOverlap: TimeInterval = 0
-        var nearestSpeaker: String? = nil
-        var nearestDistance = TimeInterval.greatestFiniteMagnitude
-        let mid = (start + end) / 2
-        for d in diarization {
-            let dStart = TimeInterval(d.startTimeSeconds)
-            let dEnd = TimeInterval(d.endTimeSeconds)
-            let overlap = max(0, min(end, dEnd) - max(start, dStart))
-            if overlap > maxOverlap {
-                maxOverlap = overlap
-                bestSpeaker = d.speakerId
-            }
-            // Time distance to this diarization segment (0 if inside it); used as a fallback when there's no overlap.
-            let distance = mid < dStart ? dStart - mid : (mid > dEnd ? mid - dEnd : 0)
-            if distance < nearestDistance {
-                nearestDistance = distance
-                nearestSpeaker = d.speakerId
-            }
-        }
-        // Prefer the most-overlapping speaker; otherwise take the temporally nearest speaker, eliminating "Unknown" for brief interjections.
-        // Prefer the most-overlapping speaker; otherwise snap to the nearest one
-        // so brief interjections in diarization gaps aren't labelled "Unknown".
-        return bestSpeaker ?? nearestSpeaker
     }
 
     /// Run a single L2 polish pass on a chunk of text (reusing PolishClient); falls back to the raw text when disabled or on failure.
