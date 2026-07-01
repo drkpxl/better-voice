@@ -375,8 +375,9 @@ final class MeetingSession {
             interleaved: false
         )!
 
-        // Per-channel diarization append closures. These run off the main thread
-        // (audio callbacks); they lock and append directly — no hop to main.
+        // Per-channel diarization append closures. In mic/system modes these run on the
+        // capture queue (off-main); in both mode they run from the mixer's 100ms MainActor
+        // drain. Either way they lock and append synchronously — no async hop to main.
         let appendMic: @Sendable ([Float]) -> Void = { [weak self] samples in
             self?.appendMicSamples(samples)
         }
