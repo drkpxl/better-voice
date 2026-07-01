@@ -31,7 +31,7 @@ Free, open source, no accounts, no telemetry.
 
 ### 📝 Meeting transcription & notes
 - **Captures the whole conversation** — microphone **and** system audio (Zoom, Teams, Meet, anything playing), or either one. No bot joins your call. Uses a lightweight **Core Audio process tap** (needs only *System Audio Recording* consent — not full Screen Recording).
-- **Speaker diarization** via [FluidAudio](https://github.com/FluidInference/FluidAudio), with a post-meeting wrap-up to **name each speaker**.
+- **Speaker diarization** via [FluidAudio](https://github.com/FluidInference/FluidAudio): your own voice (the mic) is labeled **"You"** automatically, and the other participants are separated per-voice; rename any of them in the post-meeting wrap-up.
 - **AI summaries that fit the meeting.** Better Voice classifies the meeting (**1:1 / standup / general**) and uses a matching summary template — decisions, action items, and the points that actually matter — with your personal context mixed in.
 - Notes accrue **live** during the meeting; exports a clean `transcript.md` + `-summary.md` to `~/.better-voice/meetings/`.
 
@@ -83,7 +83,7 @@ Granted during onboarding, or in **System Settings → Privacy & Security**:
 
 **Dictation** — Press **Right Option** to start, speak, press again to stop. The polished text is typed into the focused app.
 
-**Meeting** — Menu bar → **Start Meeting**. Watch the live transcript; when you stop, name the speakers in the wrap-up window and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`.
+**Meeting** — Menu bar → **Start Meeting**. Watch the live transcript; your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the remote voices don't leak back into your microphone.
 
 **Remote Voice (from Windows)** — with the Mac running and Tailscale connected, hold **Right Alt** on the PC to speak; the text lands at the cursor on your Mac. See [Remote Voice setup](#remote-voice).
 
@@ -100,7 +100,7 @@ Press hotkey
   → Local history (voice-history.jsonl / audio) for debugging
 ```
 
-Meeting mode adds mic + system-audio capture, live per-segment polish, FluidAudio diarization at stop, speaker naming, meeting-type classification, and a summary pass — all on-device.
+Meeting mode adds mic + system-audio capture, live per-segment polish, and **per-channel** diarization at stop (the mic is deterministically "You"; the system channel is diarized by FluidAudio in bounded chunks and merged onto one speaker timeline), plus speaker renaming, meeting-type classification, and a summary pass — all on-device.
 
 ---
 
