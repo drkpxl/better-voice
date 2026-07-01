@@ -228,21 +228,11 @@ enum MeetingBenchmark {
     static func benchDiarizationScore(segments: [MeetingSegment], audioPath: String?) -> DiarizationScore? {
         guard let audioPath else { return nil }
         let sidecar = audioPath + ".speakers.json"
-        guard let data = FileManager.default.contents(atPath: sidecar),
-              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return nil
-        }
-        let reference: [LabeledInterval] = raw.compactMap { obj in
-            guard let speaker = obj["speaker"] as? String,
-                  let start = (obj["start"] as? NSNumber)?.doubleValue,
-                  let end = (obj["end"] as? NSNumber)?.doubleValue else { return nil }
-            return LabeledInterval(speaker: speaker, start: start, end: end)
-        }
-        guard !reference.isEmpty else { return nil }
+        guard let data = FileManager.default.contents(atPath: sidecar) else { return nil }
         let hypothesis = segments.map {
             LabeledInterval(speaker: $0.speakerId ?? "?", start: $0.startTime, end: $0.endTime)
         }
-        return scoreDiarization(reference: reference, hypothesis: hypothesis)
+        return scoreDiarizationAgainstSidecar(hypothesis: hypothesis, sidecarJSONData: data)
     }
 
     static func parseArg(_ args: [String], key: String) -> String? {
