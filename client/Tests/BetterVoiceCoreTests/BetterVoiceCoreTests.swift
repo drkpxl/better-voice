@@ -88,6 +88,7 @@ final class BetterVoiceCoreTests: XCTestCase {
         XCTAssertEqual(body["system"] as? String, "sys")
         XCTAssertEqual(body["prompt"] as? String, "hello")
         XCTAssertEqual(body["stream"] as? Bool, false)
+        XCTAssertEqual(body["think"] as? Bool, false, "thinking stays off (empties local summaries)")
         let opts = try? XCTUnwrap(body["options"] as? [String: Any])
         XCTAssertEqual(opts?["num_ctx"] as? Int, 16384)
         XCTAssertEqual(opts?["num_predict"] as? Int, 1024)

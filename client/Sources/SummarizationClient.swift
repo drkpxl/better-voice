@@ -78,6 +78,10 @@ final class SummarizationClient {
 
         let base = Prompts.summarizationPrompt(for: type, overrides: promptOverrides, language: language)
         let system = PersonalContext.appended(to: base)
+        // Benchmark verdict: think:true is a net loss for local summarization — the reasoning eats the
+        // num_predict budget and returns an EMPTY summary at 2048 (or 18× slower at 6144), with no quality
+        // gain over think:false. Kept off. Large cloud models handle thinking fine, but even there the
+        // non-thinking summary was just as good, so we don't special-case it.
         let opts = ModelServer.GenerateOptions(
             model: summarizationModel,
             numCtx: numCtx,

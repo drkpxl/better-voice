@@ -67,6 +67,10 @@ final class SettingsViewModel {
     var summarizationEnabled: Bool
     var summarizationModel: String
     var numCtx: Int
+    // Polish (dictation cleanup); blank = use main model
+    var polishModel: String
+    // Models the server reports as available, for the dropdowns (empty until loaded)
+    var availableModels: [String] = []
     // Meeting
     var saveFolder: String
     var autoDeleteAudio: Bool
@@ -107,6 +111,7 @@ final class SettingsViewModel {
         model = server["model"] as? String ?? "qwen3.5:4b-mlx"
         api = server["api"] as? String ?? "ollama"
         summarizationModel = server["summarization_model"] as? String ?? ""
+        polishModel = cfg.polishConfig["model"] as? String ?? ""
 
         summarizationEnabled = summ["enabled"] as? Bool ?? true
         numCtx = summ["num_ctx"] as? Int ?? 32768
@@ -130,6 +135,10 @@ final class SettingsViewModel {
         server["api"] = api
         server["summarization_model"] = summarizationModel.trimmingCharacters(in: .whitespacesAndNewlines)
         cfg.updateSection("server", server)
+
+        var polish = cfg.polishConfig
+        polish["model"] = polishModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        cfg.updateSection("polish", polish)
 
         var meeting = cfg.meetingConfig
         meeting["save_folder"] = saveFolder.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,8 +164,15 @@ final class SettingsViewModel {
         Task {
             await ModelServer.shared.checkHealth()
             self.serverStatus = ModelServer.shared.status
+            await self.loadModels()
             self.isCheckingConnection = false
         }
+    }
+
+    /// Fetch the server's model list for the dropdowns, using the form's (possibly unsaved) endpoint/api
+    /// so the list matches the server the user just typed. Empty on failure (dropdown keeps the configured value).
+    func loadModels() async {
+        availableModels = await ModelServer.shared.availableModels(endpoint: endpoint, apiType: api)
     }
 
     func changeHotkey() { HotKeySettingsWindow.shared.show() }
@@ -198,12 +214,44 @@ final class SettingsViewModel {
 struct SettingsContentView: View {
     @Bindable var viewModel: SettingsViewModel
 
+    /// Options for a model dropdown: the server-reported models, guaranteeing `current` is present so a
+    /// configured-but-unlisted model (not pulled yet, remote, or list unavailable) isn't silently lost.
+    // ponytail: dropdown-only — if discovery returns [] you can't type a brand-new model name here;
+    // the current value is preserved and "Edit Config File" is the escape hatch. Add a TextField
+    // fallback (show when availableModels.isEmpty) if that turns out to bite real users.
+    private func modelOptions(current: String) -> [String] {
+        var opts = viewModel.availableModels
+        let c = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !c.isEmpty, !opts.contains(c) { opts.insert(c, at: 0) }
+        return opts
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Form {
                 Section(t("Model server")) {
                     TextField(t("Endpoint"), text: $viewModel.endpoint)
-                    TextField(t("Model"), text: $viewModel.model)
+                    Picker(selection: $viewModel.model) {
+                        ForEach(modelOptions(current: viewModel.model), id: \.self) { m in
+                            Text(m).tag(m)
+                        }
+                    } label: {
+                        Text(t("Main model"))
+                    }
+                    Text(t("Used for dictation and summaries unless overridden below."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker(selection: $viewModel.polishModel) {
+                        Text(t("Same as main model")).tag("")
+                        ForEach(modelOptions(current: viewModel.polishModel), id: \.self) { m in
+                            Text(m).tag(m)
+                        }
+                    } label: {
+                        Text(t("Dictation model"))
+                    }
+                    Text(t("Cleans up what you dictate. A small model here makes dictation inject faster."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Picker(selection: $viewModel.api) {
                         Text("Ollama").tag("ollama")
                         Text("OpenAI-compatible").tag("openai")
@@ -222,7 +270,14 @@ struct SettingsContentView: View {
 
                 Section(t("Summarization")) {
                     Toggle(t("Summarize meetings"), isOn: $viewModel.summarizationEnabled)
-                    TextField(t("Summarization model (blank = use model above)"), text: $viewModel.summarizationModel)
+                    Picker(selection: $viewModel.summarizationModel) {
+                        Text(t("Same as main model")).tag("")
+                        ForEach(modelOptions(current: viewModel.summarizationModel), id: \.self) { m in
+                            Text(m).tag(m)
+                        }
+                    } label: {
+                        Text(t("Summarization model"))
+                    }
                     HStack {
                         Text(t("Context window (num_ctx)"))
                         Spacer()
@@ -307,6 +362,7 @@ struct SettingsContentView: View {
                 }
             }
             .formStyle(.grouped)
+            .task { await viewModel.loadModels() }
 
             Divider()
 

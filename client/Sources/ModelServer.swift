@@ -57,6 +57,25 @@ final class ModelServer {
         serverConfig["timeout"] as? TimeInterval ?? 10
     }
 
+    /// Build the model-list URL for a server (used by both the health check and model discovery).
+    /// Ollama → `/api/tags`, OpenAI-compatible → `/v1/models`. Tolerates endpoints written with a
+    /// trailing path or slash (`…/v1`, `…/v1/chat/completions`, `…/api/generate`, `…/`) so we never
+    /// produce a doubled `/v1/v1/models`.
+    static func modelsListURL(endpoint: String, apiType: String) -> String {
+        if apiType == "openai" {
+            var base = endpoint
+                .replacingOccurrences(of: "/v1/chat/completions", with: "")
+                .replacingOccurrences(of: "/v1/completions", with: "")
+            if base.hasSuffix("/v1") { base.removeLast(3) }
+            if base.hasSuffix("/") { base.removeLast() }
+            return base + "/v1/models"
+        } else {
+            var base = endpoint.replacingOccurrences(of: "/api/generate", with: "")
+            if base.hasSuffix("/") { base.removeLast() }
+            return base + "/api/tags"
+        }
+    }
+
     // MARK: - Health checks
 
     func startHealthCheck() {
@@ -83,20 +102,7 @@ final class ModelServer {
 
     @discardableResult
     func checkHealth() async -> Bool {
-        let healthURL: String
-        if apiType == "openai" {
-            // OpenAI-compatible: strip path, check /v1/models
-            let base = endpoint
-                .replacingOccurrences(of: "/v1/chat/completions", with: "")
-                .replacingOccurrences(of: "/v1/completions", with: "")
-            healthURL = base + "/v1/models"
-        } else {
-            // Ollama: check /api/tags
-            let base = endpoint.replacingOccurrences(of: "/api/generate", with: "")
-            healthURL = base + "/api/tags"
-        }
-
-        guard let url = URL(string: healthURL) else {
+        guard let url = URL(string: Self.modelsListURL(endpoint: endpoint, apiType: apiType)) else {
             updateStatus(.disconnected)
             return false
         }
@@ -117,6 +123,36 @@ final class ModelServer {
             updateStatus(.disconnected)
             return false
         }
+    }
+
+    // MARK: - Model discovery
+
+    /// List the models the server has available, for the settings dropdowns.
+    /// Ollama: GET /api/tags → {models:[{name}]}. OpenAI-compatible: GET /v1/models → {data:[{id}]}.
+    /// `endpoint`/`apiType` default to the persisted config, but the settings form passes its
+    /// unsaved values so the dropdown reflects the server the user just typed, not the old one.
+    /// Returns [] on any failure (dropdown falls back to the currently-configured value).
+    func availableModels(endpoint: String? = nil, apiType: String? = nil) async -> [String] {
+        let ep = endpoint ?? self.endpoint
+        let api = apiType ?? self.apiType
+        guard let url = URL(string: Self.modelsListURL(endpoint: ep, apiType: api)) else { return [] }
+
+        var request = URLRequest(url: url, timeoutInterval: 5)
+        request.httpMethod = "GET"
+        if api == "openai", let key = serverConfig["api_key"] as? String, !key.isEmpty {
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        }
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+
+        let names: [String]
+        if api == "openai" {
+            names = (json["data"] as? [[String: Any]])?.compactMap { $0["id"] as? String } ?? []
+        } else {
+            names = (json["models"] as? [[String: Any]])?.compactMap { $0["name"] as? String } ?? []
+        }
+        return names.sorted()
     }
 
     // MARK: - Inference

@@ -26,10 +26,12 @@ final class PolishClient {
         let estTokens = text.count / 4
         let numPredict = min(max(estTokens * 2, 512), 8192)
 
+        // Polish can use a smaller/faster model than summarization (blank = fall back to server.model).
+        let polishModel = (config["model"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return await ModelServer.shared.generate(
             prompt: text,
             systemPrompt: systemPrompt,
-            options: .init(numPredict: numPredict)
+            options: .init(model: (polishModel?.isEmpty == false) ? polishModel : nil, numPredict: numPredict)
         )
     }
 }

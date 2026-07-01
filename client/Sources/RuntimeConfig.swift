@@ -115,6 +115,8 @@ final class RuntimeConfig {
                 ],
                 "polish": [
                     "enabled": true,
+                    // dictation cleanup can use a smaller/faster model than summarization; blank = use server.model.
+                    "model": "",
                     "system_prompt": Prompts.defaultPolish,
                     "personal_context_enabled": true,
                     "context_dictionary_enabled": false,

@@ -67,6 +67,8 @@ public func makeOllamaRequestBody(
         "prompt": prompt,
         "system": system,
         "stream": false,
+        // Thinking stays off: benchmarks showed reasoning eats the num_predict budget and returns an
+        // empty summary on local models, with no quality gain. See SummarizationClient.
         "think": false,
         "options": [
             "temperature": temperature,
