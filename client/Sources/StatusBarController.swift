@@ -9,7 +9,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private var isRecording = false
     private var isProcessing = false   // dictation is transcribing/polishing (VoiceModule .processing)
-    private var remoteStatus: RemoteInbox.Status = .idle
 
     // meeting mode
     private var meetingSession: MeetingSession?
@@ -55,11 +54,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// True while a meeting's wrap-up (classification/naming/summary) is running. The hotkey
     /// path checks this to avoid starting a dictation on top of an in-progress transcription.
     var isBusy: Bool { isFinishingMeeting || isProcessing }
-
-    func setRemoteStatus(_ status: RemoteInbox.Status) {
-        remoteStatus = status
-        setupMenu()
-    }
 
     /// Status-bar glyph: the brand's 5-bar waveform as a template icon (auto-tints for
     /// light/dark menu bars) plus a trailing state badge.
@@ -155,14 +149,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             )
             startMeeting.target = self
             menu.addItem(startMeeting)
-        }
-
-        // remote voice
-        if remoteStatus != .idle {
-            menu.addItem(NSMenuItem.separator())
-            let port = RuntimeConfig.shared.remoteConfig["port"] as? Int ?? 9800
-            let remoteItem = NSMenuItem(title: t("Remote voice: \(remoteStatus.displayName) (:\(String(port)))"), action: nil, keyEquivalent: "")
-            menu.addItem(remoteItem)
         }
 
         menu.addItem(NSMenuItem.separator())

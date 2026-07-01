@@ -72,20 +72,6 @@ final class VoiceModule: BetterVoiceModule {
             do {
                 try await voiceSession.start()
                 Logger.log("Voice", "Recording... press hotkey again to stop")
-
-                // Context injection (optional correction dictionary), async so it doesn't block recording
-                Task {
-                    let polish = RuntimeConfig.shared.polishConfig
-                    let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
-                    let dictPath = polish["context_dictionary_path"] as? String
-                    let words = await ContextEnhancer.enhance(
-                        dictionaryEnabled: dictEnabled,
-                        dictionaryPath: dictPath
-                    )
-                    if !words.isEmpty {
-                        await voiceSession.updateContext(contextualWords: words)
-                    }
-                }
             } catch {
                 Logger.log("Voice", "Failed to start: \(error)")
                 session = nil

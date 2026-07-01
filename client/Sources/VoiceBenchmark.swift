@@ -7,7 +7,7 @@ import Speech
 ///   BetterVoice --bench-voice <wav> [--locale zh-CN] [--output result.json]
 ///   BetterVoice --bench-voice --batch <manifest.jsonl> [--output-dir results/]
 ///
-/// Runs the full ContextEnhancer + SpeechAnalyzer + L2 polish pipeline, outputting rawSA + finalText.
+/// Runs the full SpeechAnalyzer + L2 polish pipeline, outputting rawSA + finalText.
 /// **Does not call TextInjector** (no cursor injection), **does not write voice-history.jsonl** (keeps history clean) —
 /// that is the only difference from VoiceSession; the rest of the pipeline is identical.
 ///
@@ -70,19 +70,6 @@ enum VoiceBenchmark {
             // 2. Create the SpeechAnalyzer
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
-            // 3. Context injection (dictionary) -- must be included for a user-perspective evaluation
-            let polishCfg = RuntimeConfig.shared.polishConfig
-            let dictEnabled = polishCfg["context_dictionary_enabled"] as? Bool ?? false
-            let dictPath = polishCfg["context_dictionary_path"] as? String
-            let contextWords = await ContextEnhancer.enhance(
-                dictionaryEnabled: dictEnabled,
-                dictionaryPath: dictPath
-            )
-            if !contextWords.isEmpty {
-                let ctx = AnalysisContext()
-                ctx.contextualStrings[.general] = contextWords
-                try? await analyzer.setContext(ctx)
-            }
             let tCtxDone = CFAbsoluteTimeGetCurrent()
 
             // 4. Result collection
@@ -110,6 +97,7 @@ enum VoiceBenchmark {
 
             // 6. L2 polish (the final text from the user's perspective)
             var polishedText: String? = nil
+            let polishCfg = RuntimeConfig.shared.polishConfig
             let l2Enabled = polishCfg["enabled"] as? Bool ?? true
             if l2Enabled && !fullText.isEmpty {
                 polishedText = await PolishClient.shared.polish(
@@ -135,7 +123,6 @@ enum VoiceBenchmark {
                 "polishedText": polishedText ?? NSNull(),
                 "finalText": finalText,
                 "hypothesis": finalText,                  // matches MeetingBenchmark's output format
-                "context_terms": contextWords.count,
                 "n_words": allWords.count,
             ]
 

@@ -177,21 +177,6 @@ final class VoiceSession {
         Logger.log("Voice", "Session started (AVCaptureSession + SpeechAnalyzer)")
     }
 
-    /// Inject correction-dictionary keywords into SA at runtime (improves recognition accuracy for proper nouns/terminology)
-    func updateContext(contextualWords: [String]) async {
-        guard let analyzer, !contextualWords.isEmpty else { return }
-        let context = AnalysisContext()
-        context.contextualStrings[.general] = contextualWords
-        do {
-            try await analyzer.setContext(context)
-            let preview = contextualWords.prefix(5).joined(separator: ", ")
-            let suffix = contextualWords.count > 5 ? "..." : ""
-            Logger.log("Voice", "SA context injected \(contextualWords.count) contextualStrings: [\(preview)\(suffix)]")
-        } catch {
-            Logger.log("Voice", "SA context update failed: \(error)")
-        }
-    }
-
     /// Stop recording and wait for the final result
     func stop() async -> TranscriptionResult {
         guard isRunning else {

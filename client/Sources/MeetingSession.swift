@@ -174,9 +174,6 @@ final class MeetingSession {
             let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
             self.analyzer = analyzer
 
-            // 2.5 Contextual injection (dictionary + optional OCR), unified with the Remote/Voice paths
-            await injectContextualStrings(analyzer: analyzer)
-
             // 3. Start result handling (resultTask identical to start())
             resultTask = Task { [weak self] in
                 do {
@@ -370,9 +367,6 @@ final class MeetingSession {
         let prepareT0 = CFAbsoluteTimeGetCurrent()
         try? await analyzer.prepareToAnalyze(in: analyzerFormat)
         Logger.log("Meeting", "prepareToAnalyze took \(String(format: "%.3f", CFAbsoluteTimeGetCurrent() - prepareT0))s")
-
-        // 4.6 Contextual injection (dictionary + optional OCR), unified with the Remote/Voice paths
-        await injectContextualStrings(analyzer: analyzer)
 
         // 5. Create the AsyncStream input channel
         let (inputSequence, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream()
@@ -858,7 +852,6 @@ final class MeetingSession {
             try await ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
             let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
             let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
-            await injectContextualStrings(analyzer: analyzer)
 
             // Collect the final phrases (the collector Task inherits this @MainActor context, so
             // `extractTimeRange` is safe; it returns its own array, no shared scratch state).
@@ -1039,24 +1032,6 @@ final class MeetingSession {
         self.segmentBuffer = buf
     }
 
-    /// ContextEnhancer call + analyzer.setContext (consistent with the Remote/Voice paths)
-    private func injectContextualStrings(analyzer: SpeechAnalyzer) async {
-        let polish = RuntimeConfig.shared.polishConfig
-        let dictEnabled = polish["context_dictionary_enabled"] as? Bool ?? false
-        let dictPath = polish["context_dictionary_path"] as? String
-        let words = await ContextEnhancer.enhance(
-            dictionaryEnabled: dictEnabled,
-            dictionaryPath: dictPath
-        )
-        if !words.isEmpty {
-            let ctx = AnalysisContext()
-            ctx.contextualStrings[.general] = words
-            try? await analyzer.setContext(ctx)
-            let preview = words.prefix(5).joined(separator: ", ")
-            let suffix = words.count > 5 ? "..." : ""
-            Logger.log("Meeting", "SA context injected \(words.count) terms: [\(preview)\(suffix)]")
-        }
-    }
 
     /// Run L2 correction on one flush batch and return the final MeetingSegment.
     /// On L2 failure, text = rawText (fallback); each call's result is appended to meeting-history.jsonl immediately.

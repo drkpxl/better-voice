@@ -25,13 +25,6 @@
 "Server: disconnected (%@)" = "Server: disconnected (%@)";
 "Server: checking..." = "Server: checking...";
 "Set Hotkey... (%@)" = "Set Hotkey... (%@)";
-"Remote voice: %@ (:%@)" = "Remote voice: %@ (:%@)";
-
-/* --- Remote inbox status --- */
-"Listening" = "Listening";
-"Receiving" = "Receiving";
-"Processing" = "Processing";
-"Inactive" = "Inactive";
 
 /* --- Meeting transcript panel --- */
 "Better Voice Meeting Transcript" = "Better Voice Meeting Transcript";

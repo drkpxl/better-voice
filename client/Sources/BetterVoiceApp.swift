@@ -54,7 +54,7 @@ struct BetterVoiceApp {
         }
 
         // live recording evaluation: BetterVoice --bench-voice <wav> [--locale zh-CN] [--output result.json]
-        // Runs the full ContextEnhancer + SA + L2 polish pipeline (from the user's perspective), but does not inject at the cursor or write history
+        // Runs the full SA + L2 polish pipeline (from the user's perspective), but does not inject at the cursor or write history
         if CommandLine.arguments.contains("--bench-voice") {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)
@@ -247,7 +247,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let moduleManager = ModuleManager()
     private let config = RuntimeConfig.shared
     private let recordingIndicator = RecordingIndicator.shared
-    private let remoteInbox = RemoteInbox()
     private var updater: UpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -320,37 +319,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // start model server health checks
         ModelServer.shared.startHealthCheck()
 
-        // start the remote voice inbox
-        let remoteConfig = config.remoteConfig
-        if remoteConfig["enabled"] as? Bool == true {
-            let port = remoteConfig["port"] as? Int ?? 9800
-            let token = remoteConfig["auth_token"] as? String ?? ""
-            remoteInbox.onStatusChange = { [weak self] status in
-                self?.statusBar?.setRemoteStatus(status)
-            }
-            remoteInbox.start(port: UInt16(port), authToken: token)
-            Logger.log("App", "Remote inbox: ON (:\(port))")
-        }
-
-        // G1 ambient mode (toggled via config)
-        if config.ambientEnabled {
-            let ambient = AmbientController.shared
-            ambient.onSpeechStart = { [weak self] in
-                guard let self,
-                      self.statusBar?.isBusy != true,
-                      let vm = self.moduleManager.activeModule as? VoiceModule,
-                      vm.state == .idle else { return }
-                vm.onHotKeyDown()  // reuse the hotkey flow: start recording
-            }
-            ambient.onSpeechEnd = { [weak self] in
-                guard let vm = self?.moduleManager.activeModule as? VoiceModule,
-                      vm.state == .recording else { return }
-                vm.onHotKeyDown()  // reuse the hotkey flow: stop and process
-            }
-            ambient.start()
-            Logger.log("App", "Ambient mode: ON")
-        }
-
         Logger.log("App", "App launched, modules: \(moduleManager.moduleNames)")
         Logger.log("App", "Server endpoint: \(config.serverConfig["endpoint"] as? String ?? "not set")")
 
@@ -362,9 +330,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         GlobalHotKey.shared.stop()
-        AmbientController.shared.stop()
         ModelServer.shared.stopHealthCheck()
-        remoteInbox.stop()
         Logger.log("App", "App terminated")
     }
 }

@@ -10,11 +10,6 @@ final class RuntimeConfig {
     private var values: [String: Any] = [:]
     private var fileWatcher: DispatchSourceFileSystemObject?
 
-    /// G1 ambient mode toggle, off by default
-    var ambientEnabled: Bool {
-        values["ambient_enabled"] as? Bool ?? false
-    }
-
     /// Model server configuration
     var serverConfig: [String: Any] {
         values["server"] as? [String: Any] ?? [:]
@@ -23,16 +18,6 @@ final class RuntimeConfig {
     /// Polish (text refinement) configuration
     var polishConfig: [String: Any] {
         values["polish"] as? [String: Any] ?? [:]
-    }
-
-    /// Model download configuration
-    var downloadsConfig: [String: Any] {
-        values["downloads"] as? [String: Any] ?? [:]
-    }
-
-    /// Remote voice inbox configuration
-    var remoteConfig: [String: Any] {
-        values["remote"] as? [String: Any] ?? [:]
     }
 
     /// Meeting mode configuration
@@ -76,7 +61,7 @@ final class RuntimeConfig {
         save()
     }
 
-    /// Write/overwrite a top-level config section (e.g. "server", "meeting", "waveform"), and persist it.
+    /// Write/overwrite a top-level config section (e.g. "server", "meeting"), and persist it.
     /// Called when the settings window saves. Merges into `values` then saves (avoids clobbering on hot-reload).
     func updateSection(_ key: String, _ dict: [String: Any]) {
         values[key] = dict
@@ -118,15 +103,7 @@ final class RuntimeConfig {
                     // dictation cleanup can use a smaller/faster model than summarization; blank = use server.model.
                     "model": "",
                     "system_prompt": Prompts.defaultPolish,
-                    "personal_context_enabled": true,
-                    "context_dictionary_enabled": false,
-                    "context_dictionary_path": BetterVoiceDataDir.correctionDictURL.path
-                ],
-                "downloads": [:],
-                "remote": [
-                    "enabled": true,
-                    "port": 9800,
-                    "auth_token": ""
+                    "personal_context_enabled": true
                 ],
                 "meeting": [
                     "l2_flush_on_pause_sec": 1.5,

@@ -1,7 +1,7 @@
 import Speech
 
 /// Shared SpeechAnalyzer utilities
-/// Locale lookup and model management shared by VoiceSession, MeetingSession, and RemoteInbox
+/// Locale lookup and model management shared by VoiceSession and MeetingSession
 enum SpeechUtils {
 
     /// Picks the best SpeechTranscriber locale based on configuration/system language.

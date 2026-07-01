@@ -43,7 +43,7 @@ final class ModelManager {
 
     /// Download models from the manifest URL
     func downloadModels(progressHandler: ((String, Double) -> Void)? = nil) async throws {
-        let config = RuntimeConfig.shared.downloadsConfig
+        let config: [String: Any] = [:]
         guard let manifestURLStr = config["manifest"] as? String,
               let manifestURL = URL(string: manifestURLStr) else {
             Logger.log("Model", "No manifest URL configured")
