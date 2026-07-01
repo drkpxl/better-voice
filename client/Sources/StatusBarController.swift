@@ -210,14 +210,21 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let session = MeetingSession()
         self.meetingSession = session
 
+        // Same floating waveform HUD as dictation, driven by the mic level (see RecordingIndicator.shared).
+        session.onAudioLevel = { level in
+            RecordingIndicator.shared.update(level: level)
+        }
+
         Task {
             do {
                 try await session.start()
                 Logger.log("StatusBar", "Meeting started")
+                RecordingIndicator.shared.show()
                 self.setupMenu()
                 self.updateMeetingIcon()
             } catch {
                 Logger.log("StatusBar", "Meeting start failed: \(error)")
+                RecordingIndicator.shared.hide()
                 self.meetingSession = nil
             }
         }
@@ -225,6 +232,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private func stopMeeting() {
         guard let session = meetingSession else { return }
+        RecordingIndicator.shared.hide()
 
         Task {
             let result = await session.stop()

@@ -246,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBar: StatusBarController?
     private let moduleManager = ModuleManager()
     private let config = RuntimeConfig.shared
-    private let recordingIndicator = RecordingIndicator()
+    private let recordingIndicator = RecordingIndicator.shared
     private let remoteInbox = RemoteInbox()
     private var updater: UpdaterController?
 

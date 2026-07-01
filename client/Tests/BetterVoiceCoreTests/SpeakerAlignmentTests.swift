@@ -20,6 +20,22 @@ final class SpeakerAlignmentTests: XCTestCase {
         XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
     }
 
+    func testSnapsToNearestWithinTolerance() {
+        // Phrase starts 0.5s after the interval ends (within the 1.0s snap tolerance) → recovers the
+        // label rather than "Unknown"; confidence stays 0 to mark it as a snap.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2)]
+        let a = assignSpeaker(to: PhraseSpan(start: 2.5, end: 3.5), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
+    }
+
+    func testDoesNotSnapBeyondTolerance() {
+        // Gap of 2s exceeds the 1.0s tolerance → stays unattributed.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2)]
+        let a = assignSpeaker(to: PhraseSpan(start: 4, end: 5), among: ivs)
+        XCTAssertNil(a.speakerId)
+    }
+
     func testFlagsOverlapWhenTwoSpeakersInPhrase() {
         let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2),
                    SpeakerInterval(speakerId: "2", start: 1.5, end: 3)]

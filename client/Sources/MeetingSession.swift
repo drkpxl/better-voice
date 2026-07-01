@@ -18,6 +18,9 @@ final class MeetingSession {
     private(set) var transcriptSegments: [MeetingSegment] = []
     private(set) var duration: TimeInterval = 0
 
+    /// Live mic RMS level (0...1) for the recording indicator HUD. Mirrors VoiceSession.onAudioLevel.
+    var onAudioLevel: ((Float) -> Void)?
+
     // MARK: - Audio Capture
 
     private var captureSession: AVCaptureSession?
@@ -511,7 +514,10 @@ final class MeetingSession {
                 audioFileURL: micFileURL,
                 diarizationSampleRate: diarizationSampleRate,
                 onDiarizationSamples: appendMic,  // unused while mixer present (feeds mixer.feedMic)
-                mixer: mixer
+                mixer: mixer,
+                onAudioLevel: { [weak self] level in
+                    DispatchQueue.main.async { self?.onAudioLevel?(level) }
+                }
             )
             audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
             session.addOutput(audioOutput)
@@ -551,7 +557,10 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: url,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: appendMic
+                onDiarizationSamples: appendMic,
+                onAudioLevel: { [weak self] level in
+                    DispatchQueue.main.async { self?.onAudioLevel?(level) }
+                }
             )
             audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
             session.addOutput(audioOutput)
@@ -835,6 +844,24 @@ final class MeetingSession {
     ) async -> [MeetingSegment] {
         // Assign + group phrases into speaker turns in pure Core (tested seam).
         let phrases = entries.map { (span: PhraseSpan(start: $0.startTime, end: $0.endTime), text: $0.text) }
+
+        // [DIAG mic=Unknown] Compare the phrase timeline (SpeechAnalyzer / mixed-stream time) against
+        // the diarization interval timeline (per-channel time). If the phrase span is materially
+        // shorter/shifted vs the interval spans, the mixed stream was compressed by AudioMixer drift
+        // drops → phrases miss their speaker intervals → "Unknown". Also shows per-speaker interval spread.
+        if let pf = phrases.first?.span, let pl = phrases.last?.span {
+            var byS: [String: (lo: Double, hi: Double, n: Int)] = [:]
+            for iv in intervals {
+                var e = byS[iv.speakerId] ?? (lo: iv.start, hi: iv.end, n: 0)
+                e.lo = min(e.lo, iv.start); e.hi = max(e.hi, iv.end); e.n += 1
+                byS[iv.speakerId] = e
+            }
+            let ivStr = byS.sorted { $0.key < $1.key }
+                .map { "\($0.key)=[\(String(format: "%.1f", $0.value.lo))-\(String(format: "%.1f", $0.value.hi))]×\($0.value.n)" }
+                .joined(separator: " ")
+            Logger.log("Meeting", "[DIAG align] phrases=\(phrases.count) span=[\(String(format: "%.1f", pf.start))-\(String(format: "%.1f", pl.end))]s | intervals: \(ivStr)")
+        }
+
         let turns = groupIntoTurns(phrases: phrases, intervals: intervals)
 
         // Polish each turn → one MeetingSegment per speaker turn.
@@ -855,7 +882,10 @@ final class MeetingSession {
             ))
         }
         let speakerCount = Set(result.compactMap(\.speakerId)).count
-        Logger.log("Meeting", "Speaker turns: \(result.count) turns from \(entries.count) phrases, \(speakerCount) distinct speakers")
+        let breakdown = Dictionary(grouping: result, by: { $0.speakerId ?? "Unknown" })
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)×\($0.value.count)" }.joined(separator: " ")
+        Logger.log("Meeting", "Speaker turns: \(result.count) turns from \(entries.count) phrases, \(speakerCount) distinct speakers [\(breakdown)]")
         return result
     }
 
@@ -1126,6 +1156,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     private let diarizationSampleRate: Int
     private let onDiarizationSamples: ([Float]) -> Void
     private let mixer: AudioMixer?
+    private let onAudioLevel: (@Sendable (Float) -> Void)?
 
     // Format converters
     private var analyzerConverter: AVAudioConverter?
@@ -1152,7 +1183,8 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         audioFileURL: URL,
         diarizationSampleRate: Int,
         onDiarizationSamples: @escaping ([Float]) -> Void,
-        mixer: AudioMixer? = nil
+        mixer: AudioMixer? = nil,
+        onAudioLevel: (@Sendable (Float) -> Void)? = nil
     ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
@@ -1160,6 +1192,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         self.diarizationSampleRate = diarizationSampleRate
         self.onDiarizationSamples = onDiarizationSamples
         self.mixer = mixer
+        self.onAudioLevel = onAudioLevel
         super.init()
     }
 
@@ -1208,6 +1241,13 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
 
         // Write the WAV file (raw mic stream, kept even in mixing mode for later analysis)
         wavWriter.write(buffer: analyzerBuffer)
+
+        // Mic level for the recording indicator HUD (same Int16 RMS path as dictation's VoiceSession).
+        if let onAudioLevel, let channelData = analyzerBuffer.int16ChannelData {
+            let frameCount = Int(analyzerBuffer.frameLength)
+            let samples = UnsafeBufferPointer(start: channelData[0], count: frameCount)
+            onAudioLevel(WaveformMath.rms(int16: samples))
+        }
 
         // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
         if let diaFmt = diarizationFormat {

@@ -12,6 +12,10 @@ import BetterVoiceCore
 /// Level is adaptively normalized by LiveAudioLevelNormalizer; a single audioLevel(0...1) drives the bars.
 @MainActor
 final class RecordingIndicator {
+    /// Shared instance so both dictation (AppDelegate) and meetings (StatusBarController) drive the
+    /// same HUD — one recording indicator, never two at once.
+    static let shared = RecordingIndicator()
+
     private var window: NSPanel?
     private let state = RecordingIndicatorState()
     private var normalizer = LiveAudioLevelNormalizer()

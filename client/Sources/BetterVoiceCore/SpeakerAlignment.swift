@@ -122,7 +122,8 @@ private func overlapDuration(_ aStart: TimeInterval, _ aEnd: TimeInterval,
 ///     the phrase to be flagged `overlapped` (default `0.15`).
 public func assignSpeaker(to phrase: PhraseSpan,
                           among intervals: [SpeakerInterval],
-                          minOverlapForConflict: Double = 0.15) -> SpeakerAssignment {
+                          minOverlapForConflict: Double = 0.15,
+                          nearestSnapSec: Double = 1.0) -> SpeakerAssignment {
     let phraseDuration = phrase.end - phrase.start
 
     // Sum total overlap per speaker, and track each speaker's single longest-overlapping interval.
@@ -140,8 +141,26 @@ public func assignSpeaker(to phrase: PhraseSpan,
         }
     }
 
-    // No interval overlaps: low-confidence, unattributed. Do NOT snap to nearest.
+    // No interval overlaps. Recover from *small* timeline skew — e.g. AudioMixer drift can compress
+    // the transcription (mixed-stream) timeline relative to the per-channel diarization timeline,
+    // leaving a mic phrase just outside its speaker's interval → it would otherwise be "Unknown".
+    // Snap to the nearest interval only when it's within `nearestSnapSec`; beyond that, stay
+    // unattributed rather than guess (confidence stays 0 to mark it as a snap, not a real overlap).
     guard !totalOverlapBySpeaker.isEmpty else {
+        var nearestId: String?
+        var nearestEmbedding: [Float]?
+        var nearestGap = Double.greatestFiniteMagnitude
+        for iv in intervals {
+            let gap = phrase.start >= iv.end ? phrase.start - iv.end : iv.start - phrase.end
+            if gap >= 0, gap < nearestGap {
+                nearestGap = gap
+                nearestId = iv.speakerId
+                nearestEmbedding = iv.embedding
+            }
+        }
+        if let id = nearestId, nearestGap <= nearestSnapSec {
+            return SpeakerAssignment(speakerId: id, embedding: nearestEmbedding, confidence: 0, overlapped: false)
+        }
         return SpeakerAssignment(speakerId: nil, embedding: nil, confidence: 0, overlapped: false)
     }
 

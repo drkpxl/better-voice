@@ -41,6 +41,7 @@ final class AudioMixer {
     /// MainActor-exclusive
     private var drainTask: Task<Void, Never>?
     private var mixOutputCount: Int = 0
+    private var totalDroppedForDrift: Int = 0   // diagnostic: total samples discarded to drift cap
     private let windowMs: Int = 100
 
     /// Phase-lock carry buffers for the mixed-for-transcription stream. Touched ONLY inside
@@ -88,7 +89,10 @@ final class AudioMixer {
         // further windows follow, so this final zero-pad cannot cause progressive desync.
         flushMixCarry()
         let (micFed, sysFed) = readCounts()
-        Logger.log("Meeting", "AudioMixer stopped. micFed=\(micFed) sysFed=\(sysFed) mixed=\(mixOutputCount)")
+        // Diagnostic: micFed vs sysFed reveals a per-channel rate imbalance (the drift source);
+        // totalDropped is how much audio the drift cap discarded from the mixed-for-transcription stream.
+        let imbalance = sysFed > 0 ? String(format: "%.2f", Double(micFed) / Double(sysFed)) : "n/a"
+        Logger.log("Meeting", "AudioMixer stopped. micFed=\(micFed) sysFed=\(sysFed) mic/sys=\(imbalance) totalDropped=\(totalDroppedForDrift) mixWindows=\(mixOutputCount)")
     }
 
     // MARK: - Sample delivery (nonisolated, called from background queue)
@@ -150,7 +154,7 @@ final class AudioMixer {
         sysMixCarry = r.sysRemainder
 
         if r.droppedForDrift > 0 {
-            Logger.log("Meeting", "AudioMixer drift resync: dropped \(r.droppedForDrift) samples")
+            totalDroppedForDrift += r.droppedForDrift
         }
 
         guard !r.mixed.isEmpty else { return }
