@@ -304,6 +304,9 @@ struct SettingsContentView: View {
                         TextField(t("Save folder"), text: $viewModel.saveFolder)
                         Button(t("Choose...")) { viewModel.chooseSaveFolder() }
                     }
+                    Text(t("Recordings, transcripts, and summaries are saved here in Audio/Transcripts/Summaries subfolders."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Picker(selection: $viewModel.audioSource) {
                         Text(t("Microphone + system audio")).tag("both")
                         Text(t("Microphone only")).tag("mic")

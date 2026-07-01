@@ -2,7 +2,7 @@ import Foundation
 import BetterVoiceCore
 
 /// Meeting transcript exporter
-/// Supports exporting to Markdown format, saved to ~/.better-voice/meetings/
+/// Supports exporting to Markdown format, saved to Transcripts/ and Summaries/ under the configured base folder (default ~/.better-voice/meetings/)
 @MainActor
 final class MeetingExporter {
 
@@ -27,7 +27,7 @@ final class MeetingExporter {
         date: Date = Date(),
         saveFolder: URL? = nil
     ) -> URL? {
-        let folder = saveFolder ?? configuredFolder()
+        let folder = BetterVoiceDataDir.transcriptsSubfolder(of: saveFolder ?? configuredFolder())
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let fileURL = folder.appendingPathComponent("\(baseName(for: date)).md")
 
@@ -64,7 +64,7 @@ final class MeetingExporter {
         date: Date = Date(),
         saveFolder: URL? = nil
     ) -> URL? {
-        let folder = saveFolder ?? configuredFolder()
+        let folder = BetterVoiceDataDir.summariesSubfolder(of: saveFolder ?? configuredFolder())
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let fileURL = folder.appendingPathComponent("\(baseName)-summary.md")
 

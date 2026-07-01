@@ -397,9 +397,11 @@ final class MeetingSession {
             }
         }
 
-        // 8. Prepare the audio file path
+        // 8. Prepare the audio file path (under the configured meeting base folder's Audio subfolder)
         let fileName = "meeting-" + ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let url = BetterVoiceDataDir.audioURL(forName: fileName)
+        let audioFolder = BetterVoiceDataDir.audioSubfolder(of: MeetingExporter.configuredFolder())
+        try? FileManager.default.createDirectory(at: audioFolder, withIntermediateDirectories: true)
+        let url = audioFolder.appendingPathComponent("\(fileName).wav")
         audioFileURL = url
         meetingId = fileName  // used as the unique meeting ID for the streamed jsonl
 

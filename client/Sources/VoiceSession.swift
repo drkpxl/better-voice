@@ -37,7 +37,6 @@ final class VoiceSession {
     private var resultTask: Task<Void, Never>?
 
     private var analyzerFormat: AVAudioFormat?
-    private var audioFileURL: URL?
 
     private(set) var isRunning = false
 
@@ -143,11 +142,6 @@ final class VoiceSession {
             }
         }
 
-        // 8. Prepare the audio file
-        let fileName = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let url = BetterVoiceDataDir.audioURL(forName: fileName)
-        audioFileURL = url
-
         // 9. Start AVCaptureSession (replaces AVAudioEngine, compatible with Bluetooth devices)
         guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
             throw VoiceError.noAudioDevice
@@ -165,7 +159,6 @@ final class VoiceSession {
         let delegate = AudioCaptureDelegate(
             inputBuilder: inputBuilder,
             analyzerFormat: analyzerFormat,
-            audioFileURL: url,
             onAudioLevel: { [weak self] level in
                 DispatchQueue.main.async {
                     self?.onAudioLevel?(level)
@@ -211,7 +204,6 @@ final class VoiceSession {
         // Stop audio capture
         captureSession?.stopRunning()
         captureSession = nil
-        captureDelegate?.close()
         captureDelegate = nil
 
         let stopT1 = CFAbsoluteTimeGetCurrent()
@@ -262,7 +254,7 @@ final class VoiceSession {
         return TranscriptionResult(
             fullText: fullText,
             words: allWords,
-            audioPath: audioFileURL?.path,
+            audioPath: nil,
             timestamp: Date()
         )
     }
@@ -324,36 +316,23 @@ final class VoiceSession {
 // MARK: - Audio Capture Delegate (nonisolated, runs on a background queue)
 
 /// Receives CMSampleBuffer from AVCaptureSession, converts it to AVAudioPCMBuffer, then
-/// feeds it to SpeechAnalyzer's inputBuilder while also writing a WAV audio file
-///
-/// The audio file is written manually as WAV, completely avoiding the abort crash from AVAudioFile's internal AudioConverter
+/// feeds it to SpeechAnalyzer's inputBuilder
 final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
-    private let audioFileURL: URL
     private let onAudioLevel: (@Sendable (Float) -> Void)?
     private var converter: AVAudioConverter?
-    private var fileHandle: FileHandle?
-    private var wavDataSize: UInt32 = 0
-    private var wavFormat: AVAudioFormat?
     private(set) var bufferCount = 0
 
     init(
         inputBuilder: AsyncStream<AnalyzerInput>.Continuation,
         analyzerFormat: AVAudioFormat?,
-        audioFileURL: URL,
         onAudioLevel: (@Sendable (Float) -> Void)? = nil
     ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
-        // Use a .wav extension instead
-        self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
         self.onAudioLevel = onAudioLevel
         super.init()
-    }
-
-    func close() {
-        finalizeWAV()
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -391,9 +370,6 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
             outputBuffer = pcmBuffer
         }
 
-        // Write to the WAV file (using outputBuffer, format is always consistent: Int16 16kHz mono)
-        writeToWAV(buffer: outputBuffer)
-
         // Compute the audio level (used for the waveform indicator), only computed for Int16 buffers
         if let onAudioLevel, let channelData = outputBuffer.int16ChannelData {
             let frameCount = Int(outputBuffer.frameLength)
@@ -405,69 +381,6 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
         // Send to SpeechAnalyzer
         let input = AnalyzerInput(buffer: outputBuffer)
         inputBuilder.yield(input)
-    }
-
-    // MARK: - Manual WAV Writing (bypasses AVAudioFile)
-
-    private func writeToWAV(buffer: AVAudioPCMBuffer) {
-        // First write: create the file + placeholder WAV header
-        if fileHandle == nil {
-            wavFormat = buffer.format
-            let dir = audioFileURL.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            FileManager.default.createFile(atPath: audioFileURL.path, contents: nil)
-            fileHandle = try? FileHandle(forWritingTo: audioFileURL)
-            // Write a 44-byte placeholder header
-            fileHandle?.write(Data(count: 44))
-            wavDataSize = 0
-        }
-
-        // Extract the PCM data
-        let abl = buffer.audioBufferList.pointee
-        guard let mData = abl.mBuffers.mData else { return }
-        let byteCount = Int(abl.mBuffers.mDataByteSize)
-        let data = Data(bytes: mData, count: byteCount)
-        fileHandle?.write(data)
-        wavDataSize += UInt32(byteCount)
-    }
-
-    private func finalizeWAV() {
-        guard let fh = fileHandle, let fmt = wavFormat else {
-            fileHandle = nil
-            return
-        }
-
-        let asbd = fmt.streamDescription.pointee
-        let numChannels = UInt16(asbd.mChannelsPerFrame)
-        let sampleRate = UInt32(asbd.mSampleRate)
-        let bitsPerSample = UInt16(asbd.mBitsPerChannel)
-        let blockAlign = numChannels * (bitsPerSample / 8)
-        let byteRate = sampleRate * UInt32(blockAlign)
-
-        var header = Data(capacity: 44)
-        // RIFF header
-        header.append(contentsOf: "RIFF".utf8)
-        header.appendLE(UInt32(36 + wavDataSize))
-        header.append(contentsOf: "WAVE".utf8)
-        // fmt chunk
-        header.append(contentsOf: "fmt ".utf8)
-        header.appendLE(UInt32(16))            // chunk size
-        header.appendLE(UInt16(1))             // PCM format
-        header.appendLE(numChannels)
-        header.appendLE(sampleRate)
-        header.appendLE(byteRate)
-        header.appendLE(blockAlign)
-        header.appendLE(bitsPerSample)
-        // data chunk
-        header.append(contentsOf: "data".utf8)
-        header.appendLE(wavDataSize)
-
-        fh.seek(toFileOffset: 0)
-        fh.write(header)
-        try? fh.close()
-        fileHandle = nil
-
-        Logger.log("Voice", "WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
     }
 
     // MARK: - Format Conversion
@@ -490,17 +403,6 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
         }
 
         return (error == nil && output.frameLength > 0) ? output : nil
-    }
-}
-
-// MARK: - Data little-endian helpers
-
-private extension Data {
-    mutating func appendLE(_ value: UInt16) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
-    }
-    mutating func appendLE(_ value: UInt32) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
     }
 }
 

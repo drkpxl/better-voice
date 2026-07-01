@@ -15,8 +15,11 @@ import Foundation
 ///     ├─ voice-history.jsonl             live recording history
 ///     ├─ meeting-history.jsonl           per-segment L2 streaming record for meetings
 ///     ├─ corrections.jsonl               user manual corrections (if enabled)
-///     ├─ audio/                          recording wavs
-///     ├─ meetings/                       meeting exports (markdown)
+///     ├─ audio/                          remote-inbox scratch wavs (dictation no longer saves audio)
+///     ├─ meetings/                       meeting exports; default base folder (user can choose another in Settings)
+///     │   ├─ Audio/                      meeting recordings (wav, + .mic.wav/.system.wav siblings)
+///     │   ├─ Transcripts/                meeting transcripts (markdown)
+///     │   └─ Summaries/                  meeting summaries (markdown)
 ///     ├─ models/                         local models (placeholder)
 ///     ├─ archive/                        archive: historical training snapshots / dictionary review intermediates / reports
 ///     │   ├─ dictionaries/
@@ -38,6 +41,11 @@ enum BetterVoiceDataDir {
     static var meetings: URL { url.appendingPathComponent("meetings") }
     static var models: URL   { url.appendingPathComponent("models") }
     static var kpi: URL      { url.appendingPathComponent("kpi") }
+
+    /// Subfolders of a meeting base folder (the default `meetings` dir, or the user's configured save folder).
+    static func audioSubfolder(of base: URL) -> URL       { base.appendingPathComponent("Audio") }
+    static func transcriptsSubfolder(of base: URL) -> URL { base.appendingPathComponent("Transcripts") }
+    static func summariesSubfolder(of base: URL) -> URL   { base.appendingPathComponent("Summaries") }
 
     // MARK: - Subdirectory helpers (archive / evaluation artifacts, Phase B planned)
 
