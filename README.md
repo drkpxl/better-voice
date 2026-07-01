@@ -6,6 +6,7 @@
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-required-black?logo=apple)](https://github.com/drkpxl/better-voice/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Download](https://img.shields.io/badge/Download-.dmg-008574)](https://github.com/drkpxl/better-voice/releases/latest)
+[![CI](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml/badge.svg)](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml)
 
 > Built on Apple **SpeechAnalyzer** (macOS 26) for on-device transcription, with a **local LLM** (Ollama or any OpenAI-compatible endpoint) for cleanup and summaries. Your audio never leaves your Mac.
 
