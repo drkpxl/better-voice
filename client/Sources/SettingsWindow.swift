@@ -173,6 +173,7 @@ final class SettingsViewModel {
     /// so the list matches the server the user just typed. Empty on failure (dropdown keeps the configured value).
     func loadModels() async {
         availableModels = await ModelServer.shared.availableModels(endpoint: endpoint, apiType: api)
+        Logger.log("Settings", "loadModels: \(availableModels.count) models from \(endpoint) (api=\(api)) [\(availableModels.prefix(8).joined(separator: ", "))]")
     }
 
     func changeHotkey() { HotKeySettingsWindow.shared.show() }
@@ -238,6 +239,10 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Main model"))
                     }
+                    // Rebuild the pop-up when the server's model list loads async — otherwise the
+                    // NSPopUpButton caches its initial (single, current-value) menu and looks "fixed".
+                    // IDs must be unique per picker: identical .id across siblings collides and swaps labels.
+                    .id("main:\(viewModel.availableModels.joined(separator: "|"))")
                     Text(t("Used for dictation and summaries unless overridden below."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -249,6 +254,7 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Dictation model"))
                     }
+                    .id("polish:\(viewModel.availableModels.joined(separator: "|"))")
                     Text(t("Cleans up what you dictate. A small model here makes dictation inject faster."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -278,6 +284,7 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Summarization model"))
                     }
+                    .id("summ:\(viewModel.availableModels.joined(separator: "|"))")
                     HStack {
                         Text(t("Context window (num_ctx)"))
                         Spacer()
