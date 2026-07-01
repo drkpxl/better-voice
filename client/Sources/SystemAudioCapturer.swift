@@ -34,7 +34,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     private let audioFileURL: URL
 
     // Format conversion
-    private var analyzerConverter: AVAudioConverter?
+    private let analyzerConverter = FormatConverter()
 
     // WAV writing (shared implementation)
     private lazy var wavWriter = PCMWavWriter(url: audioFileURL, logLabel: "SysAudio WAV saved")
@@ -218,12 +218,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
            pcmBuffer.format.sampleRate != targetFormat.sampleRate
             || pcmBuffer.format.commonFormat != targetFormat.commonFormat
             || pcmBuffer.format.channelCount != targetFormat.channelCount {
-            if analyzerConverter == nil {
-                analyzerConverter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat)
-                Logger.log("Meeting", "SysAudio analyzer converter: \(pcmBuffer.format) → \(targetFormat)")
-            }
-            guard let converter = analyzerConverter,
-                  let converted = convertPCM(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+            guard let converted = analyzerConverter.convert(pcmBuffer, to: targetFormat) else {
                 if bufferCount <= 3 { Logger.log("Meeting", "SysAudio #\(bufferCount): analyzer conversion failed") }
                 return
             }

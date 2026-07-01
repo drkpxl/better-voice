@@ -861,8 +861,8 @@ final class MeetingSession {
     /// Recovery strategy: on interruptionEnded, check whether the session is still running;
     /// call startRunning() if it isn't.
     /// Note: if a device switch changes the audio format (Bluetooth Int16 → built-in Float32),
-    /// the existing AVAudioConverter may fail. That scenario is left for later — we'll decide
-    /// whether to rebuild the capture chain once we observe it in real logs.
+    /// `FormatConverter` (see PCMConvert.swift) rebuilds its `AVAudioConverter` on the next
+    /// buffer, so no explicit capture-chain rebuild is needed here.
     private func observeInterruptions(on session: AVCaptureSession) {
         let center = NotificationCenter.default
         let obs1 = center.addObserver(
@@ -1095,8 +1095,8 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     private let onAudioLevel: (@Sendable (Float) -> Void)?
 
     // Format converters
-    private var analyzerConverter: AVAudioConverter?
-    private var diarizationConverter: AVAudioConverter?
+    private let analyzerConverter = FormatConverter()
+    private let diarizationConverter = FormatConverter()
 
     // Diarization target format: 16kHz Float32 mono
     private lazy var diarizationFormat: AVAudioFormat? = {
@@ -1155,12 +1155,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
            pcmBuffer.format.sampleRate != targetFormat.sampleRate
             || pcmBuffer.format.commonFormat != targetFormat.commonFormat {
 
-            if analyzerConverter == nil {
-                analyzerConverter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat)
-                Logger.log("Meeting", "Analyzer converter: \(pcmBuffer.format) → \(targetFormat)")
-            }
-            guard let converter = analyzerConverter,
-                  let converted = convertPCM(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+            guard let converted = analyzerConverter.convert(pcmBuffer, to: targetFormat) else {
                 if bufferCount <= 3 { Logger.log("Meeting", "Audio #\(bufferCount): analyzer conversion failed") }
                 return
             }
@@ -1192,12 +1187,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
                 || pcmBuffer.format.commonFormat != diaFmt.commonFormat
                 || pcmBuffer.format.channelCount != diaFmt.channelCount {
 
-                if diarizationConverter == nil {
-                    diarizationConverter = AVAudioConverter(from: pcmBuffer.format, to: diaFmt)
-                    Logger.log("Meeting", "Diarization converter: \(pcmBuffer.format) → \(diaFmt)")
-                }
-                guard let converter = diarizationConverter,
-                      let converted = convertPCM(buffer: pcmBuffer, using: converter, to: diaFmt) else {
+                guard let converted = diarizationConverter.convert(pcmBuffer, to: diaFmt) else {
                     return
                 }
                 diaBuffer = converted

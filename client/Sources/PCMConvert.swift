@@ -26,3 +26,27 @@ func convertPCM(buffer: AVAudioPCMBuffer,
 
     return (error == nil && output.frameLength > 0) ? output : nil
 }
+
+/// Owns a lazily-built `AVAudioConverter` and rebuilds it whenever the input format changes
+/// (e.g. a mid-session device switch: AirPods Int16 → built-in Float32). Replaces the
+/// lazy-converter-keyed-to-first-buffer pattern that silently broke on a format change.
+///
+/// Not an actor: instances are cheap value holders meant to be created per capture delegate
+/// and touched only from that delegate's capture queue, same single-queue contract as before.
+final class FormatConverter {
+    private var converter: AVAudioConverter?
+    private var inputFormat: AVAudioFormat?
+
+    func convert(_ buffer: AVAudioPCMBuffer, to target: AVAudioFormat) -> AVAudioPCMBuffer? {
+        if buffer.format == target { return buffer }
+
+        if converter == nil || buffer.format != inputFormat {
+            converter = AVAudioConverter(from: buffer.format, to: target)
+            inputFormat = buffer.format
+            Logger.log("Audio", "Rebuilt converter: \(buffer.format) → \(target)")
+        }
+
+        guard let converter else { return nil }
+        return convertPCM(buffer: buffer, using: converter, to: target)
+    }
+}

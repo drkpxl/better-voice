@@ -306,7 +306,7 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
     private let onAudioLevel: (@Sendable (Float) -> Void)?
-    private var converter: AVAudioConverter?
+    private let converter = FormatConverter()
     private(set) var bufferCount = 0
 
     init(
@@ -339,14 +339,7 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
            pcmBuffer.format.sampleRate != targetFormat.sampleRate
             || pcmBuffer.format.commonFormat != targetFormat.commonFormat {
 
-            // Lazily create the converter (needs to know the input format)
-            if converter == nil {
-                converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat)
-                Logger.log("Voice", "Created converter: \(pcmBuffer.format) → \(targetFormat)")
-            }
-
-            guard let converter,
-                  let converted = convert(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+            guard let converted = converter.convert(pcmBuffer, to: targetFormat) else {
                 if bufferCount <= 5 { Logger.log("Voice", "Audio #\(bufferCount): conversion failed") }
                 return
             }
@@ -366,28 +359,6 @@ final class AudioCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuffer
         // Send to SpeechAnalyzer
         let input = AnalyzerInput(buffer: outputBuffer)
         inputBuilder.yield(input)
-    }
-
-    // MARK: - Format Conversion
-
-    private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-        let ratio = targetFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1
-        guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
-
-        var error: NSError?
-        let consumed = Box(false)
-        converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed.value {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed.value = true
-            outStatus.pointee = .haveData
-            return buffer
-        }
-
-        return (error == nil && output.frameLength > 0) ? output : nil
     }
 }
 
