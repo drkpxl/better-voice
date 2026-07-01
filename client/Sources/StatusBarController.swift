@@ -305,7 +305,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let client = SummarizationClient.shared
 
         // 1. use a quick classification pass to pre-select the meeting type.
-        let rawTranscript = buildSummarizationTranscript(segments: result.segments, speakerPrefix: prefix)
+        let rawTranscript = buildSummarizationTranscript(segments: result.segments, speakerPrefix: prefix, localLabel: t("You"))
         let inferred: MeetingType
         if client.classifyEnabled, !rawTranscript.isEmpty {
             inferred = await client.classifyType(transcript: rawTranscript)
@@ -314,7 +314,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
 
         // 2. wrap-up panel (waits for the user: naming + type selection; Skip still triggers summarization).
-        let speakerIds = orderedUniqueSpeakerIds(result.segments)
+        // Exclude the local user ("You") from the naming list: their segments already
+        // render as "You" via resolveSpeakerLabel, so prompting to name themselves is redundant.
+        let speakerIds = orderedUniqueSpeakerIds(result.segments).filter { $0 != SpeakerIds.local }
         let snippets = sampleSnippets(result.segments, maxLen: 100)
         let speakers = speakerIds.map { (id: $0, snippet: snippets[$0] ?? "") }
         let outcome = await MeetingWrapUpWindow.shared.present(speakers: speakers, inferredType: inferred)
@@ -335,7 +337,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         // 4. summarize (selected type, large num_ctx) + write the summary file.
         if client.summarizationEnabled {
-            let namedTranscript = buildSummarizationTranscript(segments: named, speakerPrefix: prefix)
+            let namedTranscript = buildSummarizationTranscript(segments: named, speakerPrefix: prefix, localLabel: t("You"))
             if let summary = await client.summarize(transcript: namedTranscript, type: outcome.type) {
                 let base = transcriptURL?.deletingPathExtension().lastPathComponent
                     ?? MeetingExporter.baseName(for: result.date)

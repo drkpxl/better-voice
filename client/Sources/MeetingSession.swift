@@ -59,9 +59,10 @@ final class MeetingSession {
     private var systemDiarizationChunker: SystemDiarizationChunker?
 
     /// Deterministic speaker id for the local user, derived from the mic channel via VAD
-    /// (not FluidAudio clustering). FluidAudio ids are numeric strings ("1", "2", ...), so
-    /// "me" never collides with a clustered remote speaker.
-    private static let localSpeakerId = "me"
+    /// (not FluidAudio clustering). Single source of truth lives in Core (`SpeakerIds.local`);
+    /// FluidAudio ids are numeric strings ("1", "2", ...), so "me" never collides with a
+    /// clustered remote speaker.
+    private static let localSpeakerId = SpeakerIds.local
 
     /// Phrase-level transcript entries (with timestamps), used at stop() for fine-grained per-speaker grouping.
     /// Phrase-level transcript entries with timestamps; used at stop() for

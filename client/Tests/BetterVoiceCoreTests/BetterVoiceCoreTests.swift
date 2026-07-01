@@ -103,6 +103,46 @@ final class BetterVoiceCoreTests: XCTestCase {
         XCTAssertNil(resolveSpeakerLabel(speakerId: nil, speakerName: nil, prefix: "Speaker"))
     }
 
+    func testResolveSpeakerLabelLocalSpeaker() {
+        // Local speaker id with no explicit name renders as the local label, not "Speaker me".
+        XCTAssertEqual(
+            resolveSpeakerLabel(speakerId: SpeakerIds.local, speakerName: nil, prefix: "Speaker"),
+            "You"
+        )
+        // A blank name is treated as "no name", so the local label still wins.
+        XCTAssertEqual(
+            resolveSpeakerLabel(speakerId: SpeakerIds.local, speakerName: "  ", prefix: "Speaker"),
+            "You"
+        )
+        // An explicit name always wins over the local label.
+        XCTAssertEqual(
+            resolveSpeakerLabel(speakerId: SpeakerIds.local, speakerName: "Steven", prefix: "Speaker"),
+            "Steven"
+        )
+        // The local label is caller-supplied (for localization); default is "You".
+        XCTAssertEqual(
+            resolveSpeakerLabel(speakerId: SpeakerIds.local, speakerName: nil, prefix: "Speaker", localLabel: "Moi"),
+            "Moi"
+        )
+        // A normal numeric id is unaffected by the local-speaker special case.
+        XCTAssertEqual(
+            resolveSpeakerLabel(speakerId: "1", speakerName: nil, prefix: "Speaker", localLabel: "Moi"),
+            "Speaker 1"
+        )
+    }
+
+    func testSpeakerLabelLocalSpeaker() {
+        XCTAssertEqual(seg("hi", speaker: SpeakerIds.local).speakerLabel(prefix: "Speaker"), "You")
+        XCTAssertEqual(
+            seg("hi", speaker: SpeakerIds.local, name: "Steven").speakerLabel(prefix: "Speaker"),
+            "Steven"
+        )
+        XCTAssertEqual(
+            seg("hi", speaker: SpeakerIds.local).speakerLabel(prefix: "Speaker", localLabel: "Yo"),
+            "Yo"
+        )
+    }
+
     func testApplySpeakerNames() {
         let segs = [seg("hi", speaker: "1"), seg("yo", speaker: "2"), seg("no id", speaker: nil)]
         let named = applySpeakerNames(["1": "Steven", "2": "  "], to: segs)

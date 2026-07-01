@@ -41,7 +41,8 @@ final class MeetingExporter {
             ],
             segments: segments,
             speakerPrefix: t("Speaker"),
-            unknownLabel: t("Unknown")
+            unknownLabel: t("Unknown"),
+            localLabel: t("You")
         )
 
         do {

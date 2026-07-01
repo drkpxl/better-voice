@@ -11,7 +11,8 @@ public enum MeetingMarkdown {
         metadataLines: [String],
         segments: [MeetingSegment],
         speakerPrefix: String,
-        unknownLabel: String
+        unknownLabel: String,
+        localLabel: String = "You"
     ) -> String {
         var md = "# \(title)\n\n"
         for line in metadataLines {
@@ -22,7 +23,7 @@ public enum MeetingMarkdown {
         var currentSpeaker = ""
         for segment in segments where !segment.text.isEmpty {
             let time = formatTimestamp(segment.startTime)
-            let speaker = segment.speakerLabel(prefix: speakerPrefix) ?? unknownLabel
+            let speaker = segment.speakerLabel(prefix: speakerPrefix, localLabel: localLabel) ?? unknownLabel
 
             if speaker != currentSpeaker {
                 currentSpeaker = speaker

@@ -54,10 +54,12 @@ public struct MeetingSegment: Sendable, Identifiable {
         self.speakerConfidence = speakerConfidence
     }
 
-    /// Display label for the speaker. Prefers the user-specified name, otherwise "<prefix> <id>".
-    /// `prefix` is passed in by the caller (already localized), keeping BetterVoiceCore independent of the localization layer.
-    public func speakerLabel(prefix: String) -> String? {
-        resolveSpeakerLabel(speakerId: speakerId, speakerName: speakerName, prefix: prefix)
+    /// Display label for the speaker. Prefers the user-specified name, then the local-user
+    /// label for the local speaker id, otherwise "<prefix> <id>".
+    /// `prefix` and `localLabel` are passed in by the caller (already localized), keeping
+    /// BetterVoiceCore independent of the localization layer. `localLabel` defaults to "You".
+    public func speakerLabel(prefix: String, localLabel: String = "You") -> String? {
+        resolveSpeakerLabel(speakerId: speakerId, speakerName: speakerName, prefix: prefix, localLabel: localLabel)
     }
 }
 
