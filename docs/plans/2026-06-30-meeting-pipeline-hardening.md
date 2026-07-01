@@ -319,10 +319,25 @@ Stop diarizing the mono mix. Mic = "me" via VAD; system = FluidAudio; merge onto
 
 ### Task 4.2: vDSP mix + off-main accumulation
 
-**Files:** Modify `Sources/AudioMixer.swift:121-136`, `Sources/MeetingSession.swift:365-370`.
+**Files:** `Sources/AudioMixer.swift`, `Sources/MeetingSession.swift`.
 
-- Replace the scalar sum loop with `vDSP_vadd` + `vDSP_vsmul` (0.5).
-- Ensure diarization-buffer appends run on a dedicated serial `DispatchQueue`, never `DispatchQueue.main.async` (finding #8). Commit.
+**Status: off-main done; vDSP consciously declined.**
+
+- **Off-main (finding #8): done.** There is no `DispatchQueue.main.async` anywhere on the audio
+  path. Raw capture callbacks (the ~10 ms hot path) run off the main thread: single-source `mic`/
+  `system` modes append from the capturer's own serial queue, and `both` mode feeds the mixer's
+  `nonisolated` lock-protected `feedMic`/`feedSystem`. The only main-actor touch is `AudioMixer`'s
+  coarse **100 ms** drain timer, which does lightweight buffering (append + VAD chunk boundary
+  detection); the heavy diarization work is deferred to `performDiarization()` at `stop()`. This is
+  an acceptable cadence, not the per-callback main-thread dispatch finding #8 warned about.
+- **vDSP: declined.** The mix now lives in `BetterVoiceCore.alignAndMix`, which is deliberately
+  Foundation-only (see `SpeakerRegistry.swift` — "no Accelerate") so the mixer math stays pure and
+  unit-tested. The mix processes ~1600 samples per 100 ms window (10×/s); a scalar add there costs a
+  few µs, so `vDSP_vadd`/`vDSP_vsmul` would save ~1 µs/window on an M4 — below noise. Importing
+  Accelerate into Core (or restructuring Core to return unsummed slices just to SIMD the add in
+  `AudioMixer`) trades the module's purity/testability for no measurable gain. YAGNI. If a future
+  profile shows the mix on a real hot path, revisit by having Core return aligned prefixes and doing
+  the vDSP add in `AudioMixer`.
 
 ### Task 4.3: Dedupe + batch the WAV/convert code
 
