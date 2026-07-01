@@ -250,6 +250,11 @@ struct SettingsContentView: View {
                     Text(t("System audio captures the other participants (e.g. video calls) and needs the System Audio Recording permission."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if viewModel.audioSource == "both" {
+                        Text(t("Tip: use headphones. With open speakers the other participants' voices leak back into your microphone and can be counted twice."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Toggle(t("Delete audio after transcription"), isOn: $viewModel.autoDeleteAudio)
                     Picker(selection: $viewModel.defaultType) {
                         ForEach(MeetingType.allCases) { type in

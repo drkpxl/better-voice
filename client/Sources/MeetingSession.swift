@@ -474,6 +474,9 @@ final class MeetingSession {
 
         case "both":
             // B4: mic + system captured in parallel → AudioMixer sample-level mixing → SA
+            // Echo guard: `both` assumes headphones. With open speakers the remote voice leaks into
+            // the mic and is double-counted. Full acoustic echo cancellation is out of scope; per-channel
+            // diarization (Phase 1) already prevents the *attribution* error (remote speech stays off "me").
             let mixer = AudioMixer(
                 analyzerFormat: analyzerFormat,
                 diarizationFormat: diarizationFormat,
