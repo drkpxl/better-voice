@@ -44,13 +44,18 @@ final class MeetingSession {
 
     // MARK: - Diarization Buffers (16kHz Float32 mono)
 
-    /// Per-channel diarization accumulation. Fed off the main thread by the audio
-    /// capturers/mixer, so both buffers are `nonisolated(unsafe)` and guarded by
-    /// `diaBufferLock` (mirrors the pattern in AudioMixer). Read via a locked
-    /// snapshot at the start of performDiarization().
+    /// Mic-channel diarization accumulation. Fed off the main thread by the audio
+    /// capturers/mixer, so it is `nonisolated(unsafe)` and guarded by `diaBufferLock`
+    /// (mirrors the pattern in AudioMixer). Read via a locked snapshot at the start of
+    /// performDiarization(). (Mic memory bounding is a separate later task.)
     private nonisolated(unsafe) var micDiaBuffer: [Float] = []
-    private nonisolated(unsafe) var sysDiaBuffer: [Float] = []
     private let diaBufferLock = NSLock()
+
+    /// System-channel diarization is streamed incrementally into this chunker instead of
+    /// being accumulated into a whole-meeting buffer, bounding peak memory to ~one chunk.
+    /// Created only when system diarization is needed (audio_source system/both, and the
+    /// bench runFromFile path); nil in mic-only mode. Confines its own DiarizerManager.
+    private var systemDiarizationChunker: SystemDiarizationChunker?
 
     /// Deterministic speaker id for the local user, derived from the mic channel via VAD
     /// (not FluidAudio clustering). FluidAudio ids are numeric strings ("1", "2", ...), so
@@ -62,10 +67,6 @@ final class MeetingSession {
     /// fine-grained per-speaker grouping. Populated only on the live start() path.
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
-
-    /// Safety net so `stop()` can never block forever on system-channel diarization.
-    /// Diarizing a 5-min clip takes ~1s, so 120s is generous even for multi-hour meetings.
-    private static let diarizationTimeoutSec: TimeInterval = 120
 
     // MARK: - Duration Timer
 
@@ -116,6 +117,11 @@ final class MeetingSession {
         setupSegmentBuffer()
         audioFileURL = fileURL
         meetingId = "bench-" + fileURL.deletingPathExtension().lastPathComponent
+
+        // Bench always exercises the system-diarization path: stream the WAV into the chunker.
+        let benchChunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate)
+        benchChunker.start()
+        self.systemDiarizationChunker = benchChunker
 
         let localeObj = Locale(identifier: locale)
 
@@ -171,7 +177,7 @@ final class MeetingSession {
                 }
             }
 
-            // 4. Read audio from file to fill sysDiaBuffer (16kHz Float32 mono)
+            // 4. Read audio from file and stream it into the diarization chunker (16kHz Float32 mono)
             Logger.log("Meeting", "[Bench] Loading audio: \(fileURL.lastPathComponent)")
             let audioFile = try AVAudioFile(forReading: fileURL)
             let fileFormat = audioFile.processingFormat
@@ -212,15 +218,14 @@ final class MeetingSession {
 
                 if let floatData = outBuffer.floatChannelData {
                     // Bench path: route the WAV into the system channel (mic stays empty).
-                    appendSysSamples(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
+                    benchChunker.add(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
                 }
             } else {
                 if let floatData = fullBuffer.floatChannelData {
-                    appendSysSamples(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
+                    benchChunker.add(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
                 }
             }
-            let (_, benchSys) = snapshotDiaBuffers()
-            Logger.log("Meeting", "[Bench] Diarization buffer: \(benchSys.count) samples")
+            Logger.log("Meeting", "[Bench] Streamed system audio into diarization chunker")
 
             // 5. Use SpeechAnalyzer's file input API (Apple-native, replaces AVCaptureSession)
             Logger.log("Meeting", "[Bench] Starting SpeechAnalyzer from file...")
@@ -263,6 +268,10 @@ final class MeetingSession {
             resetDiaBuffers()
             polishedSegments = []
             segmentBuffer = nil
+            if let chunker = systemDiarizationChunker {
+                _ = await chunker.finish()
+                systemDiarizationChunker = nil
+            }
 
             Logger.log("Meeting", "[Bench] Complete: \(diarizedSegments.count) segments with speaker labels")
             return result
@@ -384,14 +393,24 @@ final class MeetingSession {
             interleaved: false
         )!
 
+        // System diarization runs incrementally in a background chunker (bounded memory).
+        // Create + start it only when system audio is present; mic-only mode skips it entirely.
+        if audioSource == "system" || audioSource == "both" {
+            let chunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate)
+            chunker.start()
+            self.systemDiarizationChunker = chunker
+        }
+
         // Per-channel diarization append closures. In mic/system modes these run on the
         // capture queue (off-main); in both mode they run from the mixer's 100ms MainActor
-        // drain. Either way they lock and append synchronously — no async hop to main.
+        // drain. Mic samples lock + append synchronously; system samples are yielded (ordered,
+        // non-blocking) into the incremental chunker. Both are Sendable-safe off-main.
         let appendMic: @Sendable ([Float]) -> Void = { [weak self] samples in
             self?.appendMicSamples(samples)
         }
-        let appendSys: @Sendable ([Float]) -> Void = { [weak self] samples in
-            self?.appendSysSamples(samples)
+        let sysChunker = self.systemDiarizationChunker
+        let appendSys: @Sendable ([Float]) -> Void = { samples in
+            sysChunker?.add(samples)
         }
 
         switch audioSource {
@@ -562,10 +581,10 @@ final class MeetingSession {
         await segmentBuffer?.flushFinal()
         logL2Summary()
 
-        let (micSamples, sysSamples) = snapshotDiaBuffers()
-        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, mic=\(micSamples.count) sys=\(sysSamples.count) audio samples")
+        let micSamples = snapshotMicDiaBuffer()
+        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, mic=\(micSamples.count) audio samples")
 
-        // Run speaker diarization
+        // Run speaker diarization (system channel finishes + flushes inside performDiarization)
         let diarizedSegments = await performDiarization()
 
         // Build the result
@@ -580,6 +599,13 @@ final class MeetingSession {
         polishedSegments = []
         segmentBuffer = nil
 
+        // Defensive: if performDiarization early-returned (no L2 segments) without finishing
+        // the chunker, drain it now so its consumer task can't leak.
+        if let chunker = systemDiarizationChunker {
+            _ = await chunker.finish()
+            systemDiarizationChunker = nil
+        }
+
         Logger.log("Meeting", "Session stopped, duration=\(String(format: "%.1f", finalDuration))s, segments=\(diarizedSegments.count)")
         return result
     }
@@ -593,27 +619,18 @@ final class MeetingSession {
         diaBufferLock.unlock()
     }
 
-    /// Append system samples to `sysDiaBuffer`. Safe to call from any thread.
-    private nonisolated func appendSysSamples(_ samples: [Float]) {
-        diaBufferLock.lock()
-        sysDiaBuffer.append(contentsOf: samples)
-        diaBufferLock.unlock()
-    }
-
-    /// Take a locked, tear-free snapshot of both diarization buffers.
-    private nonisolated func snapshotDiaBuffers() -> (mic: [Float], sys: [Float]) {
+    /// Take a locked, tear-free snapshot of the mic diarization buffer.
+    private nonisolated func snapshotMicDiaBuffer() -> [Float] {
         diaBufferLock.lock()
         let m = micDiaBuffer
-        let s = sysDiaBuffer
         diaBufferLock.unlock()
-        return (m, s)
+        return m
     }
 
-    /// Reset both diarization buffers under the lock.
+    /// Reset the mic diarization buffer under the lock.
     private nonisolated func resetDiaBuffers() {
         diaBufferLock.lock()
         micDiaBuffer.removeAll(keepingCapacity: false)
-        sysDiaBuffer.removeAll(keepingCapacity: false)
         diaBufferLock.unlock()
     }
 
@@ -632,9 +649,9 @@ final class MeetingSession {
     /// only (mic empty → no "me"); `mic` gets "me" only and skips the model download entirely
     /// (sys empty → FluidAudio branch never runs); bench fills sys only → clustering path.
     private func performDiarization() async -> [MeetingSegment] {
-        // Tear-free snapshot of both per-channel buffers (capture has stopped by now).
-        let (micBuf, sysBuf) = snapshotDiaBuffers()
-        Logger.log("Meeting", "Diarization buffers: mic=\(micBuf.count) sys=\(sysBuf.count)")
+        // Tear-free snapshot of the mic buffer (capture has stopped by now).
+        let micBuf = snapshotMicDiaBuffer()
+        Logger.log("Meeting", "Diarization buffers: mic=\(micBuf.count)")
 
         let segments = polishedSegments
 
@@ -646,55 +663,18 @@ final class MeetingSession {
 
         var intervals: [SpeakerInterval] = []
 
-        // --- System channel (remote participants) → FluidAudio clustering ---
-        // Only run when there is enough system audio; a failure logs and continues with an
-        // empty system contribution rather than discarding the mic-derived "me" timeline.
-        let sysDuration = Double(sysBuf.count) / Double(diarizationSampleRate)
-        if !sysBuf.isEmpty && sysDuration >= 2.0 {
-            Logger.log("Meeting", "Starting system diarization: \(String(format: "%.1f", sysDuration))s audio")
-            do {
-                Logger.log("Meeting", "Loading diarization models...")
-                let models = try await DiarizerModels.downloadIfNeeded(
-                    progressHandler: { progress in
-                        Logger.log("Meeting", "Model download progress: \(String(format: "%.0f%%", progress.fractionCompleted * 100))")
-                    }
-                )
-
-                Logger.log("Meeting", "Running diarization...")
-                // Bound the synchronous, CPU-bound diarization with a deadline so stop() stops
-                // awaiting after the timeout rather than blocking forever. The work runs on a
-                // detached task (off the MainActor) that the timeout can race; it can't be
-                // hard-cancelled mid-flight (performCompleteDiarization doesn't check
-                // Task.isCancelled), but the await unblocks at the deadline.
-                //
-                // DiarizerManager is not Sendable, so it's built + initialized INSIDE the detached
-                // task; only `models` (Sendable) and `sampleRate`/`sysBuf` (both Sendable) cross the
-                // boundary in, and the Sendable DiarizationResult crosses back out.
-                let sampleRate = diarizationSampleRate
-                let result = try await withThrowingTimeout(seconds: Self.diarizationTimeoutSec) {
-                    try await Task.detached(priority: .userInitiated) {
-                        let diarizer = DiarizerManager(config: DiarizerConfig())
-                        diarizer.initialize(models: models)
-                        return try diarizer.performCompleteDiarization(sysBuf, sampleRate: sampleRate)
-                    }.value
-                }
-
-                Logger.log("Meeting", "Diarization complete: \(result.segments.count) speaker segments")
-                for seg in result.segments {
-                    Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
-                }
-
-                intervals.append(contentsOf: speakerIntervals(from: result.segments))
-            } catch {
-                if case VoiceError.timeout = error {
-                    Logger.log("Meeting", "Diarization timed out after \(Int(Self.diarizationTimeoutSec))s, continuing without system speaker labels")
-                } else {
-                    Logger.log("Meeting", "Diarization failed: \(error), continuing without system speaker labels")
-                }
-            }
-        } else if !sysBuf.isEmpty {
-            Logger.log("Meeting", "System audio too short for diarization (\(String(format: "%.1f", sysDuration))s), skipping")
+        // --- System channel (remote participants) → incremental FluidAudio clustering ---
+        // The system audio was diarized chunk-by-chunk while it streamed in (bounded memory,
+        // one reused DiarizerManager for stable ids + retained embeddings). finish() flushes
+        // the tail and returns all accumulated global-timed segments. Returns [] if system
+        // diarization was unavailable/too short, in which case the mic "me" timeline still merges.
+        let sysSegments = await (systemDiarizationChunker?.finish() ?? [])
+        systemDiarizationChunker = nil
+        Logger.log("Meeting", "System diarization: \(sysSegments.count) speaker segments")
+        for seg in sysSegments {
+            Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
         }
+        intervals.append(contentsOf: speakerIntervals(from: sysSegments))
         let systemIntervalCount = intervals.count
 
         // --- Mic channel (local user "me") → energy-based VAD, no clustering model ---
