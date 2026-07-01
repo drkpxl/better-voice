@@ -244,7 +244,7 @@ enum MeetingBenchmark {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBar: StatusBarController?
-    private let moduleManager = ModuleManager()
+    private let voiceModule = VoiceModule()
     private let config = RuntimeConfig.shared
     private let recordingIndicator = RecordingIndicator.shared
     private var updater: UpdaterController?
@@ -268,15 +268,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // initialize the menu bar
-        statusBar = StatusBarController(moduleManager: moduleManager)
+        statusBar = StatusBarController(voiceModule: voiceModule)
 
         // start the Sparkle updater; refresh the menu when an update is found/cleared
         let updater = UpdaterController.shared
         updater.onUpdateStateChange = { [weak self] in self?.statusBar?.refreshMenu() }
         self.updater = updater
 
-        // register the voice module
-        let voiceModule = VoiceModule()
+        // wire up the voice module
         voiceModule.onStateChange = { [weak self] state in
             guard let self else { return }
             self.statusBar?.setRecording(state == .recording)
@@ -297,7 +296,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceModule.onAudioLevel = { [weak self] level in
             self?.recordingIndicator.update(level: level)
         }
-        moduleManager.register(voiceModule)
 
         // register the global hotkey
         GlobalHotKey.shared.onPress = { [weak self] in
@@ -309,17 +307,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Logger.log("Hotkey", "Ignored: processing in progress")
                 return
             }
-            self.moduleManager.activeModule?.onHotKeyDown()
+            self.voiceModule.onHotKeyDown()
         }
         GlobalHotKey.shared.onRelease = { [weak self] in
-            self?.moduleManager.activeModule?.onHotKeyUp()
+            self?.voiceModule.onHotKeyUp()
         }
         GlobalHotKey.shared.start()
 
         // start model server health checks
         ModelServer.shared.startHealthCheck()
 
-        Logger.log("App", "App launched, modules: \(moduleManager.moduleNames)")
+        Logger.log("App", "App launched")
         Logger.log("App", "Server endpoint: \(config.serverConfig["endpoint"] as? String ?? "not set")")
 
         // first-launch welcome screen (after the rest of the app is initialized)

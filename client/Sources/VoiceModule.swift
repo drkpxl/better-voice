@@ -4,7 +4,7 @@ import ApplicationServices
 /// Voice module
 /// Interaction: press right Command to start recording+transcription -> press right Command again to stop -> auto-inject
 @MainActor
-final class VoiceModule: BetterVoiceModule {
+final class VoiceModule {
     let name = "Voice"
     var isActive = false
 

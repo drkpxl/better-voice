@@ -4,7 +4,7 @@ import BetterVoiceCore
 @MainActor
 final class StatusBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
-    private let moduleManager: ModuleManager
+    private let voiceModule: VoiceModule
     private let config = RuntimeConfig.shared
 
     private var isRecording = false
@@ -16,8 +16,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// True from when the meeting stops until the wrap-up flow (classification/naming panel/export/summary) finishes; starting a new meeting is blocked during that window.
     private var isFinishingMeeting = false
 
-    init(moduleManager: ModuleManager) {
-        self.moduleManager = moduleManager
+    init(voiceModule: VoiceModule) {
+        self.voiceModule = voiceModule
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         super.init()
@@ -217,7 +217,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             return
         }
         // ...nor while a dictation is still recording or transcribing (don't record on top of it).
-        if let vm = moduleManager.activeModule as? VoiceModule, vm.state != .idle {
+        if voiceModule.state != .idle {
             Logger.log("StatusBar", "Ignored start: dictation in progress")
             return
         }
