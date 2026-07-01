@@ -43,27 +43,19 @@ enum TextInjector {
         keyDown?.post(tap: .cgSessionEventTap)
         keyUp?.post(tap: .cgSessionEventTap)
 
-        // 30ms later, verify changeCount — if it changed, Cmd+V was actually processed (the target app triggered a paste)
-        // If it didn't change, Cmd+V had no effect (the focused app intercepted it / didn't receive it / doesn't respond to ⌘V)
+        // 30ms later, log changeCount purely as a diagnostic. NOTE: this is NOT a reliable
+        // success/failure signal — ⌘V *reads* the pasteboard, it doesn't write, so a perfectly
+        // successful paste leaves changeCount UNCHANGED (verified=N is the normal case). It only
+        // flips to Y when something else mutates the pasteboard (a clipboard-history manager, an
+        // app that copies-on-paste). So don't gate UI on it — the log is for debugging only.
         let appBundle = app?.bundleID ?? "unknown"
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
             let changeCountAfterPaste = pb.changeCount
-            let verified = changeCountAfterPaste != changeCountAfterWrite
+            let pasteboardTouched = changeCountAfterPaste != changeCountAfterWrite
             Logger.log(
                 "Injector",
-                "Pasted to \(appBundle) verified=\(verified ? "Y" : "N") cc=\(changeCountBeforeWrite)→\(changeCountAfterWrite)→\(changeCountAfterPaste)"
+                "Pasted to \(appBundle) pasteboardTouched=\(pasteboardTouched ? "Y" : "N") cc=\(changeCountBeforeWrite)→\(changeCountAfterWrite)→\(changeCountAfterPaste)"
             )
-
-            // Paste didn't take (target app intercepted/ignored ⌘V). Don't leave the user thinking
-            // it worked with nothing typed — tell them, and leave the text on the clipboard to paste
-            // manually. Skip the clipboard restore below in this case (guarded by the changeCount check).
-            if !verified {
-                Notify.warn(
-                    t("Nothing was pasted"),
-                    t("The transcribed text couldn't be inserted into \(appBundle). It's on your clipboard — press ⌘V to paste it.")
-                )
-                return
-            }
 
             // Restore the clipboard after another 500ms delay (only if it wasn't changed by another operation in the meantime)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
