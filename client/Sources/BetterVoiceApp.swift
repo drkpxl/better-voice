@@ -5,6 +5,7 @@ import BetterVoiceCore
 @main
 struct BetterVoiceApp {
     static func main() {
+        #if BENCH
         // contextualStrings capacity test
         if CommandLine.arguments.contains("--test-context-capacity") {
             let app = NSApplication.shared
@@ -65,6 +66,7 @@ struct BetterVoiceApp {
             app.run()
             return
         }
+        #endif
 
         let app = NSApplication.shared
         let delegate = AppDelegate()
@@ -74,6 +76,7 @@ struct BetterVoiceApp {
     }
 }
 
+#if BENCH
 /// Meeting mode evaluation entry point
 /// Usage: BetterVoice --bench-meeting <wav> [--locale zh-CN] [--output result.json]
 ///   or: BetterVoice --bench-meeting --batch <manifest.jsonl> [--output-dir results/]
@@ -240,6 +243,7 @@ enum MeetingBenchmark {
         return args[idx + 1]
     }
 }
+#endif
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {

@@ -1,6 +1,3 @@
-@preconcurrency import AVFoundation
-import Speech
-
 /// Truncation test: simulates VoiceSession's streaming input + stop() logic
 /// Verifies whether SA loses trailing content during the stop sequence
 ///
@@ -11,6 +8,10 @@ import Speech
 /// 2. Feed the chunks to SpeechAnalyzer via AsyncStream (the exact same path VoiceSession uses)
 /// 3. Once all buffers are sent, run the same shutdown logic as VoiceSession.stop()
 /// 4. Log the timestamp and SA state at each step, then print a diagnostic report
+#if BENCH
+@preconcurrency import AVFoundation
+import Speech
+
 enum TruncationTest {
     private static let outputURL = BetterVoiceDataDir.archiveReports.appendingPathComponent("truncation-test.log")
     nonisolated(unsafe) private static var logHandle: FileHandle?
@@ -299,3 +300,4 @@ extension AVAudioPCMBuffer {
         return newBuf
     }
 }
+#endif

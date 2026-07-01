@@ -1,7 +1,3 @@
-@preconcurrency import AVFoundation
-import CoreMedia
-import Speech
-
 /// Entry point for evaluating instant-recording mode
 /// Usage:
 ///   BetterVoice --bench-voice <wav> [--locale zh-CN] [--output result.json]
@@ -13,6 +9,11 @@ import Speech
 ///
 /// Used for the three KPI §3.2 L4 ①②③ baselines (short-sentence accuracy / medium WER / long-sentence retention rate),
 /// evaluating instant-recording mode on the principle of "user perspective + full pipeline."
+#if BENCH
+@preconcurrency import AVFoundation
+import CoreMedia
+import Speech
+
 enum VoiceBenchmark {
 
     @MainActor
@@ -213,3 +214,4 @@ enum VoiceBenchmark {
         return args[idx + 1]
     }
 }
+#endif

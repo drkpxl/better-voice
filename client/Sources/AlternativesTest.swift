@@ -1,8 +1,9 @@
+/// Tests what SpeechAnalyzer's alternativeTranscriptions returns
+/// Usage: BetterVoice --test-alternatives <wav-file> [--locale zh-CN]
+#if BENCH
 import AVFoundation
 import Speech
 
-/// Tests what SpeechAnalyzer's alternativeTranscriptions returns
-/// Usage: BetterVoice --test-alternatives <wav-file> [--locale zh-CN]
 enum AlternativesTest {
     @MainActor
     static func run() async {
@@ -150,3 +151,4 @@ actor AlternativesCollector {
         segments.append(Segment(best: best, alternatives: alternatives, wordConfidences: wordConfidences))
     }
 }
+#endif

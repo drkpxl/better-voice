@@ -1,8 +1,9 @@
+/// Tests the capacity limit of SpeechAnalyzer's contextualStrings
+/// Usage: BetterVoice --test-context-capacity <wav-file>
+#if BENCH
 import AVFoundation
 import Speech
 
-/// Tests the capacity limit of SpeechAnalyzer's contextualStrings
-/// Usage: BetterVoice --test-context-capacity <wav-file>
 enum ContextCapacityTest {
     @MainActor
     static func run() async {
@@ -99,3 +100,4 @@ enum ContextCapacityTest {
         }
     }
 }
+#endif

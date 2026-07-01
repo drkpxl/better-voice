@@ -105,6 +105,7 @@ final class MeetingSession {
 
     // MARK: - File Input Mode (for evaluation)
 
+    #if BENCH
     /// Run the full meeting pipeline (transcription + diarization + alignment) from a WAV file.
     /// Substitutes for AVCaptureSession; the rest of the pipeline is identical.
     func runFromFile(_ fileURL: URL, locale: String = "zh-CN") async -> MeetingResult {
@@ -229,6 +230,7 @@ final class MeetingSession {
             return MeetingResult(segments: [], duration: 0, audioPath: fileURL.path)
         }
     }
+    #endif
 
     // MARK: - Microphone Start (normal usage)
 

@@ -28,7 +28,8 @@ let package = Package(
             exclude: ["BetterVoiceCore"],
             resources: [
                 .process("Resources")
-            ]
+            ],
+            swiftSettings: [.define("BENCH", .when(configuration: .debug))]
         ),
         .testTarget(
             name: "BetterVoiceCoreTests",

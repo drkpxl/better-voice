@@ -130,6 +130,8 @@ Per §2.2 Phase 1 tiers (based on trend):
 
 Does not rewrite existing functionality; this framework only does "KPI-perspective wrapping + test set organization + report generation."
 
+**Note**: `--bench-voice`, `--bench-meeting`, `--test-alternatives`, `--test-context-capacity`, and `--test-truncation` are compiled only into debug builds (`BENCH` define, active when `configuration == .debug`) so they don't ship in the release binary. Build with a plain `swift build` (what `client && make build` already does) — a release build (`swift build -c release`) won't recognize these flags.
+
 ---
 
 ## 6. KPI Section Quick Reference
