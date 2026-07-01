@@ -134,6 +134,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 action: #selector(toggleMeeting),
                 keyEquivalent: "m"
             )
+            // Display hint for the Right Option+M global hotkey (menus can't show left/right).
+            stopMeeting.keyEquivalentModifierMask = [.option]
             stopMeeting.target = self
             menu.addItem(stopMeeting)
         } else if isFinishingMeeting {
@@ -147,6 +149,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 action: #selector(toggleMeeting),
                 keyEquivalent: "m"
             )
+            // Display hint for the Right Option+M global hotkey (menus can't show left/right).
+            startMeeting.keyEquivalentModifierMask = [.option]
             startMeeting.target = self
             menu.addItem(startMeeting)
         }
@@ -202,7 +206,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
-    @objc private func toggleMeeting() {
+    @objc func toggleMeeting() {
         if isMeetingActive {
             stopMeeting()
         } else {

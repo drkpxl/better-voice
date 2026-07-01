@@ -316,6 +316,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.shared.onRelease = { [weak self] in
             self?.voiceModule.onHotKeyUp()
         }
+        // Right Option+M toggles meeting recording (same guard flow as the menu item).
+        GlobalHotKey.shared.onMeetingToggle = { [weak self] in
+            self?.statusBar?.toggleMeeting()
+        }
         GlobalHotKey.shared.start()
 
         // start model server health checks
