@@ -87,17 +87,18 @@ final class MeetingWrapUpWindow {
         }
 
         let host = NSHostingView(rootView: MeetingWrapUpContentView(viewModel: viewModel))
-        let height: CGFloat = min(560, 220 + CGFloat(max(speakers.count, 1)) * 64)
-        host.frame = NSRect(x: 0, y: 0, width: 460, height: height)
+        let height: CGFloat = min(820, 340 + CGFloat(max(speakers.count, 1)) * 120)
+        host.frame = NSRect(x: 0, y: 0, width: 640, height: height)
 
         let win = NSWindow(
             contentRect: host.frame,
-            styleMask: [.titled, .closable],
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
         win.title = t("Wrap up meeting")
         win.contentView = host
+        win.minSize = NSSize(width: 540, height: 420)
         win.center()
         win.isReleasedWhenClosed = false
 
@@ -188,29 +189,31 @@ struct MeetingWrapUpContentView: View {
                     .foregroundStyle(.secondary)
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         ForEach($viewModel.speakers) { $speaker in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("\(t("Speaker")) \(speaker.id)")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.orange)
-                                    Spacer()
-                                }
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(t("Speaker")) \(speaker.id)")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.orange)
                                 if !speaker.snippet.isEmpty {
                                     Text("“\(speaker.snippet)”")
-                                        .font(.caption)
+                                        .font(.callout)
                                         .foregroundStyle(.secondary)
-                                        .lineLimit(2)
+                                        .lineLimit(3)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 TextField(t("Name"), text: $speaker.name)
                                     .textFieldStyle(.roundedBorder)
                             }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
                         }
                     }
+                    .padding(.vertical, 2)
                 }
-                .frame(maxHeight: 280)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             Spacer(minLength: 0)

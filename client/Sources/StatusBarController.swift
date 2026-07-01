@@ -37,6 +37,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         Task { @MainActor in self.setupMenu() }
     }
 
+    /// Public entry to rebuild the menu (e.g. when the updater finds a new version).
+    func refreshMenu() { setupMenu() }
+
     func setRecording(_ recording: Bool) {
         isRecording = recording
         updateIcon()
@@ -106,9 +109,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         )
         addPermissionRow(
             to: menu,
-            label: t("Screen Recording (meeting system audio)"),
-            granted: PermissionManager.isScreenCaptureGranted(),
-            selector: #selector(openScreenRecordingSettings)
+            label: t("System audio recording (meetings)"),
+            granted: PermissionManager.isSystemAudioGranted(),
+            selector: #selector(openSystemAudioSettings)
         )
 
         menu.addItem(NSMenuItem.separator())
@@ -155,6 +158,36 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         )
         settingsItem.target = self
         menu.addItem(settingsItem)
+
+        let welcomeItem = NSMenuItem(
+            title: t("Welcome / Setup Guide"),
+            action: #selector(openWelcome),
+            keyEquivalent: ""
+        )
+        welcomeItem.target = self
+        menu.addItem(welcomeItem)
+
+        // updates: a highlighted "Update to X…" row appears when Sparkle has found a new version;
+        // a manual "Check for Updates…" is always available.
+        if let version = UpdaterController.shared.availableUpdateVersion {
+            let updateItem = NSMenuItem(
+                title: t("Update to \(version) — Restart to update"),
+                action: #selector(showUpdate),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            let attr = NSMutableAttributedString(string: updateItem.title)
+            attr.addAttribute(.foregroundColor, value: NSColor.systemOrange, range: NSRange(location: 0, length: attr.length))
+            updateItem.attributedTitle = attr
+            menu.addItem(updateItem)
+        }
+        let checkUpdatesItem = NSMenuItem(
+            title: t("Check for Updates..."),
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        checkUpdatesItem.target = self
+        menu.addItem(checkUpdatesItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -362,6 +395,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         SettingsWindow.shared.show()
     }
 
+    @objc private func openWelcome() {
+        WelcomeWindow.shared.show()
+    }
+
+    @objc private func showUpdate() {
+        UpdaterController.shared.checkForUpdates()
+    }
+
+    @objc private func checkForUpdates() {
+        UpdaterController.shared.checkForUpdates()
+    }
+
     @objc private func quit() {
         NSApplication.shared.terminate(nil)
     }
@@ -391,22 +436,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openInputMonitoringSettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
-        NSWorkspace.shared.open(url)
+        PermissionManager.openSettings(for: .inputMonitoring)
     }
 
     @objc private func openAccessibilitySettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-        NSWorkspace.shared.open(url)
+        PermissionManager.openSettings(for: .accessibility)
     }
 
     @objc private func openMicrophoneSettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
-        NSWorkspace.shared.open(url)
+        PermissionManager.openSettings(for: .microphone)
     }
 
-    @objc private func openScreenRecordingSettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
-        NSWorkspace.shared.open(url)
+    @objc private func openSystemAudioSettings() {
+        PermissionManager.openSettings(for: .systemAudio)
     }
 }

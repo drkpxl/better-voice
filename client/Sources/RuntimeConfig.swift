@@ -58,6 +58,13 @@ final class RuntimeConfig {
         values["hotkey"] as? [String: Any] ?? [:]
     }
 
+    /// Highest onboarding version the user has completed. Compared against a code
+    /// constant in AppDelegate to decide whether to show the first-launch welcome screen
+    /// (bump the constant to re-introduce onboarding after a major change).
+    var onboardingVersion: Int {
+        values["onboarding_version"] as? Int ?? 0
+    }
+
     /// Persist a new hotkey configuration (called when the settings window saves)
     func updateHotKeyConfig(_ dict: [String: Any]) {
         values["hotkey"] = dict
@@ -118,7 +125,9 @@ final class RuntimeConfig {
                     "l2_flush_on_pause_sec": 1.5,
                     "l2_flush_on_chars": 200,
                     "l2_min_chars": 30,
-                    "audio_source": "mic",
+                    // "mic" (your voice only), "system" (the call's audio only), or "both" (mixed).
+                    // Default "both" so meeting notes capture you and the other participants.
+                    "audio_source": "both",
                     // save directory for meeting transcripts + summaries (supports ~ expansion).
                     "save_folder": BetterVoiceDataDir.meetings.path,
                     // whether to automatically delete the audio wav after transcription finishes (off by default).
@@ -142,7 +151,9 @@ final class RuntimeConfig {
                     "modifierFlags": 0,
                     "isModifierOnly": true,
                     "displayName": "Right Option"
-                ]
+                ],
+                // Onboarding not yet completed on a fresh install; AppDelegate shows the welcome screen.
+                "onboarding_version": 0
             ]
             values = defaults
             save()

@@ -71,6 +71,7 @@ final class SettingsViewModel {
     var saveFolder: String
     var autoDeleteAudio: Bool
     var defaultType: MeetingType
+    var audioSource: String
     // Language ("" = follow system)
     var language: String
 
@@ -110,6 +111,7 @@ final class SettingsViewModel {
         saveFolder = meeting["save_folder"] as? String ?? BetterVoiceDataDir.meetings.path
         autoDeleteAudio = meeting["auto_delete_audio"] as? Bool ?? false
         defaultType = MeetingType.from(configKey: meeting["default_type"] as? String ?? "general") ?? .general
+        audioSource = meeting["audio_source"] as? String ?? "both"
 
         language = cfg.language ?? ""
     }
@@ -129,6 +131,7 @@ final class SettingsViewModel {
         meeting["save_folder"] = saveFolder.trimmingCharacters(in: .whitespacesAndNewlines)
         meeting["auto_delete_audio"] = autoDeleteAudio
         meeting["default_type"] = defaultType.configKey
+        meeting["audio_source"] = audioSource
         var summ = meeting["summarization"] as? [String: Any] ?? [:]
         summ["enabled"] = summarizationEnabled
         summ["num_ctx"] = max(1024, numCtx)
@@ -153,38 +156,7 @@ final class SettingsViewModel {
     func openDataFolder() { NSWorkspace.shared.open(BetterVoiceDataDir.url) }
 
     /// Opens the personal context file; creates it from a template first if it doesn't exist, to help users get started.
-    func editPersonalContext() {
-        let url = BetterVoiceDataDir.personalContextURL
-        if !FileManager.default.fileExists(atPath: url.path) {
-            BetterVoiceDataDir.ensureExists()
-            try? Self.personalContextTemplate.write(to: url, atomically: true, encoding: .utf8)
-        }
-        NSWorkspace.shared.open(url)
-    }
-
-    private static let personalContextTemplate = """
-    # Personal context
-
-    This file gives the local AI background about you so it spells names, jargon,
-    and acronyms correctly when polishing dictation and summarizing meetings. It is
-    used only for disambiguation — it is never added to your text or summaries.
-
-    Edit freely. Useful things to include:
-    - Your name and how it's spelled.
-    - Your company / team and what it does.
-    - Your role / title.
-    - People you talk to often (names + roles).
-    - Recurring projects, products, tools, and acronyms.
-
-    ## About me
-
-
-    ## People
-
-
-    ## Projects & terms
-
-    """
+    func editPersonalContext() { PersonalContext.openOrCreate() }
 
     func editConfigFile() {
         let url = BetterVoiceDataDir.configURL
@@ -260,6 +232,16 @@ struct SettingsContentView: View {
                         TextField(t("Save folder"), text: $viewModel.saveFolder)
                         Button(t("Choose...")) { viewModel.chooseSaveFolder() }
                     }
+                    Picker(selection: $viewModel.audioSource) {
+                        Text(t("Microphone + system audio")).tag("both")
+                        Text(t("Microphone only")).tag("mic")
+                        Text(t("System audio only")).tag("system")
+                    } label: {
+                        Text(t("Meeting audio"))
+                    }
+                    Text(t("System audio captures the other participants (e.g. video calls) and needs the System Audio Recording permission."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Toggle(t("Delete audio after transcription"), isOn: $viewModel.autoDeleteAudio)
                     Picker(selection: $viewModel.defaultType) {
                         ForEach(MeetingType.allCases) { type in

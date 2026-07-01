@@ -11,9 +11,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.5.0</string>
+	<string>0.6.0</string>
 	<key>CFBundleVersion</key>
-	<string>0.5.0</string>
+	<string>600</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -21,9 +21,21 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Better Voice records this Mac audio output to transcribe the other side of your meetings.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Better Voice needs microphone access to transcribe your speech.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Better Voice needs speech recognition to transcribe on-device.</string>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://drkpxl.github.io/better-voice/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>XUc6FvR9apW3YwfrFZDx7xwExmHiXLTrHhdGeIES32A=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>1209600</integer>
 </dict>
 </plist>

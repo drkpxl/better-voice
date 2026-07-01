@@ -230,20 +230,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let config = RuntimeConfig.shared
     private let recordingIndicator = RecordingIndicator()
     private let remoteInbox = RemoteInbox()
+    private var updater: UpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // initialize data directory
         BetterVoiceDataDir.ensureExists()
 
-        // check permissions
-        let axOK = PermissionManager.checkAccessibility()
-        let screenOK = PermissionManager.checkScreenCapture()
-        // Input Monitoring is the permission actually needed for CGEventTap to listen for the global hotkey (not Accessibility)
-        let inputOK = PermissionManager.checkInputMonitoring()
-        Logger.log("App", "Accessibility: \(axOK), Input Monitoring: \(inputOK), Screen capture: \(screenOK)")
+        // First-launch onboarding: when the user hasn't completed onboarding, the welcome
+        // window requests permissions inline, so skip the eager prompts here to avoid stacking
+        // system dialogs behind it. Otherwise prompt as usual.
+        let needsOnboarding = config.onboardingVersion < WelcomeWindow.currentOnboardingVersion
+        if needsOnboarding {
+            Logger.log("App", "First launch — showing onboarding (permissions requested there)")
+        } else {
+            // check permissions (system-audio is requested on demand when a meeting starts, not eagerly)
+            let axOK = PermissionManager.checkAccessibility()
+            // Input Monitoring is the permission actually needed for CGEventTap to listen for the global hotkey (not Accessibility)
+            let inputOK = PermissionManager.checkInputMonitoring()
+            Logger.log("App", "Accessibility: \(axOK), Input Monitoring: \(inputOK)")
+        }
 
         // initialize the menu bar
         statusBar = StatusBarController(moduleManager: moduleManager)
+
+        // start the Sparkle updater; refresh the menu when an update is found/cleared
+        let updater = UpdaterController.shared
+        updater.onUpdateStateChange = { [weak self] in self?.statusBar?.refreshMenu() }
+        self.updater = updater
 
         // register the voice module
         let voiceModule = VoiceModule()
@@ -311,6 +324,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Logger.log("App", "App launched, modules: \(moduleManager.moduleNames)")
         Logger.log("App", "Server endpoint: \(config.serverConfig["endpoint"] as? String ?? "not set")")
+
+        // first-launch welcome screen (after the rest of the app is initialized)
+        if needsOnboarding {
+            WelcomeWindow.shared.show()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

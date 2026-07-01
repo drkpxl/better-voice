@@ -6,7 +6,8 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v26)],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio", branch: "main")
+        .package(url: "https://github.com/FluidInference/FluidAudio", branch: "main"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0")
     ],
     targets: [
         // Foundation-only pure-logic library so it can be unit-tested without the
@@ -19,6 +20,7 @@ let package = Package(
             name: "BetterVoice",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
+                .product(name: "Sparkle", package: "Sparkle"),
                 "BetterVoiceCore"
             ],
             path: "Sources",

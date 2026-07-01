@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Better Voice — private, on-device dictation & meeting notes for macOS</title>
+<meta name="description" content="Better Voice is a menu-bar app for macOS that turns your voice into text in any app and captures meeting transcripts and summaries — all processed locally on your Mac.">
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --text: #e8eaed;
+    --muted: #9aa3af;
+    --accent: #ff8a34;
+    --border: #262a33;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #fbfbfd; --panel: #ffffff; --text: #1d1d1f;
+      --muted: #6e6e73; --accent: #e6710f; --border: #e6e6ea;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  header { text-align: center; padding: 72px 0 48px; }
+  .logo {
+    width: 76px; height: 76px; border-radius: 20px; margin: 0 auto 20px;
+    display: grid; place-items: center;
+    background: linear-gradient(160deg, var(--accent), #c4560a);
+    box-shadow: 0 10px 30px rgba(230,113,15,0.3);
+  }
+  .logo svg { width: 42px; height: 42px; fill: #fff; }
+  h1 { font-size: clamp(2rem, 6vw, 3rem); margin: 0 0 12px; letter-spacing: -0.02em; }
+  .tagline { font-size: clamp(1.05rem, 3.5vw, 1.35rem); color: var(--muted); margin: 0 auto 32px; max-width: 560px; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 1.05rem; padding: 14px 28px; border-radius: 12px;
+    transition: transform .12s ease, filter .12s ease;
+  }
+  .cta:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .cta-sub { display: block; margin-top: 12px; font-size: 0.9rem; color: var(--muted); }
+  .cta-sub a { color: var(--accent); }
+  section { padding: 20px 0; }
+  h2 { font-size: 1.4rem; margin: 40px 0 20px; letter-spacing: -0.01em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 1.08rem; }
+  .card p { margin: 0; color: var(--muted); font-size: 0.96rem; }
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  .steps li {
+    position: relative; padding: 14px 0 14px 46px; border-bottom: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .steps li:last-child { border-bottom: 0; }
+  .steps li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 12px;
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 0.85rem;
+    display: grid; place-items: center;
+  }
+  .steps code {
+    background: rgba(127,127,127,0.15); padding: 2px 6px; border-radius: 5px;
+    font-size: 0.88em; color: var(--text);
+  }
+  .privacy {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px; margin-top: 12px;
+  }
+  footer {
+    text-align: center; color: var(--muted); font-size: 0.9rem;
+    padding: 48px 0 60px; border-top: 1px solid var(--border); margin-top: 56px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <!-- waveform, matching the menu-bar icon -->
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 10h2v4H2zm4-4h2v12H6zm4-3h2v18h-2zm4 3h2v12h-2zm4 4h2v4h-2z"/></svg>
+    </div>
+    <h1>Better Voice</h1>
+    <p class="tagline">Private, on-device dictation and meeting notes for macOS. Your voice never leaves your Mac.</p>
+    <a class="cta" href="https://github.com/drkpxl/better-voice/releases/latest">Download for macOS</a>
+    <span class="cta-sub">Apple Silicon · macOS 26+ · Free &amp; open source on <a href="https://github.com/drkpxl/better-voice">GitHub</a></span>
+  </header>
+
+  <section>
+    <div class="grid">
+      <div class="card">
+        <h3>Dictate anywhere</h3>
+        <p>Hold your hotkey, speak, and the polished text is typed at your cursor — in any app.</p>
+      </div>
+      <div class="card">
+        <h3>Meeting transcripts</h3>
+        <p>Record a meeting to get a speaker-labeled transcript and an AI summary, saved as Markdown.</p>
+      </div>
+      <div class="card">
+        <h3>Fully on-device</h3>
+        <p>Transcription and summarization run locally against your own model server. Nothing is uploaded.</p>
+      </div>
+      <div class="card">
+        <h3>Knows your world</h3>
+        <p>Optional personal context helps it spell names, jargon, and acronyms the way you do.</p>
+      </div>
+      <div class="card">
+        <h3>Stays out of the way</h3>
+        <p>Lives in the menu bar with a global hotkey. Auto-updates in place — just restart to update.</p>
+      </div>
+      <div class="card">
+        <h3>Yours to shape</h3>
+        <p>Point it at Ollama or any OpenAI-compatible endpoint and pick the models you prefer.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Getting started</h2>
+    <ol class="steps">
+      <li>Download the latest <code>.dmg</code> and drag <strong>Better Voice</strong> to Applications.</li>
+      <li>First launch is blocked by Gatekeeper — run <code>xattr -cr /Applications/BetterVoice.app</code>, then open it.</li>
+      <li>The welcome screen walks you through permissions, your hotkey, and personal context.</li>
+      <li>Press your hotkey to dictate, or start a meeting from the menu bar. That's it.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Privacy</h2>
+    <div class="privacy">
+      <p style="margin:0;color:var(--muted)">Better Voice is built to keep your audio and text on your own machine. Recordings are transcribed on-device, and polishing/summarization talk only to the local (or self-hosted) model endpoint you configure. There are no analytics and no cloud accounts.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Better Voice · <a href="https://github.com/drkpxl/better-voice">Source on GitHub</a> · Updates delivered via <a href="appcast.xml">Sparkle</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

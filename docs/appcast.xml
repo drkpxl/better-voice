@@ -1,0 +1,26 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>BetterVoice</title>
+        <item>
+            <title>0.6.0</title>
+            <pubDate>Tue, 30 Jun 2026 19:11:03 -0600</pubDate>
+            <sparkle:version>600</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[
+                <h2>Better Voice 0.6.0</h2>
+                <ul>
+                    <li><b>First-launch onboarding</b> — a guided welcome screen for permissions, your dictation hotkey, the meeting save folder, the model server, and personal context.</li>
+                    <li><b>In-app updates</b> — checks on launch and every 14 days, shows what changed, and installs with “Restart to update”.</li>
+                    <li><b>Model server setup</b> in onboarding — pick your Ollama endpoint + model, test the connection, with a help page explaining Ollama.</li>
+                    <li><b>Lighter meeting permission</b> — system audio now uses Core Audio taps, so it needs only “System Audio Recording”, not full Screen Recording.</li>
+                    <li>Meetings capture <b>microphone + system audio</b> by default, with a new picker in Settings → Meetings.</li>
+                    <li>Bigger, resizable speaker-naming window.</li>
+                </ul>
+            ]]></description>
+            <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice-0.6.0.zip" length="3862949" type="application/octet-stream" sparkle:edSignature="J0apW+u+OPF0vizGIbEJkevxsz4gvVJHp2jPRTwbPiIP2EBv2is+dx5rU9aC9lGOVYXtZux7C3EOHWdxBftsCw=="/>
+        </item>
+    </channel>
+</rss>
