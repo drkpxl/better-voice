@@ -26,6 +26,12 @@ public struct SpeechInterval: Sendable, Equatable {
 /// (or any buffer whose 10th-percentile RMS is tiny) stays below `absoluteFloor`, so the
 /// `max(absoluteFloor, ...)` guard prevents amplifying pure noise into false speech.
 ///
+/// Precondition: the input channel is assumed to be **majority silence** — its intended use
+/// is the meeting mic channel, where the local user speaks intermittently and most frames are
+/// ambient room tone. If the channel were near-continuous speech, the 10th-percentile floor
+/// would climb into speech energy and the adaptive threshold could under-detect. This is a
+/// documented precondition of the estimator, not a defect.
+///
 /// - Parameters:
 ///   - samples: mono PCM samples (typically normalized to roughly -1...1).
 ///   - sampleRate: samples per second (e.g. 16000).
@@ -47,6 +53,10 @@ public func detectSpeechIntervals(
     guard sampleRate > 0, frameSec > 0, !samples.isEmpty else { return [] }
 
     let frameSize = max(1, Int((frameSec * Double(sampleRate)).rounded()))
+    // Use the actual frame duration (from the integer frameSize) for time conversion so that
+    // times stay sample-accurate on odd rates where round(frameSec*sampleRate) != frameSec*sampleRate.
+    // At 16 kHz / 30 ms this is exactly 480 samples = 0.03 s, so behavior is unchanged there.
+    let actualFrameSec = TimeInterval(frameSize) / TimeInterval(sampleRate)
     let totalDuration = TimeInterval(samples.count) / TimeInterval(sampleRate)
 
     // 1 & 2. Split into consecutive frames (include a non-empty trailing frame) and compute RMS.
@@ -91,7 +101,7 @@ public func detectSpeechIntervals(
     guard !runs.isEmpty else { return [] }
 
     // 5b. Merge runs whose silent gap (in frames) is < minSilenceSec (hangover).
-    let minSilenceFrames = Int((minSilenceSec / frameSec).rounded())
+    let minSilenceFrames = Int((minSilenceSec / actualFrameSec).rounded())
     var merged: [(first: Int, last: Int)] = [runs[0]]
     for run in runs.dropFirst() {
         let gapFrames = run.first - merged[merged.count - 1].last - 1
@@ -105,8 +115,8 @@ public func detectSpeechIntervals(
     // 5c. Drop runs shorter than minSpeechSec, then convert frame indices to times.
     var intervals: [SpeechInterval] = []
     for run in merged {
-        let start = TimeInterval(run.first) * frameSec
-        let end = min(TimeInterval(run.last + 1) * frameSec, totalDuration)
+        let start = TimeInterval(run.first) * actualFrameSec
+        let end = min(TimeInterval(run.last + 1) * actualFrameSec, totalDuration)
         if end - start >= minSpeechSec {
             intervals.append(SpeechInterval(start: start, end: end))
         }

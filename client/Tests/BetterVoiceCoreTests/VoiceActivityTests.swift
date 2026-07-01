@@ -76,6 +76,29 @@ final class VoiceActivityTests: XCTestCase {
         XCTAssertEqual(intervals[1].end, 1.8, accuracy: 0.05)
     }
 
+    func testAdaptiveNoiseFloorSuppressesNoiseBed() {
+        // A low-amplitude noise bed fills the whole 3s buffer; a 0.5-amplitude speech tone
+        // overwrites the [1, 2) region. This exercises the *adaptive* branch of the threshold:
+        //   - bed RMS  = 0.03 / sqrt(2) ≈ 0.0212  (well above absoluteFloor 0.005)
+        //   - tone RMS = 0.5  / sqrt(2) ≈ 0.354
+        //   - noiseFloor ≈ bed RMS (bed is the majority of frames), so
+        //     threshold ≈ 0.0212 * 3 ≈ 0.0636 — sits between bed RMS and tone RMS.
+        // If only absoluteFloor were used, the bed (0.0212 > 0.005) would be detected across
+        // the entire buffer, yielding one 0..3s interval. The adaptive floor must suppress the
+        // bed and keep only the tone region.
+        let samples = makeBuffer(
+            duration: 3.0,
+            tones: [
+                (startSec: 0.0, endSec: 3.0, freq: 60, amplitude: 0.03),   // noise bed
+                (startSec: 1.0, endSec: 2.0, freq: 440, amplitude: 0.5),   // speech tone (overwrites bed)
+            ]
+        )
+        let intervals = detectSpeechIntervals(samples: samples, sampleRate: sampleRate)
+        XCTAssertEqual(intervals.count, 1, "adaptive floor should suppress the noise bed")
+        XCTAssertEqual(intervals.first?.start ?? -1, 1.0, accuracy: 0.05)
+        XCTAssertEqual(intervals.first?.end ?? -1, 2.0, accuracy: 0.05)
+    }
+
     func testShortBlipBelowMinSpeechIsDropped() {
         // A single 0.1s burst < minSpeechSec (0.2s) → dropped.
         let samples = makeBuffer(
