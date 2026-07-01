@@ -146,8 +146,10 @@ public func assignSpeaker(to phrase: PhraseSpan,
     }
 
     // Pick the speaker with the greatest total overlap. On an exact tie, break
-    // deterministically by speakerId (higher id wins) so results are stable run-to-run —
-    // Dictionary iteration order is otherwise randomized.
+    // deterministically by speakerId (the LOWER id wins) so results are stable run-to-run —
+    // Dictionary iteration order is otherwise randomized. `.max(by:)` returns the element that is
+    // not "less than" any other; with the tie predicate `lhs.key > rhs.key`, larger keys sort
+    // earlier, so the smallest key is the maximum. (See testTieBreaksDeterministicallyBySpeakerId.)
     let best = totalOverlapBySpeaker.max { lhs, rhs in
         lhs.value != rhs.value ? lhs.value < rhs.value : lhs.key > rhs.key
     }!
@@ -180,22 +182,33 @@ public func assignSpeaker(to phrase: PhraseSpan,
 /// - Parameters:
 ///   - phrases: ordered `(span, text)` pairs to attribute and group.
 ///   - intervals: diarization intervals to attribute against.
-/// - Returns: one `SpeakerTurn` per consecutive same-speaker run, in order.
+///   - maxTurnGapSec: a silence longer than this between a phrase and the previous one ends the
+///     current turn even when the speaker is unchanged. Without this, a run of same-speaker (or,
+///     worse, consecutive unattributed `nil`) phrases separated by long silences would collapse
+///     into a single turn whose span covers the gap and whose text concatenates utterances that
+///     were minutes apart. Default `10`.
+/// - Returns: one `SpeakerTurn` per consecutive same-speaker run (further split on long gaps), in order.
 public func groupIntoTurns(phrases: [(span: PhraseSpan, text: String)],
-                           intervals: [SpeakerInterval]) -> [SpeakerTurn] {
+                           intervals: [SpeakerInterval],
+                           maxTurnGapSec: TimeInterval = 10) -> [SpeakerTurn] {
     // 1. Assign each phrase.
     let assigned = phrases.map { phrase -> (span: PhraseSpan, text: String, assignment: SpeakerAssignment) in
         (phrase.span, phrase.text, assignSpeaker(to: phrase.span, among: intervals))
     }
 
-    // 2. Group consecutive phrases by speakerId.
+    // 2. Group consecutive phrases by speakerId, breaking a turn on a long silence.
     var groups: [[(span: PhraseSpan, text: String, assignment: SpeakerAssignment)]] = []
     for item in assigned {
-        if let last = groups.last, last[last.count - 1].assignment.speakerId == item.assignment.speakerId {
-            groups[groups.count - 1].append(item)
-        } else {
-            groups.append([item])
+        if let last = groups.last {
+            let prev = last[last.count - 1]
+            let sameSpeaker = prev.assignment.speakerId == item.assignment.speakerId
+            let gap = item.span.start - prev.span.end
+            if sameSpeaker && gap <= maxTurnGapSec {
+                groups[groups.count - 1].append(item)
+                continue
+            }
         }
+        groups.append([item])
     }
 
     // 3. Fold each group into a turn.

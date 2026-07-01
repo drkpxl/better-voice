@@ -269,13 +269,13 @@ struct SettingsContentView: View {
                         Stepper(
                             value: $viewModel.clusteringThreshold,
                             in: 0.5...0.9,
-                            step: 0.05
+                            step: 0.01
                         ) {
                             Text(String(format: "%.2f", viewModel.clusteringThreshold))
                                 .monospacedDigit()
                         }
                     }
-                    Text(t("Lower = more speakers. Default 0.55. Raise if distinct people are split; lower if speakers are merged."))
+                    Text(t("Lower = more speakers. Default 0.57. Raise if distinct people are split; lower if speakers are merged."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

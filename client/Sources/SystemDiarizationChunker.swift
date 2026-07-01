@@ -167,8 +167,16 @@ final class SystemDiarizationChunker: Sendable {
             }
         }
 
-        // Flush the tail: diarize only if there is at least ~1s of audio; drop a sub-1s tail.
-        if pending.count >= sampleRate {
+        // Flush the tail.
+        // If the WHOLE meeting was too short to cluster (no full chunk processed and under ~2s
+        // total), skip diarization so FluidAudio doesn't emit an arbitrary speaker label on a clip
+        // with too little audio to separate — this restores the old `audioDuration >= 2.0` guard
+        // that whole-buffer diarization had before chunking. Otherwise diarize a tail of at least
+        // ~1s (a short remainder after real chunks is just dropped).
+        let minWholeMeetingSamples = 2 * sampleRate
+        if chunkIndex == 0 && pending.count < minWholeMeetingSamples {
+            Logger.log("Meeting", "[Chunker] Whole meeting < 2s (\(pending.count) samples) — skipping diarization")
+        } else if pending.count >= sampleRate {
             diarizeChunk(pending, atOffsetSamples: processedSamples)
         } else if !pending.isEmpty {
             Logger.log("Meeting", "[Chunker] Dropping sub-1s tail (\(pending.count) samples)")

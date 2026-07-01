@@ -205,4 +205,40 @@ final class SpeakerAlignmentTests: XCTestCase {
         let turns = groupIntoTurns(phrases: [], intervals: [])
         XCTAssertTrue(turns.isEmpty)
     }
+
+    func testLongGapSplitsUnattributedPhrasesIntoSeparateTurns() {
+        // No intervals -> both phrases are unattributed (nil). Two phrases 2 minutes apart must
+        // NOT collapse into one turn spanning the silence (which would concatenate "A"+"B" and
+        // span start=0..end=121). A gap beyond maxTurnGapSec starts a new turn.
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "A"),
+                       (span: PhraseSpan(start: 120, end: 121), text: "B")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: [])
+        XCTAssertEqual(turns.count, 2)
+        XCTAssertEqual(turns[0].text, "A")
+        XCTAssertEqual(turns[0].start, 0); XCTAssertEqual(turns[0].end, 1)
+        XCTAssertEqual(turns[1].text, "B")
+        XCTAssertEqual(turns[1].start, 120); XCTAssertEqual(turns[1].end, 121)
+    }
+
+    func testLongGapSplitsSameSpeakerTurns() {
+        // Same speaker on both sides, but a long silence between them -> two turns, not one
+        // turn whose span covers the gap.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 200)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "before "),
+                       (span: PhraseSpan(start: 90, end: 91), text: "after")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 2)
+        XCTAssertEqual(turns[0].speakerId, "1")
+        XCTAssertEqual(turns[1].speakerId, "1")
+    }
+
+    func testSmallGapDoesNotSplitTurn() {
+        // A short pause below maxTurnGapSec keeps phrases in one turn (regression guard).
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 30)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "one "),
+                       (span: PhraseSpan(start: 4, end: 5), text: "two")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].text, "one two")
+    }
 }

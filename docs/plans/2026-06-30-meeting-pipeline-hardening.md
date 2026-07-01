@@ -406,3 +406,37 @@ clip). 0.57 wins on frame agreement (~71%). Note `scErr` is lowest at 0.58–0.6
 | multi-speaker system (`videoplayback`) | ✅ scored | 2 (8 vs gold 6) | 0.289 | 0.57 (interim) |
 | 2-speaker (mic+remote) | ⏳ needs a real `both` recording | — | — | — |
 | interruptions | ⏳ needs a real `both` recording | — | — | — |
+
+## Pre-release code review (2026-06-30, high-effort, workflow-backed)
+
+A full `main...HEAD` review of the Swift pipeline ran before the 0.7.0 merge. 10 verified findings.
+
+**Fixed before merge:**
+- **[0] cross-gap turn merge** (`SpeakerAlignment.groupIntoTurns`) — consecutive same-speaker/`nil`
+  phrases separated by a long silence collapsed into one turn spanning the gap with concatenated
+  text. Now split on `maxTurnGapSec` (default 10s). Tests added.
+- **[1] short-clip spurious labels** (`SystemDiarizationChunker`) — chunking dropped the old
+  `audioDuration >= 2.0` whole-buffer guard, so a <2s meeting got zero-padded and diarized into a
+  bogus speaker. Restored: skip diarization when the whole meeting is <2s (no full chunk).
+- **[7] tie-break comment** (`SpeakerAlignment`) — comment said "higher id wins"; code + test
+  intentionally pick the LOWER id on a tie. Comment corrected (behavior unchanged).
+- **[8] stale settings text** (`SettingsWindow`) — help said "Default 0.55"; actual default is
+  0.57. Fixed, and the stepper step 0.05→0.01 so the 0.57 default is actually reachable.
+
+**Intentional (by design; kept, documented):**
+- **[2] snap-to-nearest removal** — zero-overlap interjections now render "Unknown" instead of
+  snapping to the nearest speaker. This is the deliberate Task 0.2 decision (finding #4): a wrong
+  snap is worse than an honest "Unknown"; the mic channel + future embedding matching recover it.
+- **[3] WAV ~1s buffered flush** — `PCMWavWriter` can lose up to ~1s on a crash. Accepted: the old
+  per-buffer writer also left a broken placeholder header on crash (unplayable), and the `.wav` is
+  a local debug artifact; the ~1s batching is the intended Task 4.3 syscall reduction.
+
+**Deferred follow-ups (out of this project's scope — real-time audio alignment):**
+- **[4]/[5]/[6] mixer phase-lock drift** (`AudioMixer`/`MixAlignment`) — under sustained capture-clock
+  drift (>0.5s) the drift cap drops mix samples and the transcription vs diarization timelines can
+  diverge; a window is suppressed if one channel is momentarily empty. PLAUSIBLE, timing-dependent.
+  Proper fix = true host-time alignment, explicitly out of scope here (see Task 1.3 note).
+- **[9] unbounded diarization stream on first-run download** (`SystemDiarizationChunker`) — the
+  consumer `AsyncStream` is `.unbounded`, so if the first-run model download stalls, meeting audio
+  piles up in memory, defeating the bounded-memory goal. First-run-only. Cleanest fix is to
+  pre-download models before capture begins.
