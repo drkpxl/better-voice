@@ -7,11 +7,70 @@
   <title>Better Voice — private, on-device dictation &amp; meeting notes for macOS</title>
   <meta name="description"
     content="Meeting notes that never leave your Mac. A menu-bar app for on-device dictation and meeting transcription with AI summaries — no cloud, no upload, and it records the meeting, not your screen.">
+  <link rel="canonical" href="https://drkpxl.github.io/better-voice/">
+  <meta name="theme-color" content="#0d0f14">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Better Voice">
+  <meta property="og:url" content="https://drkpxl.github.io/better-voice/">
   <meta property="og:title" content="Better Voice — meeting notes that never leave your Mac">
   <meta property="og:description"
     content="A menu-bar app for on-device dictation and meeting notes on macOS. No cloud account, no upload — and it records the meeting, not your screen.">
-  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://drkpxl.github.io/better-voice/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Better Voice — meeting notes that never leave your Mac.">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Better Voice — meeting notes that never leave your Mac">
+  <meta name="twitter:description"
+    content="On-device dictation &amp; meeting notes on macOS. No cloud, no upload — it records the meeting, not your screen.">
+  <meta name="twitter:image" content="https://drkpxl.github.io/better-voice/og-image.png">
+
   <link rel="stylesheet" href="styles.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Better Voice",
+    "operatingSystem": "macOS 26+",
+    "applicationCategory": "UtilitiesApplication",
+    "applicationSubCategory": "Dictation & meeting transcription",
+    "url": "https://drkpxl.github.io/better-voice/",
+    "downloadUrl": "https://github.com/drkpxl/better-voice/releases/latest",
+    "softwareVersion": "0.8.0",
+    "processorRequirements": "Apple Silicon",
+    "license": "https://opensource.org/license/mit",
+    "isAccessibleForFree": true,
+    "description": "A private, on-device menu-bar app for macOS that does system-wide dictation and meeting transcription with AI summaries. Speech-to-text, speaker separation, cleanup and summaries all run locally — no cloud account, no upload, no telemetry. Captures the other side of a call with a Core Audio process tap (audio only, never Screen Recording), tells your voice apart from everyone else's, and separates a many-person meeting into an unbounded number of speakers.",
+    "featureList": [
+      "On-device speech-to-text (Apple SpeechAnalyzer)",
+      "System-wide dictation into any app",
+      "Meeting transcription with type-aware AI summaries (1:1 / standup / general)",
+      "Records meeting audio via a Core Audio process tap — no Screen Recording permission",
+      "Per-channel speaker separation: your voice is known deterministically",
+      "Unbounded, tunable speaker count for large meetings",
+      "Personal-context file for names, jargon and acronyms",
+      "Bring your own model: local Ollama or any OpenAI-compatible endpoint",
+      "Remote Voice: dictate from a Windows PC over Tailscale",
+      "Ambient always-listening mode",
+      "Menu-bar app with guided onboarding and in-app auto-updates"
+    ],
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
 </head>
 
 <body>
@@ -23,6 +82,7 @@
         <a href="#why">Why</a>
         <a href="#features">Features</a>
         <a href="#how">How</a>
+        <a href="compare.html">Compare</a>
         <a href="#roadmap">Roadmap</a>
         <a href="https://github.com/drkpxl/better-voice">GitHub</a>
         <a class="btn btn-primary" href="https://github.com/drkpxl/better-voice/releases/latest">Download</a>
@@ -67,22 +127,22 @@
               <div class="doc-h">📄 <span class="file">2026-06-30 · Product sync.md</span><span
                   class="badge">on-device</span></div>
               <div class="doc-body">
-                <p><span class="sp a">Priya</span>Let's lock the Q3 roadmap — latency SLOs first.</p>
+                <p><span class="sp a">Priya</span>Let's lock the Q3 roadmap. Latency SLOs first.</p>
                 <p><span class="sp b">Sam</span>Agreed. I'll own the warehouse pilot timeline.</p>
                 <p><span class="sp you">You</span>I'll send the design review notes Friday.</p>
                 <div class="doc-sum">
                   <div class="sh">Summary · 1:1</div>
                   <ul>
                     <li><b>Decision:</b> prioritize latency SLOs for Q3</li>
-                    <li><b>Action — Sam:</b> own warehouse pilot timeline</li>
-                    <li><b>Action — You:</b> design review notes, Friday</li>
+                    <li><b>Action · Sam:</b> own warehouse pilot timeline</li>
+                    <li><b>Action · You:</b> design review notes, Friday</li>
                   </ul>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="mock-cap">Saved to <b>~/Documents/BetterVoice/</b> — nothing uploaded.</div>
+        <div class="mock-cap">Saved to <b>~/Documents/BetterVoice/</b>. Nothing uploaded.</div>
       </div>
     </div>
   </section>
@@ -111,7 +171,7 @@
         <div class="row">
           <div class="cell axis">Permission to capture a call</div>
           <div class="cell them">Often full Screen Recording</div>
-          <div class="cell bv">Audio-only — no screen</div>
+          <div class="cell bv">Audio only, no screen</div>
         </div>
         <div class="row">
           <div class="cell axis">You vs. other speakers</div>
@@ -124,14 +184,14 @@
           <div class="cell bv">Unbounded, tunable</div>
         </div>
         <div class="row">
-          <div class="cell axis">Cross-meeting speaker memory</div>
-          <div class="cell them">Paid cloud feature</div>
-          <div class="cell bv">Local</div>
-        </div>
-        <div class="row">
           <div class="cell axis">The model</div>
           <div class="cell them">Their model, their pricing</div>
-          <div class="cell bv">Yours — local or self-hosted</div>
+          <div class="cell bv">Yours: local or self-hosted</div>
+        </div>
+        <div class="row">
+          <div class="cell axis">Cost</div>
+          <div class="cell them">Per-seat subscription</div>
+          <div class="cell bv">Free &amp; open source (MIT)</div>
         </div>
       </div>
     </div>
@@ -156,14 +216,26 @@
         <div class="feat">
           <div class="ic">🛡️</div>
           <h3>Records the meeting, not your screen</h3>
-          <p>Captures the other side of a call with a <b>Core Audio process tap</b> the narrow "System Audio
-            Recording" consent. Never asks for Screen Recording.</p>
+          <p>Captures the other side of a call with a <b>Core Audio process tap</b> that needs only the narrow "System
+            Audio Recording" consent. It never asks for Screen Recording.</p>
+        </div>
+        <div class="feat">
+          <div class="ic">🧭</div>
+          <h3>Knows you from the room</h3>
+          <p>Your mic and the call are captured as <b>separate channels</b>, so your voice is labeled "You"
+            deterministically. It's never merged into a remote speaker, even when you talk over each other.</p>
+        </div>
+        <div class="feat">
+          <div class="ic">👥</div>
+          <h3>Scales to 9+ speakers</h3>
+          <p>A clustering diarizer with <b>no fixed cap</b>. A nine-person roundtable becomes nine speakers, not four
+            fixed slots to squeeze into. Tunable, with a confidence signal per turn.</p>
         </div>
         <div class="feat">
           <div class="ic">🎙️</div>
           <h3>Dictate anywhere</h3>
           <p>Press your hotkey, speak, and polished text is typed at your cursor <b>in any app</b> with a live
-            waveform so you know it's working.</p>
+            waveform so you know it's working. Or leave <b>ambient mode</b> on and just talk.</p>
         </div>
         <div class="feat">
           <div class="ic">📝</div>
@@ -173,9 +245,8 @@
         <div class="feat">
           <div class="ic">🧠</div>
           <h3>Knows your world</h3>
-          <p>A plain-text file teaches Better Voice your names, jargon, and acronyms. It used in cleanup <b>and</b>
-            summaries, so it
-            gets them right the first time.</p>
+          <p>A plain-text file teaches Better Voice your names, jargon, and acronyms. It's used in cleanup <b>and</b>
+            summaries, so it gets them right the first time.</p>
         </div>
         <div class="feat">
           <div class="ic">🎛️</div>
@@ -259,33 +330,22 @@
       <div class="sec-head">
         <div class="kick">on the roadmap</div>
         <h2 class="sec-h">Where the speaker engine is headed.</h2>
-        <p class="sec-sub">Honest about what's landed and what's next. The foundation — per-speaker voice embeddings —
-          is being built now.</p>
+        <p class="sec-sub">Honest about what's landed and what's next. Per-channel separation and unbounded speakers
+          <b>shipped in 0.7</b>, and every speaker turn now carries a voice embedding, the foundation for what's
+          below.</p>
       </div>
       <div class="road">
         <div class="ritem">
-          <span class="st prog">in progress</span>
-          <h3>You vs. the room</h3>
-          <p>Mic and call audio captured as separate channels — "you" is known deterministically, and cross-talk
-            degrades gracefully instead of scrambling the transcript.</p>
-        </div>
-        <div class="ritem">
-          <span class="st prog">in progress</span>
-          <h3>Unbounded speakers</h3>
-          <p>A clustering diarizer with no fixed cap — a 9-person roundtable becomes 9 speakers, each with a real voice
-            embedding and confidence signal.</p>
-        </div>
-        <div class="ritem">
           <span class="st rm">roadmap</span>
           <h3>Speaker fingerprinting</h3>
-          <p>Recognize the same voice across meetings — "Speaker 3" today is named once and remembered next week. Local,
+          <p>Recognize the same voice across meetings. "Speaker 3" today is named once and remembered next week. Local,
             no subscription.</p>
         </div>
         <div class="ritem">
           <span class="st rm">roadmap</span>
           <h3>Agent access (MCP / CLI)</h3>
-          <p>Let Claude Code, Cursor, or Codex search your transcripts and trigger dictation — your voice history as a
-            local tool for your agents.</p>
+          <p>Let Claude Code, Cursor, or Codex search your transcripts and trigger dictation. Your voice history
+            becomes a local tool for your agents.</p>
         </div>
       </div>
     </div>
@@ -356,6 +416,7 @@
       <div class="fl">
         <a href="https://github.com/drkpxl/better-voice">Source</a>
         <a href="https://github.com/drkpxl/better-voice/releases/latest">Download</a>
+        <a href="compare.html">Compare</a>
         <a href="https://drkpxl.github.io/better-voice/ollama.html">Ollama</a>
         <a href="https://drkpxl.github.io/better-voice/appcast.xml">Updates</a>
       </div>

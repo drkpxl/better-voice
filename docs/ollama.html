@@ -5,6 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ollama &amp; Better Voice — what it is and why it's needed</title>
 <meta name="description" content="Why Better Voice uses Ollama to run a local AI model, how to install it, which models to pick, and what alternatives work.">
+<link rel="canonical" href="https://drkpxl.github.io/better-voice/ollama.html">
+<meta name="theme-color" content="#0d0f14">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Better Voice">
+<meta property="og:url" content="https://drkpxl.github.io/better-voice/ollama.html">
+<meta property="og:title" content="Ollama &amp; Better Voice — what it is and why it's needed">
+<meta property="og:description" content="Why Better Voice uses Ollama to run a local AI model, how to install it, and which models to pick.">
+<meta property="og:image" content="https://drkpxl.github.io/better-voice/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://drkpxl.github.io/better-voice/og-image.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,6 +30,7 @@
     <nav class="nav-links">
       <a href="./#features">Features</a>
       <a href="./#how">How</a>
+      <a href="compare.html">Compare</a>
       <a href="./#roadmap">Roadmap</a>
       <a href="https://github.com/drkpxl/better-voice">GitHub</a>
       <a class="btn btn-primary" href="https://github.com/drkpxl/better-voice/releases/latest">Download</a>
@@ -36,7 +52,7 @@
   <p>Better Voice does two kinds of work:</p>
   <ul>
     <li><strong>Speech → text</strong> happens fully on-device using Apple's built-in speech models. This works without Ollama.</li>
-    <li><strong>Cleaning up dictation and summarizing meetings</strong> needs a general-purpose LLM — to fix punctuation and phrasing, and to turn a raw transcript into a readable summary. Better Voice sends that text to the model <em>you</em> run via Ollama, so your words are never sent to a cloud service.</li>
+    <li><strong>Cleaning up dictation and summarizing meetings</strong> needs a general-purpose LLM: something to fix punctuation and phrasing, and to turn a raw transcript into a readable summary. Better Voice sends that text to the model <em>you</em> run via Ollama, so your words are never sent to a cloud service.</li>
   </ul>
   <p>In short: Ollama is what lets Better Voice polish and summarize privately. Without a reachable model server, dictation still types text, but polishing and meeting summaries are skipped.</p>
 
@@ -53,7 +69,7 @@
   <div class="table-scroll">
     <table>
       <tr><th>Model</th><th>Good for</th><th>Notes</th></tr>
-      <tr><td><code>qwen3.5:4b</code></td><td>Default — dictation polish + summaries</td><td>Fast, low memory, solid quality.</td></tr>
+      <tr><td><code>qwen3.5:4b</code></td><td>Default: dictation polish + summaries</td><td>Fast, low memory, solid quality.</td></tr>
       <tr><td><code>llama3.1:8b</code></td><td>Nicer summaries</td><td>Heavier; better on 32&nbsp;GB+ Macs.</td></tr>
       <tr><td><code>qwen3.5:1.5b</code></td><td>Older / low-RAM Macs</td><td>Snappiest; simpler output.</td></tr>
     </table>
@@ -63,16 +79,16 @@
   <h2>Alternatives to Ollama</h2>
   <p>Better Voice talks to two kinds of endpoints, so you're not locked to Ollama:</p>
   <ul>
-    <li><strong>Other local runners</strong> — <a href="https://lmstudio.ai">LM Studio</a> or <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>'s server both expose an OpenAI-compatible API. Point Better Voice at their address and switch the API type to “OpenAI-compatible” in Settings.</li>
-    <li><strong>A self-hosted box</strong> — run Ollama on another machine on your LAN or over Tailscale, and set the endpoint to that host instead of <code>localhost</code>.</li>
-    <li><strong>A cloud OpenAI-compatible service</strong> — technically supported via Settings, but note this sends your dictation/transcript text off-device, which gives up the privacy benefit.</li>
+    <li><strong>Other local runners:</strong> <a href="https://lmstudio.ai">LM Studio</a> or <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a>'s server both expose an OpenAI-compatible API. Point Better Voice at their address and switch the API type to “OpenAI-compatible” in Settings.</li>
+    <li><strong>A self-hosted box:</strong> run Ollama on another machine on your LAN or over Tailscale, and set the endpoint to that host instead of <code>localhost</code>.</li>
+    <li><strong>A cloud OpenAI-compatible service:</strong> technically supported via Settings, but note this sends your dictation/transcript text off-device, which gives up the privacy benefit.</li>
   </ul>
 
   <h2>Troubleshooting</h2>
   <ul>
-    <li><strong>“Not reachable” in Better Voice</strong> — make sure Ollama is running (<code>ollama list</code> should respond) and the endpoint matches <code>http://localhost:11434</code>.</li>
-    <li><strong>Summaries are cut off</strong> — pick a model with a larger context window, or lower the meeting length.</li>
-    <li><strong>First model pull is slow</strong> — that's the one-time download; it's cached afterward.</li>
+    <li><strong>“Not reachable” in Better Voice:</strong> make sure Ollama is running (<code>ollama list</code> should respond) and the endpoint matches <code>http://localhost:11434</code>.</li>
+    <li><strong>Summaries are cut off:</strong> pick a model with a larger context window, or lower the meeting length.</li>
+    <li><strong>First model pull is slow:</strong> that's the one-time download, cached afterward.</li>
   </ul>
 </article>
 

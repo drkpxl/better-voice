@@ -14,44 +14,31 @@ When ambient mode is enabled (`ambient_enabled` in config), `AmbientController` 
 
 `VoiceSession` manages the audio capture and transcription pipeline:
 
-1. **Locale discovery** -- Queries `SpeechTranscriber.supportedLocales` for Chinese locales (zh-Hans, zh-CN, zh-Hant), downloads the speech model via `AssetInventory` if not already installed.
+1. **Locale discovery** -- Resolves the transcription locale from the `language` config key (English by default; falls back to the system language when unset), and downloads the speech model via `AssetInventory` if not already installed.
 2. **SpeechTranscriber configuration** -- Created with `reportingOptions: [.volatileResults, .alternativeTranscriptions]` and `attributeOptions: [.audioTimeRange, .transcriptionConfidence]` to get partial results, alternative candidates, timestamps, and per-word confidence scores.
 3. **SpeechAnalyzer** -- Wraps the transcriber; receives audio via an `AsyncStream<AnalyzerInput>` fed from the capture delegate.
 4. **Result processing** -- A background `Task` iterates `transcriber.results`. Final segments are accumulated into `finalizedText` with word-level `WordInfo` (text, confidence, alternatives, timing). Volatile (partial) results are forwarded via `onPartialResult` for live UI feedback.
 5. **Stop and finalize** -- On stop, capture halts, `inputBuilder.finish()` signals end-of-audio, then `analyzer.finalizeAndFinishThroughEndOfInput()` is awaited with a 5-second timeout. The accumulated text and word info are returned as a `TranscriptionResult`.
 
-### Deterministic Correction via AlternativeSwap (L1)
+### Raw transcription (L1)
 
-`AlternativeSwap.apply()` performs rule-based corrections on the raw transcription:
-
-1. Builds a replacement dictionary from recent human corrections stored in `CorrectionStore` (up to 200 entries retained in memory).
-2. For each word with confidence below 0.8: first checks the correction dictionary for a known fix; then checks if the word's first SA alternative appears in any correction entry's corrected text, and substitutes if so.
-3. Returns the corrected text, which may be identical to the input if no low-confidence words matched.
+Better Voice trusts Apple SpeechAnalyzer's own best transcription ordering with no rule-based rewriting — the earlier `AlternativeSwap`/correction-dictionary stage was removed in favor of prompt-based cleanup (L2) and `personal-context.md`. `VoicePipeline` records the raw text as `l1Text` and passes it straight to L2.
 
 ### Remote LLM Polish (L2)
 
 `PolishClient` delegates to `ModelServer`, which supports both Ollama and OpenAI-compatible API backends:
 
 - **Health monitoring** -- `ModelServer` runs periodic health checks (default every 30s) against `/api/tags` (Ollama) or `/v1/models` (OpenAI). Status is reflected in the menu bar icon.
-- **Generation** -- Sends the L1 output as the user prompt with a system prompt (default: "Convert spoken language to written form. Output only the result."). Uses temperature=0 and max 256 tokens. Returns `nil` (skipping polish) if the server is disconnected or the polish feature is disabled.
-- **Graceful degradation** -- If the server is unreachable, the pipeline continues with the L1 output.
+- **Generation** -- Sends the raw transcription as the user prompt with a system prompt (default: "Convert spoken language to written form. Output only the result."), plus `personal-context.md` when enabled. Output length is sized to the input so OpenAI-compatible backends don't truncate. Returns `nil` (skipping polish) if the server is disconnected or the polish feature is disabled.
+- **Graceful degradation** -- If the server is unreachable, the pipeline continues with the raw transcription.
 
 ### Text Injection
 
 `TextInjector` uses a clipboard-based approach: saves the current pasteboard content, writes the final text to the pasteboard, synthesizes a Cmd+V keystroke via `CGEvent`, then restores the original clipboard after a 0.5s delay. The target application is identified by `AppIdentity` (bundle ID, process ID) captured at recording start.
 
-### User Correction Capture
-
-When `correction_enabled` is true, `CorrectionCapture` opens a 30-second monitoring window after text injection:
-
-1. **Trigger** -- Listens for Enter key via `GlobalHotKey.onEnterKey`, or waits for the 30s timeout.
-2. **Text reading** -- Uses the Accessibility API (`AXUIElementCopyAttributeValue` with `kAXValueAttribute`) to read the focused text element in the target application.
-3. **Correction extraction** -- For short text (editor-like apps), directly compares. For long text (terminal buffers), searches the last 100 lines using LCS similarity, stripping common shell prompt prefixes.
-4. **Storage** -- Corrections are saved to `~/.better-voice/corrections.jsonl` and `~/.better-voice/semantic-diffs.jsonl` via `CorrectionStore`. These entries feed back into L1 AlternativeSwap.
-
 ### Voice History Persistence
 
-Every dictation session is recorded to `~/.better-voice/voice-history.jsonl` by `VoiceHistory`, regardless of correction capture settings. Each entry contains the raw SA output, L1 text, polished text, final text, word-level info with confidence and timing, audio file path, and target application identity. This file (paired with the saved `audio/*.wav`) is a local debugging log for inspecting transcription/polish behavior.
+Every dictation session is recorded to `~/.better-voice/voice-history.jsonl` by `VoiceHistory`. Each entry contains the raw SpeechAnalyzer output, polished text, final text, word-level info with confidence and timing, audio file path, and target application identity. This file (paired with the saved `audio/*.wav`) is a local debugging log for inspecting transcription/polish behavior, and can be auto-deleted.
 
 ## Meeting Mode Flow
 
@@ -75,23 +62,29 @@ Meeting mode is initiated from the status bar menu. `StatusBarController` create
 
 Real-time transcript updates come through `MeetingSession.onTranscriptUpdate`, which fires for both volatile (partial) and final segments. Duration updates come through `MeetingSession.onDurationUpdate` (1-second timer).
 
-### Post-Recording Speaker Diarization
+### Per-Channel Speaker Diarization
 
-When recording stops, `MeetingSession.performDiarization()` runs batch speaker diarization on the accumulated audio buffer:
+Diarization no longer runs on the mono mic+system mix. The mic and the call are kept as **separate channels**, which lets Better Voice attribute your own speech deterministically:
 
-1. Downloads diarization models via `FluidAudio.DiarizerModels.downloadIfNeeded()` if not cached.
-2. Creates a `DiarizerManager` with default `DiarizerConfig` and runs `performCompleteDiarization()` on the full buffer.
-3. Returns `TimedSpeakerSegment` results with speaker IDs and time ranges.
+1. **You (the mic).** `performDiarization()` returns your own speech intervals directly from the microphone channel and labels them **"You"** — never merged into a remote speaker, even when you talk over the other side.
+2. **The room (system audio).** The system channel is separated by [FluidAudio](https://github.com/FluidInference/FluidAudio). By default (`meeting.diarization.offline`, default `true`) this is an **offline VBx pass over the on-disk system WAV** — global clustering is more accurate on a finished recording. Setting the flag `false` uses a live online chunker that diarizes in bounded chunks with a reused speaker model (peak memory stays around one chunk). The clusterer keeps an automatic speaker count (no fixed cap), tuned by `meeting.diarization.clustering_threshold`.
+3. Remote speakers are merged onto a single speaker timeline and each turn carries a **voice embedding + confidence** — the groundwork for cross-meeting recognition.
 
-Audio shorter than 2 seconds skips diarization entirely.
+Audio shorter than ~2 seconds skips diarization. The whole pass runs off the main thread under a timeout so stopping a long meeting always returns promptly.
 
 ### Transcription-Diarization Alignment
 
-`alignTranscriptionWithDiarization()` assigns a speaker ID to each transcription segment using time-overlap matching:
+Each transcription segment (with `audioTimeRange` from SpeechAnalyzer) is attributed to the speaker whose diarized turn it most overlaps, with a confidence score. Brief interjections that overlap no one are left honestly **unlabeled** rather than snapped to the nearest speaker, and a long silence ends a speaker turn so utterances minutes apart aren't concatenated. If diarization fails, segments are returned without speaker labels.
 
-- For each transcription segment (with `audioTimeRange` from SpeechAnalyzer), compute the overlap duration with every diarization segment.
-- The diarization segment with the maximum overlap determines the speaker assignment.
-- If diarization fails, transcription segments are returned without speaker labels.
+### Summarization
+
+When recording stops, `SummarizationClient` generates a summary (unless `meeting.summarization.enabled` is `false`):
+
+1. **Meeting-type classification** -- a quick pass (when `classify_enabled`) picks `general` / `one_on_one` / `standup`; the wrap-up panel lets you override it.
+2. **Type-aware prompt** -- the matching built-in template (or a `meeting.summarization.prompts` override) is filled in, with `personal-context.md` injected for disambiguation.
+3. **Context sizing** -- `num_ctx` is sized to the transcript at runtime (capped at 256K); a sub-128K model warns once when it can't hold a long meeting, which otherwise causes silent front-truncation.
+
+The `transcript.md` is written the instant recording stops (durable across a crash) and re-exported with speaker names after the wrap-up; the `-summary.md` is written alongside it. Meeting audio is kept when a summary was expected but failed.
 
 ### Markdown Export
 
@@ -114,16 +107,14 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 | `ModuleManager.swift` | Module registry and hotkey event routing |
 | `VoiceModule.swift` | Dictation mode state machine (idle/recording/processing) |
 | `VoiceSession.swift` | Audio capture (AVCaptureSession) + SpeechAnalyzer streaming transcription |
-| `VoicePipeline.swift` | Post-processing orchestrator: L1 -> L2 -> inject -> correction -> history |
+| `VoicePipeline.swift` | Post-processing orchestrator: raw transcription -> L2 polish -> inject -> history |
 | `AmbientController.swift` | CoreAudio HAL VAD for hands-free voice activation |
-| `GlobalHotKey.swift` | CGEventTap-based global hotkey (Right Option toggle, Enter key detection) |
-| `AlternativeSwap.swift` | Deterministic word replacement using SA alternatives + correction history |
+| `GlobalHotKey.swift` | CGEventTap-based global hotkey (Right Option toggle) |
 | `PolishClient.swift` | LLM polish client, delegates to ModelServer |
 | `ModelServer.swift` | Ollama/OpenAI-compatible API client with health monitoring |
+| `SummarizationClient.swift` | Meeting-type classification + type-aware summary generation |
 | `ModelManager.swift` | Model file download and hash verification |
 | `TextInjector.swift` | Clipboard + CGEvent Cmd+V text injection |
-| `CorrectionCapture.swift` | Post-injection user correction monitoring via Accessibility API |
-| `CorrectionStore.swift` | Correction data persistence (corrections.jsonl, semantic-diffs.jsonl) |
 | `TranscriptionAccumulator.swift` | Data types: `WordInfo`, `TranscriptionResult`; legacy SFSpeechRecognitionResult aggregator |
 | `VoiceHistory.swift` | Voice session history writer (voice-history.jsonl) |
 | `MeetingSession.swift` | Meeting recording: dual-path capture, transcription, diarization, alignment |
@@ -133,12 +124,12 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 | `StatusBarController.swift` | Menu bar UI, meeting mode controls, server status display |
 | `RecordingIndicator.swift` | Floating HUD panel with pulsing mic icon during recording |
 | `RuntimeConfig.swift` | JSON config loader (~/.better-voice/config.json) with file-watch hot reload |
-| `PermissionManager.swift` | Accessibility, microphone, and screen-recording (meeting audio) permission checks |
+| `PermissionManager.swift` | Accessibility, microphone, and System Audio Recording (Core Audio tap, meeting audio) permission checks |
 | `AppIdentity.swift` | Frontmost application identification (bundle ID, PID, name) |
 | `Logger.swift` | File + console logger with 5MB auto-trim |
 | `JSONLWriter.swift` | Thread-safe JSONL append writer (local debug logs) |
 | `BetterVoiceDataDir.swift` | ~/.better-voice/ directory structure management |
-| `PersonalContext.swift` | Loads `~/.better-voice/personal-context.md` and appends it to the polish (and future summarization) system prompt |
+| `PersonalContext.swift` | Loads `~/.better-voice/personal-context.md` and appends it to both the polish and the meeting summarization system prompts |
 
 ## Audio Pipeline
 
@@ -186,12 +177,10 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
                               confidence)         |
                                                   |
                                                   v
-                                     ┌─── AlternativeSwap (L1)
-                                     |    (confidence < 0.8?
-                                     |     check corrections
-                                     |     + SA alternatives)
                                      v
                                 PolishClient (L2)
+                                (raw transcription +
+                                 personal-context.md)
                                      |
                               ModelServer ──> Ollama / OpenAI API
                                      |
@@ -200,15 +189,8 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
                               (clipboard + Cmd+V)
                                      |
                                      v
-                            CorrectionCapture
-                            (AX API read-back,
-                             30s window or Enter)
-                                     |
-                          ┌──────────┴──────────┐
-                          v                     v
-                   CorrectionStore       VoiceHistory
-                   corrections.jsonl     voice-history.jsonl
-                   semantic-diffs.jsonl
+                               VoiceHistory
+                               voice-history.jsonl
 
 
                               MEETING MODE
@@ -238,22 +220,21 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
                                     |
                                     |  (on stop)
                                     v
-                          FluidAudio Diarization
-                          (batch, full buffer)
+                     Per-channel diarization (on stop)
+              mic ──> "You"      system ──> FluidAudio (offline VBx)
                                     |
                                     v
-                          TimedSpeakerSegments
+                       TimedSpeakerSegments + confidence
                                     |
                                     v
-                          Alignment (max time overlap)
-                          transcript segment <-> speaker segment
+                    Alignment (max overlap; no overlap = unlabeled)
                                     |
                                     v
-                          MeetingSegment[] (text + time + speakerId)
+                       MeetingSegment[] (text + time + speakerId)
                                     |
-                          ┌─────────┴─────────┐
-                          v                   v
-                   TranscriptPanel      MeetingExporter
-                   (updated with        -> ~/.better-voice/meetings/
-                    speaker labels)        YYYY-MM-DD_HH-mm.md
+              ┌─────────────────────┼─────────────────────┐
+              v                     v                      v
+       TranscriptPanel       MeetingExporter        SummarizationClient
+       (speaker labels)      transcript.md          (type-aware) -summary.md
+                             ~/.better-voice/meetings/
 ```
