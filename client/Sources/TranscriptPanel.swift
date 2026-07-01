@@ -58,6 +58,7 @@ struct TranscriptContentView: View {
             statusBar
         }
         .frame(minWidth: 300, minHeight: 200)
+        .tint(Color.brandAccent)
     }
 
     // MARK: - Single transcript row
@@ -75,7 +76,7 @@ struct TranscriptContentView: View {
                 Text(speaker + ":")
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.brandAccent)
             }
 
             // text content

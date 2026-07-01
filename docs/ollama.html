@@ -3,62 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ollama & Better Voice — what it is and why it's needed</title>
+<title>Ollama &amp; Better Voice — what it is and why it's needed</title>
 <meta name="description" content="Why Better Voice uses Ollama to run a local AI model, how to install it, which models to pick, and what alternatives work.">
-<style>
-  :root {
-    --bg: #0f1115; --panel: #171a21; --text: #e8eaed;
-    --muted: #9aa3af; --accent: #ff8a34; --border: #262a33;
-  }
-  @media (prefers-color-scheme: light) {
-    :root {
-      --bg: #fbfbfd; --panel: #ffffff; --text: #1d1d1f;
-      --muted: #6e6e73; --accent: #e6710f; --border: #e6e6ea;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 80px; }
-  .back { display: inline-block; margin: 28px 0 8px; color: var(--accent); text-decoration: none; font-size: 0.95rem; }
-  h1 { font-size: clamp(1.8rem, 5vw, 2.4rem); letter-spacing: -0.02em; margin: 8px 0 8px; }
-  .lede { font-size: 1.15rem; color: var(--muted); margin: 0 0 8px; }
-  h2 { font-size: 1.3rem; margin: 40px 0 12px; letter-spacing: -0.01em; }
-  p { margin: 0 0 14px; }
-  ul { color: var(--text); padding-left: 22px; }
-  li { margin: 6px 0; }
-  a { color: var(--accent); }
-  code, pre {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.9em;
-  }
-  code { background: rgba(127,127,127,0.15); padding: 2px 6px; border-radius: 5px; }
-  pre {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 16px; overflow-x: auto; line-height: 1.45;
-  }
-  pre code { background: none; padding: 0; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 12px; padding: 18px 20px; margin: 18px 0;
-  }
-  .muted { color: var(--muted); }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 0.95rem; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 600; }
-  footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; }
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="wrap">
 
-  <a class="back" href="./">← Better Voice</a>
-  <h1>Ollama &amp; Better Voice</h1>
-  <p class="lede">What Ollama is, why Better Voice uses it, and how to get it running.</p>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="./"><span class="wvmark"><i></i><i></i><i></i><i></i><i></i></span> Better Voice</a>
+    <nav class="nav-links">
+      <a href="./#features">Features</a>
+      <a href="./#how">How</a>
+      <a href="./#roadmap">Roadmap</a>
+      <a href="https://github.com/drkpxl/better-voice">GitHub</a>
+      <a class="btn btn-primary" href="https://github.com/drkpxl/better-voice/releases/latest">Download</a>
+    </nav>
+  </div>
+</header>
+
+<article class="article">
+  <div class="article-head">
+    <div class="kick">local models</div>
+    <h1>Ollama &amp; Better Voice</h1>
+    <p class="lede">What Ollama is, why Better Voice uses it, and how to get it running.</p>
+  </div>
 
   <h2>What is Ollama?</h2>
   <p><a href="https://ollama.com">Ollama</a> is a free app that runs open large language models (LLMs) locally on your Mac. It downloads a model once and then serves it over a small local web API at <code>http://localhost:11434</code>. Nothing leaves your machine.</p>
@@ -73,20 +42,22 @@
 
   <h2>Install it in two steps</h2>
   <div class="card">
-    <p style="margin-top:0"><strong>1.</strong> Download and install Ollama from <a href="https://ollama.com/download">ollama.com/download</a> (or <code>brew install ollama</code>).</p>
-    <p style="margin-bottom:0"><strong>2.</strong> Pull a model in Terminal:</p>
+    <p><strong>1.</strong> Download and install Ollama from <a href="https://ollama.com/download">ollama.com/download</a> (or <code>brew install ollama</code>).</p>
+    <p><strong>2.</strong> Pull a model in Terminal:</p>
     <pre><code>ollama pull qwen3.5:4b</code></pre>
-    <p class="muted" style="margin-bottom:0">Ollama runs in the background and serves the model automatically. Better Voice's default endpoint <code>http://localhost:11434</code> will just work.</p>
+    <p class="muted">Ollama runs in the background and serves the model automatically. Better Voice's default endpoint <code>http://localhost:11434</code> will just work.</p>
   </div>
 
   <h2>Which model should I use?</h2>
   <p>Any chat model Ollama supports will work. On Apple Silicon, a small-to-mid model is a good balance of speed and quality:</p>
-  <table>
-    <tr><th>Model</th><th>Good for</th><th>Notes</th></tr>
-    <tr><td><code>qwen3.5:4b</code></td><td>Default — dictation polish + summaries</td><td>Fast, low memory, solid quality.</td></tr>
-    <tr><td><code>llama3.1:8b</code></td><td>Nicer summaries</td><td>Heavier; better on 32&nbsp;GB+ Macs.</td></tr>
-    <tr><td><code>qwen3.5:1.5b</code></td><td>Older / low-RAM Macs</td><td>Snappiest; simpler output.</td></tr>
-  </table>
+  <div class="table-scroll">
+    <table>
+      <tr><th>Model</th><th>Good for</th><th>Notes</th></tr>
+      <tr><td><code>qwen3.5:4b</code></td><td>Default — dictation polish + summaries</td><td>Fast, low memory, solid quality.</td></tr>
+      <tr><td><code>llama3.1:8b</code></td><td>Nicer summaries</td><td>Heavier; better on 32&nbsp;GB+ Macs.</td></tr>
+      <tr><td><code>qwen3.5:1.5b</code></td><td>Older / low-RAM Macs</td><td>Snappiest; simpler output.</td></tr>
+    </table>
+  </div>
   <p class="muted">Set the model name in Better Voice's onboarding (or Settings) to match whatever you pulled. Long meeting summaries benefit from a model with a large context window.</p>
 
   <h2>Alternatives to Ollama</h2>
@@ -103,11 +74,18 @@
     <li><strong>Summaries are cut off</strong> — pick a model with a larger context window, or lower the meeting length.</li>
     <li><strong>First model pull is slow</strong> — that's the one-time download; it's cached afterward.</li>
   </ul>
+</article>
 
-  <footer>
-    Better Voice · <a href="./">Home</a> · <a href="https://github.com/drkpxl/better-voice">GitHub</a>
-  </footer>
+<footer>
+  <div class="wrap foot">
+    <div><span class="wvmark" style="vertical-align:-3px"><i></i><i></i><i></i><i></i><i></i></span>&nbsp; Better Voice — private, on-device voice for macOS · MIT</div>
+    <div class="fl">
+      <a href="./">Home</a>
+      <a href="https://github.com/drkpxl/better-voice">GitHub</a>
+      <a href="appcast.xml">Updates</a>
+    </div>
+  </div>
+</footer>
 
-</div>
 </body>
 </html>

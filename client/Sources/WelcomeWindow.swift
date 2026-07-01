@@ -211,6 +211,7 @@ struct WelcomeContentView: View {
 
             footer
         }
+        .tint(Color.brandAccent)
         .frame(width: 560, height: 680)
         .onAppear { viewModel.refreshStatuses() }
         .onReceive(pollTimer) { _ in viewModel.refreshStatuses() }
@@ -221,9 +222,7 @@ struct WelcomeContentView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
-                Image(systemName: "waveform")
-                    .font(.system(size: 38))
-                    .foregroundStyle(.orange)
+                BrandWaveform(height: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(t("Welcome to Better Voice"))
                         .font(.title).bold()

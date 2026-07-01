@@ -135,6 +135,7 @@ struct HotKeySettingsContentView: View {
             }
         }
         .padding(20)
+        .tint(Color.brandAccent)
     }
 }
 

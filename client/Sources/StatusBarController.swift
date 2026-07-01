@@ -50,18 +50,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         setupMenu()
     }
 
-    /// Status-bar glyph: a template icon (auto-tints for light/dark menu bars) plus a
-    /// trailing state badge, replacing the old "WE" text-based glyph.
-    /// NOTE: this uses a placeholder SF Symbol. Swap in the real Better Voice icon by
-    /// adding an image asset (e.g. "MenuBarIcon" in Resources) and changing the
-    /// NSImage lookup below to `NSImage(named: "MenuBarIcon")`.
-    private static let menuBarSymbolName = "waveform"
-
+    /// Status-bar glyph: the brand's 5-bar waveform as a template icon (auto-tints for
+    /// light/dark menu bars) plus a trailing state badge.
     private func updateIcon() {
         guard let button = statusItem.button else { return }
 
-        let icon = NSImage(systemSymbolName: Self.menuBarSymbolName, accessibilityDescription: t("Better Voice"))
-        icon?.isTemplate = true
+        let icon = NSImage.menuBarWaveform()
+        icon.accessibilityDescription = t("Better Voice")
         button.image = icon
         button.imagePosition = .imageLeading
 

@@ -195,7 +195,7 @@ struct MeetingWrapUpContentView: View {
                                 Text("\(t("Speaker")) \(speaker.id)")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.brandAccent)
                                 if !speaker.snippet.isEmpty {
                                     Text("“\(speaker.snippet)”")
                                         .font(.callout)
@@ -227,5 +227,6 @@ struct MeetingWrapUpContentView: View {
             }
         }
         .padding(20)
+        .tint(Color.brandAccent)
     }
 }

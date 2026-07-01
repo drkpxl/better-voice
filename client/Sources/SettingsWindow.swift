@@ -319,5 +319,6 @@ struct SettingsContentView: View {
             }
             .padding(16)
         }
+        .tint(Color.brandAccent)
     }
 }
