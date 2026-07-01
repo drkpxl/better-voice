@@ -54,6 +54,17 @@ enum TextInjector {
                 "Pasted to \(appBundle) verified=\(verified ? "Y" : "N") cc=\(changeCountBeforeWrite)→\(changeCountAfterWrite)→\(changeCountAfterPaste)"
             )
 
+            // Paste didn't take (target app intercepted/ignored ⌘V). Don't leave the user thinking
+            // it worked with nothing typed — tell them, and leave the text on the clipboard to paste
+            // manually. Skip the clipboard restore below in this case (guarded by the changeCount check).
+            if !verified {
+                Notify.warn(
+                    t("Nothing was pasted"),
+                    t("The transcribed text couldn't be inserted into \(appBundle). It's on your clipboard — press ⌘V to paste it.")
+                )
+                return
+            }
+
             // Restore the clipboard after another 500ms delay (only if it wasn't changed by another operation in the meantime)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 if pb.changeCount == changeCountAfterPaste, let saved = savedString {

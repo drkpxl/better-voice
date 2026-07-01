@@ -20,9 +20,16 @@ final class PolishClient {
 
         Logger.log("Polish", "server=\(ModelServer.shared.status.rawValue), app=\(app?.bundleID ?? "none"), personalContext=\(systemPrompt.count != basePrompt.count)")
 
+        // Cleanup returns roughly input-length text, so size the output budget to the input.
+        // Without this, the OpenAI-compatible path defaults to max_tokens=256 (ModelServer) and
+        // truncates any dictation longer than ~200 words. chars/4 ≈ tokens; ×2 headroom, floor 512.
+        let estTokens = text.count / 4
+        let numPredict = min(max(estTokens * 2, 512), 8192)
+
         return await ModelServer.shared.generate(
             prompt: text,
-            systemPrompt: systemPrompt
+            systemPrompt: systemPrompt,
+            options: .init(numPredict: numPredict)
         )
     }
 }

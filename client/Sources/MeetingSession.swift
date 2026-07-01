@@ -58,6 +58,19 @@ final class MeetingSession {
     /// bench runFromFile path); nil in mic-only mode. Confines its own DiarizerManager.
     private var systemDiarizationChunker: SystemDiarizationChunker?
 
+    /// When true (default), the system channel is diarized **post-hoc** at stop() with FluidAudio's
+    /// offline VBx pipeline over the on-disk system WAV — global clustering is more accurate on a
+    /// completed recording than the incremental online path. When false, the live
+    /// `SystemDiarizationChunker` is used instead (kept for A/B validation). Set from
+    /// `meeting.diarization.offline` in start(); stays false on the bench `runFromFile` path so
+    /// that path keeps scoring the online chunker against its sidecar.
+    private var useOfflineDiarization = false
+
+    /// Path to the raw system-audio WAV (remotes only), used by offline diarization. Set in start()
+    /// per mode: the main file in `system` mode, the `.system.wav` sibling in `both` mode; nil in
+    /// `mic` mode (no system audio).
+    private var systemAudioFileURL: URL?
+
     /// Deterministic speaker id for the local user, derived from the mic channel via VAD
     /// (not FluidAudio clustering). Single source of truth lives in Core (`SpeakerIds.local`);
     /// FluidAudio ids are numeric strings ("1", "2", ...), so "me" never collides with a
@@ -417,6 +430,16 @@ final class MeetingSession {
         let audioSource = (RuntimeConfig.shared.meetingConfig["audio_source"] as? String) ?? "mic"
         Logger.log("Meeting", "Audio source: \(audioSource)")
 
+        // Diarization mode: offline (post-hoc VBx over the system WAV) by default; the live chunker
+        // is used only when explicitly disabled. Record the system WAV path for the offline pass.
+        useOfflineDiarization = (RuntimeConfig.shared.meetingDiarizationConfig["offline"] as? Bool) ?? true
+        switch audioSource {
+        case "system": systemAudioFileURL = url
+        case "both":   systemAudioFileURL = url.deletingPathExtension().appendingPathExtension("system.wav")
+        default:       systemAudioFileURL = nil
+        }
+        Logger.log("Meeting", "Diarization: \(useOfflineDiarization ? "offline (VBx)" : "online (chunker)")")
+
         // Diarization target format (shared by the mixer / capturer)
         let diarizationFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -426,8 +449,10 @@ final class MeetingSession {
         )!
 
         // System diarization runs incrementally in a background chunker (bounded memory).
-        // Create + start it only when system audio is present; mic-only mode skips it entirely.
-        if audioSource == "system" || audioSource == "both" {
+        // Create + start it only when system audio is present AND we're in online mode; the offline
+        // path (default) diarizes the on-disk system WAV post-hoc at stop() instead, so the live
+        // chunker (and its per-buffer clustering compute) is skipped entirely.
+        if !useOfflineDiarization, audioSource == "system" || audioSource == "both" {
             let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
             Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
             let chunker = SystemDiarizationChunker(
@@ -694,7 +719,10 @@ final class MeetingSession {
         // tail. The timeout only abandons the await — it never touches the confined DiarizerManager
         // (the consumer task keeps running detached), so it's safe.
         let sysSegments: [TimedSpeakerSegment]
-        if let chunker = systemDiarizationChunker {
+        if useOfflineDiarization, let sysURL = systemAudioFileURL {
+            // Offline (default): global VBx clustering over the completed system WAV.
+            sysSegments = await offlineDiarizeSystem(url: sysURL)
+        } else if let chunker = systemDiarizationChunker {
             sysSegments = (try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) {
                 await chunker.finish()
             }) ?? []
@@ -769,6 +797,38 @@ final class MeetingSession {
                 speakerConfidence: assignment.confidence
             )
         }
+    }
+
+    /// Post-hoc offline diarization of the system channel with FluidAudio's VBx pipeline.
+    ///
+    /// Runs entirely inside a detached `.userInitiated` task: `OfflineDiarizerManager` is non-Sendable,
+    /// so it is created, used, and dropped within that task and never escapes — mirroring the online
+    /// chunker's confinement. This also keeps the (multi-second, up to ~RTFx-bounded) diarization off
+    /// the MainActor so the "finishing meeting" UI can't freeze. `url` and `[TimedSpeakerSegment]`
+    /// crossing the boundary are Sendable. Any failure (models unavailable, decode error, missing WAV)
+    /// returns [] — the mic "me" timeline still merges downstream, same as the online skip path.
+    ///
+    /// Note: uses `OfflineDiarizerConfig` defaults. The online `clustering_threshold` (0.57) is tuned
+    /// for the online greedy clusterer and does NOT transfer to VBx, so it is intentionally not mapped.
+    // ponytail: fresh manager per meeting reloads the ~100MB models from disk cache each stop; make it
+    // a shared @MainActor-confined instance if that reload latency proves noticeable.
+    private func offlineDiarizeSystem(url: URL) async -> [TimedSpeakerSegment] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            Logger.log("Meeting", "[Offline] System WAV missing at \(url.lastPathComponent); skipping diarization")
+            return []
+        }
+        return await Task.detached(priority: .userInitiated) {
+            do {
+                let manager = OfflineDiarizerManager()
+                try await manager.prepareModels()
+                let result = try await manager.process(url)
+                Logger.log("Meeting", "[Offline] \(result.segments.count) speaker segments (VBx)")
+                return result.segments
+            } catch {
+                Logger.log("Meeting", "[Offline] diarization failed: \(error); continuing without system speakers")
+                return []
+            }
+        }.value
     }
 
     /// Convert FluidAudio diarization segments into pure-Core `SpeakerInterval`s.

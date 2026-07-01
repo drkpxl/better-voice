@@ -277,6 +277,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             // update the panel to show the final result (with speaker labels)
             if !result.segments.isEmpty {
                 self.transcriptPanel.updateTranscript(segments: result.segments)
+                // Durability: write the transcript to disk the instant recording stops, before the
+                // (blocking) wrap-up naming panel. finishMeeting re-exports over the same file with
+                // names applied. If the app dies while the panel is open, the transcript survives.
+                _ = MeetingExporter.exportMarkdown(
+                    segments: result.segments,
+                    duration: result.duration,
+                    date: result.date,
+                    saveFolder: MeetingExporter.configuredFolder()
+                )
             }
 
             // entering wrap-up: starting a new meeting is blocked until the summary flow finishes.
@@ -336,9 +345,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
 
         // 4. summarize (selected type, large num_ctx) + write the summary file.
+        // Track success so we never delete the audio (step 5) when a summary was expected but failed.
+        var summaryProduced = false
         if client.summarizationEnabled {
             let namedTranscript = buildSummarizationTranscript(segments: named, speakerPrefix: prefix, localLabel: t("You"))
             if let summary = await client.summarize(transcript: namedTranscript, type: outcome.type) {
+                summaryProduced = true
                 let base = transcriptURL?.deletingPathExtension().lastPathComponent
                     ?? MeetingExporter.baseName(for: result.date)
                 if let summaryURL = MeetingExporter.exportSummary(
@@ -352,14 +364,24 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                     Logger.log("StatusBar", "Meeting summary exported: \(summaryURL.lastPathComponent)")
                 }
             } else {
-                Logger.log("StatusBar", "Summarization skipped/failed (server unreachable?)")
+                // Surface the failure: the transcript is saved, but the user must know the summary
+                // didn't run (server down/timeout) — and step 5 must not delete the audio.
+                Notify.warn(
+                    t("Summary failed"),
+                    t("The meeting transcript was saved, but the summary couldn't be generated (model server unreachable?). Your audio is kept so you can retry.")
+                )
             }
         }
 
-        // 5. optional: delete audio after the transcript+summary have been written (including the .mic.wav / .system.wav sibling files).
+        // 5. optional: delete audio after the transcript+summary have been written (including the
+        // .mic.wav / .system.wav sibling files). Only delete when a summary wasn't expected, or one
+        // was actually produced — otherwise we'd destroy the only chance to re-summarize.
         let autoDelete = config.meetingConfig["auto_delete_audio"] as? Bool ?? false
-        if autoDelete, let audioPath = result.audioPath {
+        let summaryOK = !client.summarizationEnabled || summaryProduced
+        if autoDelete, summaryOK, let audioPath = result.audioPath {
             deleteAudioFiles(mainPath: audioPath)
+        } else if autoDelete, !summaryOK {
+            Logger.log("StatusBar", "Keeping audio: summary expected but not produced")
         }
     }
 

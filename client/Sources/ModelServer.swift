@@ -152,15 +152,14 @@ final class ModelServer {
         let urlStr = endpoint.hasSuffix("/api/generate") ? endpoint : endpoint + "/api/generate"
         guard let url = URL(string: urlStr) else { return nil }
 
-        // Long meetings need a bigger KV context; num_predict needs to be large enough to fit
-        // a whole speaker turn, otherwise long passages get truncated. Can be overridden in the
-        // config's server section, or by the caller's options.
-        // Long meetings need a bigger KV context; num_predict must fit a whole
-        // speaker turn or long turns get truncated. Resolved from options → config → default.
-        let numCtx = options.numCtx ?? (serverConfig["num_ctx"] as? Int) ?? 32768
+        // num_predict must fit a whole speaker turn or long turns get truncated. Resolved from
+        // options → config → default. num_ctx is fitted to the prompt (see fittedNumCtx) so long
+        // meetings aren't silently dropped from the front of a fixed window.
         let numPredict = options.numPredict ?? (serverConfig["num_predict"] as? Int) ?? 2048
+        let modelName = options.model ?? model
+        let numCtx = await fittedNumCtx(prompt: prompt, system: systemPrompt, numPredict: numPredict, options: options, model: modelName)
         let body = makeOllamaRequestBody(
-            model: options.model ?? model,
+            model: modelName,
             system: systemPrompt,
             prompt: prompt,
             numCtx: numCtx,
@@ -182,6 +181,65 @@ final class ModelServer {
         } catch {
             Logger.log("Server", "Ollama error: \(error.localizedDescription)")
             updateStatus(.disconnected)
+        }
+        return nil
+    }
+
+    // MARK: - Context sizing (Ollama)
+
+    /// 256K — the recommended model's max context; we never request more than this.
+    private static let maxNumCtx = 262_144
+    /// Below 128K a model can't hold a long meeting's transcript. When content overflows a model
+    /// this small, we warn the user (once per model) rather than silently truncate.
+    private static let minRecommendedCtx = 131_072
+
+    /// Cached max context length per Ollama model (from /api/show). Warned-about small models so
+    /// we don't repeat the alert every call.
+    private var modelContextCache: [String: Int] = [:]
+    private var warnedSmallModels: Set<String> = []
+
+    /// Fit `num_ctx` to the actual prompt so a long meeting isn't dropped from the front of a fixed
+    /// window. Clamped to [configured floor … model max … 256K]. Warns once when the content
+    /// overflows a model with a sub-128K window (a long meeting on a too-small model).
+    private func fittedNumCtx(prompt: String, system: String, numPredict: Int, options: GenerateOptions, model: String) async -> Int {
+        let floor = options.numCtx ?? (serverConfig["num_ctx"] as? Int) ?? 32768
+        // chars/4 ≈ tokens; add the output budget and a margin for prompt/template overhead.
+        let needed = (prompt.count + system.count) / 4 + numPredict + 1024
+        var ctx = min(max(floor, needed), Self.maxNumCtx)
+        if let maxCtx = await ollamaModelContextLength(model) {
+            if needed > maxCtx, maxCtx < Self.minRecommendedCtx, !warnedSmallModels.contains(model) {
+                warnedSmallModels.insert(model)
+                Notify.warn(
+                    t("Model too small for this meeting"),
+                    t("“\(model)” has a \(maxCtx / 1024)K context window, smaller than this transcript needs — the summary may miss the beginning. Use a model with at least a 128K context for long meetings.")
+                )
+            }
+            ctx = min(ctx, maxCtx)   // never request more than the model supports
+        }
+        return ctx
+    }
+
+    /// Look up an Ollama model's max context length via `/api/show` (cached per model). Returns nil
+    /// on any network/parse failure, so the caller simply skips the capacity clamp/warning.
+    private func ollamaModelContextLength(_ model: String) async -> Int? {
+        if let cached = modelContextCache[model] { return cached }
+        let base = endpoint.replacingOccurrences(of: "/api/generate", with: "")
+        guard let url = URL(string: base + "/api/show") else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: 5)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["name": model])
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let info = json["model_info"] as? [String: Any] else { return nil }
+        // The key is architecture-specific, e.g. "qwen3.context_length", "llama.context_length".
+        for (key, value) in info where key.hasSuffix(".context_length") {
+            if let n = (value as? NSNumber)?.intValue, n > 0 {
+                modelContextCache[model] = n
+                Logger.log("Server", "Model \(model) context_length=\(n)")
+                return n
+            }
         }
         return nil
     }
