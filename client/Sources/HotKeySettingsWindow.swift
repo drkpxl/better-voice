@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Hotkey settings window
 ///
-/// Embeds SwiftUI using NSWindow + NSHostingView. Same hybrid stack as TranscriptPanel.
+/// Embeds SwiftUI using NSWindow + NSHostingView. Same hybrid stack as SettingsWindow.
 @MainActor
 final class HotKeySettingsWindow {
     static let shared = HotKeySettingsWindow()

@@ -227,6 +227,11 @@ struct SettingsContentView: View {
         return opts
     }
 
+    /// Identity key for the model pickers: changes when the loaded list changes, forcing the
+    /// NSPopUpButton to rebuild its menu once availableModels loads async (per-picker prefix keeps
+    /// sibling ids unique — identical ids collide and swap labels).
+    private var modelsKey: String { viewModel.availableModels.joined(separator: "|") }
+
     var body: some View {
         VStack(spacing: 0) {
             Form {
@@ -239,10 +244,7 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Main model"))
                     }
-                    // Rebuild the pop-up when the server's model list loads async — otherwise the
-                    // NSPopUpButton caches its initial (single, current-value) menu and looks "fixed".
-                    // IDs must be unique per picker: identical .id across siblings collides and swaps labels.
-                    .id("main:\(viewModel.availableModels.joined(separator: "|"))")
+                    .id("main:\(modelsKey)")
                     Text(t("Used for dictation and summaries unless overridden below."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -254,7 +256,7 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Dictation model"))
                     }
-                    .id("polish:\(viewModel.availableModels.joined(separator: "|"))")
+                    .id("polish:\(modelsKey)")
                     Text(t("Cleans up what you dictate. A small model here makes dictation inject faster."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -284,7 +286,7 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Summarization model"))
                     }
-                    .id("summ:\(viewModel.availableModels.joined(separator: "|"))")
+                    .id("summ:\(modelsKey)")
                     HStack {
                         Text(t("Context window (num_ctx)"))
                         Spacer()

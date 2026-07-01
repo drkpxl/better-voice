@@ -18,14 +18,6 @@ final class MeetingSession {
     private(set) var transcriptSegments: [MeetingSegment] = []
     private(set) var duration: TimeInterval = 0
 
-    // MARK: - Callbacks
-
-    /// Real-time transcript update (text, isFinal)
-    var onTranscriptUpdate: ((String, Bool) -> Void)?
-
-    /// Periodic duration update (fires every second)
-    var onDurationUpdate: ((TimeInterval) -> Void)?
-
     // MARK: - Audio Capture
 
     private var captureSession: AVCaptureSession?
@@ -105,7 +97,6 @@ final class MeetingSession {
 
     private var segmentBuffer: SegmentBuffer?
     private var polishedSegments: [MeetingSegment] = []
-    private var currentVolatileText: String = ""
 
     // Streamed to disk (one line written immediately after each segment's L2 completes)
     private let meetingHistory = MeetingHistory()
@@ -129,7 +120,6 @@ final class MeetingSession {
         // Reset state
         transcriptSegments = []
         polishedSegments = []
-        currentVolatileText = ""
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
@@ -185,23 +175,17 @@ final class MeetingSession {
                         guard let self else { return }
                         let text = String(result.text.characters)
 
-                        if result.isFinal {
-                            let timeRange = self.extractTimeRange(from: result.text)
-                            let entry = SegmentBuffer.Entry(
-                                text: text,
-                                startTime: timeRange.start,
-                                endTime: timeRange.start + timeRange.duration
-                            )
-                            self.allPhraseEntries.append(entry)
-                            self.currentVolatileText = ""
-
-                            Logger.log("Meeting", "[Bench] Final: \"\(text.prefix(40))\" [\(String(format: "%.1f", timeRange.start))-\(String(format: "%.1f", timeRange.start + timeRange.duration))s]")
-                            self.onTranscriptUpdate?(text, true)
-                            await self.segmentBuffer?.feed(entry)
-                        } else {
-                            self.currentVolatileText = text
-                            self.onTranscriptUpdate?(text, false)
-                        }
+                        // Only final segments feed the buffer; volatile partials are ignored.
+                        guard result.isFinal else { continue }
+                        let timeRange = self.extractTimeRange(from: result.text)
+                        let entry = SegmentBuffer.Entry(
+                            text: text,
+                            startTime: timeRange.start,
+                            endTime: timeRange.start + timeRange.duration
+                        )
+                        self.allPhraseEntries.append(entry)
+                        Logger.log("Meeting", "[Bench] Final: \"\(text.prefix(40))\" [\(String(format: "%.1f", timeRange.start))-\(String(format: "%.1f", timeRange.start + timeRange.duration))s]")
+                        await self.segmentBuffer?.feed(entry)
                     }
                 } catch {
                     Logger.log("Meeting", "[Bench] Result stream error: \(error)")
@@ -339,7 +323,6 @@ final class MeetingSession {
         // Reset state
         transcriptSegments = []
         polishedSegments = []
-        currentVolatileText = ""
         micVadChunker = nil
         allPhraseEntries = []
         duration = 0
@@ -396,24 +379,18 @@ final class MeetingSession {
                     guard let self else { return }
                     let text = String(result.text.characters)
 
-                    if result.isFinal {
-                        // Extract audioTimeRange
-                        let timeRange = self.extractTimeRange(from: result.text)
-                        let entry = SegmentBuffer.Entry(
-                            text: text,
-                            startTime: timeRange.start,
-                            endTime: timeRange.start + timeRange.duration
-                        )
-                        self.allPhraseEntries.append(entry)
-                        self.currentVolatileText = ""
-
-                        Logger.log("Meeting", "Final: \"\(text)\" [\(String(format: "%.1f", timeRange.start))-\(String(format: "%.1f", timeRange.start + timeRange.duration))s]")
-                        self.onTranscriptUpdate?(text, true)
-                        await self.segmentBuffer?.feed(entry)
-                    } else {
-                        self.currentVolatileText = text
-                        self.onTranscriptUpdate?(text, false)
-                    }
+                    // Only final segments feed the buffer; volatile partials are ignored.
+                    guard result.isFinal else { continue }
+                    // Extract audioTimeRange
+                    let timeRange = self.extractTimeRange(from: result.text)
+                    let entry = SegmentBuffer.Entry(
+                        text: text,
+                        startTime: timeRange.start,
+                        endTime: timeRange.start + timeRange.duration
+                    )
+                    self.allPhraseEntries.append(entry)
+                    Logger.log("Meeting", "Final: \"\(text)\" [\(String(format: "%.1f", timeRange.start))-\(String(format: "%.1f", timeRange.start + timeRange.duration))s]")
+                    await self.segmentBuffer?.feed(entry)
                 }
             } catch {
                 Logger.log("Meeting", "Result stream error: \(error)")
@@ -586,13 +563,12 @@ final class MeetingSession {
         isRunning = true
         startDate = Date()
 
-        // 10. Start the duration timer (updates every second)
+        // 10. Start the duration timer (keeps self.duration current; read by stop() for the result)
         durationTimer = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, let start = self.startDate else { return }
                 self.duration = Date().timeIntervalSince(start)
-                self.onDurationUpdate?(self.duration)
             }
         }
 
