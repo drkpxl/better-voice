@@ -72,6 +72,8 @@ final class SettingsViewModel {
     var autoDeleteAudio: Bool
     var defaultType: MeetingType
     var audioSource: String
+    // Diarization: speaker clustering threshold (0.5…0.9, lower = more speakers)
+    var clusteringThreshold: Double
     // Language ("" = follow system)
     var language: String
 
@@ -99,6 +101,7 @@ final class SettingsViewModel {
         let server = cfg.serverConfig
         let meeting = cfg.meetingConfig
         let summ = cfg.meetingSummarizationConfig
+        let diar = parseDiarizationSettings(cfg.meetingDiarizationConfig)
 
         endpoint = server["endpoint"] as? String ?? "http://localhost:11434"
         model = server["model"] as? String ?? "qwen3.5:4b-mlx"
@@ -112,6 +115,7 @@ final class SettingsViewModel {
         autoDeleteAudio = meeting["auto_delete_audio"] as? Bool ?? false
         defaultType = MeetingType.from(configKey: meeting["default_type"] as? String ?? "general") ?? .general
         audioSource = meeting["audio_source"] as? String ?? "both"
+        clusteringThreshold = Double(diar.clusteringThreshold)
 
         language = cfg.language ?? ""
     }
@@ -136,6 +140,10 @@ final class SettingsViewModel {
         summ["enabled"] = summarizationEnabled
         summ["num_ctx"] = max(1024, numCtx)
         meeting["summarization"] = summ
+        var diar = meeting["diarization"] as? [String: Any] ?? [:]
+        // Clamp to the same 0.5…0.9 range the Core parser enforces.
+        diar["clustering_threshold"] = min(max(clusteringThreshold, 0.5), 0.9)
+        meeting["diarization"] = diar
         cfg.updateSection("meeting", meeting)
 
         let lang = language.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -250,6 +258,21 @@ struct SettingsContentView: View {
                     } label: {
                         Text(t("Default meeting type"))
                     }
+                    HStack {
+                        Text(t("Speaker clustering threshold"))
+                        Spacer()
+                        Stepper(
+                            value: $viewModel.clusteringThreshold,
+                            in: 0.5...0.9,
+                            step: 0.05
+                        ) {
+                            Text(String(format: "%.2f", viewModel.clusteringThreshold))
+                                .monospacedDigit()
+                        }
+                    }
+                    Text(t("Lower = more speakers. Default 0.55. Raise if distinct people are split; lower if speakers are merged."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section(t("Language")) {

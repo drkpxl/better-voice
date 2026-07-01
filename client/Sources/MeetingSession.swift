@@ -129,7 +129,15 @@ final class MeetingSession {
         micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
 
         // Bench always exercises the system-diarization path: stream the WAV into the chunker.
-        let benchChunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate, finishTimeoutSec: Self.finishTimeoutSec)
+        let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
+        Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
+        let benchChunker = SystemDiarizationChunker(
+            sampleRate: diarizationSampleRate,
+            finishTimeoutSec: Self.finishTimeoutSec,
+            clusteringThreshold: diar.clusteringThreshold,
+            minSpeechDuration: diar.minSpeechDuration,
+            minSilenceGap: diar.minSilenceGap
+        )
         benchChunker.start()
         self.systemDiarizationChunker = benchChunker
 
@@ -420,7 +428,15 @@ final class MeetingSession {
         // System diarization runs incrementally in a background chunker (bounded memory).
         // Create + start it only when system audio is present; mic-only mode skips it entirely.
         if audioSource == "system" || audioSource == "both" {
-            let chunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate, finishTimeoutSec: Self.finishTimeoutSec)
+            let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
+            Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
+            let chunker = SystemDiarizationChunker(
+                sampleRate: diarizationSampleRate,
+                finishTimeoutSec: Self.finishTimeoutSec,
+                clusteringThreshold: diar.clusteringThreshold,
+                minSpeechDuration: diar.minSpeechDuration,
+                minSilenceGap: diar.minSilenceGap
+            )
             chunker.start()
             self.systemDiarizationChunker = chunker
         }

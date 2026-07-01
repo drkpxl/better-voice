@@ -18,6 +18,13 @@ final class SystemDiarizationChunker: Sendable {
     private let sampleRate: Int
     private let chunkSeconds: Double
 
+    /// Diarizer knobs applied to `DiarizerConfig` inside `consume`. Supplied at init (from
+    /// RuntimeConfig `meeting.diarization`); defaults match the historical hardcoded values so
+    /// call sites that omit them behave identically to before.
+    private let clusteringThreshold: Float
+    private let minSpeechDuration: Float
+    private let minSilenceGap: Float
+
     /// Deadline the caller applies to `finish()` (see `MeetingSession.finishTimeoutSec`).
     /// Exposed so the call site and the chunker agree on one value.
     let finishTimeoutSec: TimeInterval
@@ -26,10 +33,20 @@ final class SystemDiarizationChunker: Sendable {
     /// `Mutex` makes it Sendable-safe without `@unchecked`.
     private let consumerTask = Mutex<Task<[TimedSpeakerSegment], Never>?>(nil)
 
-    init(sampleRate: Int, chunkSeconds: Double = 60, finishTimeoutSec: TimeInterval = 120) {
+    init(
+        sampleRate: Int,
+        chunkSeconds: Double = 60,
+        finishTimeoutSec: TimeInterval = 120,
+        clusteringThreshold: Float = 0.55,
+        minSpeechDuration: Float = 1.0,
+        minSilenceGap: Float = 0.5
+    ) {
         self.sampleRate = sampleRate
         self.chunkSeconds = chunkSeconds
         self.finishTimeoutSec = finishTimeoutSec
+        self.clusteringThreshold = clusteringThreshold
+        self.minSpeechDuration = minSpeechDuration
+        self.minSilenceGap = minSilenceGap
         // `.unbounded`: audio yielded via add(_:) before the consumer catches up (notably during
         // a first-run model download) accumulates rather than being dropped. We accept transient
         // growth over `.bufferingNewest`, which would discard samples and degrade diarization.
@@ -43,11 +60,17 @@ final class SystemDiarizationChunker: Sendable {
         let stream = self.stream
         let sampleRate = self.sampleRate
         let chunkSize = Int(chunkSeconds * Double(sampleRate))
+        let clusteringThreshold = self.clusteringThreshold
+        let minSpeechDuration = self.minSpeechDuration
+        let minSilenceGap = self.minSilenceGap
         let task = Task<[TimedSpeakerSegment], Never>(priority: .userInitiated) {
             await Self.consume(
                 stream: stream,
                 sampleRate: sampleRate,
-                chunkSize: chunkSize
+                chunkSize: chunkSize,
+                clusteringThreshold: clusteringThreshold,
+                minSpeechDuration: minSpeechDuration,
+                minSilenceGap: minSilenceGap
             )
         }
         // Guard against a double start() spawning a second consumer on the same (single-shot) stream.
@@ -81,7 +104,10 @@ final class SystemDiarizationChunker: Sendable {
     private static func consume(
         stream: AsyncStream<[Float]>,
         sampleRate: Int,
-        chunkSize: Int
+        chunkSize: Int,
+        clusteringThreshold: Float,
+        minSpeechDuration: Float,
+        minSilenceGap: Float
     ) async -> [TimedSpeakerSegment] {
         // Models: if unavailable, diarization is simply skipped (the mic "me" timeline still
         // merges downstream). Drain the stream so `add(_:)` never blocks its caller.
@@ -94,9 +120,11 @@ final class SystemDiarizationChunker: Sendable {
         // DiarizerManager is NOT Sendable — created and used only here, confined to this task.
         // clusteringThreshold: lower = more speakers. FluidAudio's default 0.7 over-merges (a
         // clean 9-speaker clip collapsed to 4); 0.55 recovers the true count on multi-speaker
-        // content. TODO(Task 5.1): make this configurable via meeting.diarization in RuntimeConfig.
+        // content. These knobs come from RuntimeConfig `meeting.diarization` (default 0.55/1.0/0.5).
         var diarizerConfig = DiarizerConfig()
-        diarizerConfig.clusteringThreshold = 0.55
+        diarizerConfig.clusteringThreshold = clusteringThreshold
+        diarizerConfig.minSpeechDuration = minSpeechDuration
+        diarizerConfig.minSilenceGap = minSilenceGap
         let diarizer = DiarizerManager(config: diarizerConfig)
         diarizer.initialize(models: models)
         Logger.log("Meeting", "[Chunker] Models ready; chunk=\(chunkSize) samples (~\(chunkSize / max(sampleRate, 1))s)")
