@@ -52,6 +52,11 @@ final class MeetingSession {
     private nonisolated(unsafe) var sysDiaBuffer: [Float] = []
     private let diaBufferLock = NSLock()
 
+    /// Deterministic speaker id for the local user, derived from the mic channel via VAD
+    /// (not FluidAudio clustering). FluidAudio ids are numeric strings ("1", "2", ...), so
+    /// "me" never collides with a clustered remote speaker.
+    private static let localSpeakerId = "me"
+
     /// Phrase-level transcript entries (with timestamps), used at stop() for fine-grained per-speaker grouping.
     /// Phrase-level transcript entries with timestamps; used at stop() for
     /// fine-grained per-speaker grouping. Populated only on the live start() path.
@@ -610,68 +615,98 @@ final class MeetingSession {
 
     // MARK: - Speaker Diarization
 
-    /// Run FluidAudio diarization in batch and align the result with L2-corrected batch segments.
-    /// Note: Scheme D (one flush batch = one MeetingSegment) — diarization looks up speakers by each batch's time range.
+    /// Build a merged speaker timeline from the two per-channel diarization buffers, then
+    /// align the L2-corrected transcript against it.
+    ///
+    /// - The **mic** channel is the local user: energy-based VAD (`detectSpeechIntervals`)
+    ///   attributes every mic speech run to the deterministic `localSpeakerId` ("me"); the
+    ///   FluidAudio clustering model is never run on it.
+    /// - The **system** channel is the remote participants: it goes through FluidAudio
+    ///   speaker clustering, and each clustered segment becomes a `.system` interval.
+    /// Both sets are merged onto one `[SpeakerInterval]` timeline that the alignment
+    /// functions consume. Mode fallout: `both` gets me + remotes; `system` gets remotes
+    /// only (mic empty → no "me"); `mic` gets "me" only and skips the model download entirely
+    /// (sys empty → FluidAudio branch never runs); bench fills sys only → clustering path.
     private func performDiarization() async -> [MeetingSegment] {
         // Tear-free snapshot of both per-channel buffers (capture has stopped by now).
         let (micBuf, sysBuf) = snapshotDiaBuffers()
         Logger.log("Meeting", "Diarization buffers: mic=\(micBuf.count) sys=\(sysBuf.count)")
 
-        // TODO(Task 1.3): diarize per-channel and merge. For now reproduce the
-        // pre-split behavior: prefer the system channel, falling back to mic.
-        let buffer = sysBuf.isEmpty ? micBuf : sysBuf
         let segments = polishedSegments
 
-        // If there are no L2 segments, return empty right away
+        // If there are no L2 segments, return empty right away.
         guard !segments.isEmpty else {
             Logger.log("Meeting", "No polished segments to diarize")
             return []
         }
 
-        // Audio too short, skip diarization
-        let audioDuration = Double(buffer.count) / Double(diarizationSampleRate)
-        guard audioDuration >= 2.0 else {
-            Logger.log("Meeting", "Audio too short for diarization (\(String(format: "%.1f", audioDuration))s), skipping")
-            return segments
-        }
+        var intervals: [SpeakerInterval] = []
 
-        Logger.log("Meeting", "Starting diarization: \(String(format: "%.1f", audioDuration))s audio")
+        // --- System channel (remote participants) → FluidAudio clustering ---
+        // Only run when there is enough system audio; a failure logs and continues with an
+        // empty system contribution rather than discarding the mic-derived "me" timeline.
+        let sysDuration = Double(sysBuf.count) / Double(diarizationSampleRate)
+        if !sysBuf.isEmpty && sysDuration >= 2.0 {
+            Logger.log("Meeting", "Starting system diarization: \(String(format: "%.1f", sysDuration))s audio")
+            do {
+                Logger.log("Meeting", "Loading diarization models...")
+                let models = try await DiarizerModels.downloadIfNeeded(
+                    progressHandler: { progress in
+                        Logger.log("Meeting", "Model download progress: \(String(format: "%.0f%%", progress.fractionCompleted * 100))")
+                    }
+                )
 
-        do {
-            // Download/load models
-            Logger.log("Meeting", "Loading diarization models...")
-            let models = try await DiarizerModels.downloadIfNeeded(
-                progressHandler: { progress in
-                    Logger.log("Meeting", "Model download progress: \(String(format: "%.0f%%", progress.fractionCompleted * 100))")
+                let diarizer = DiarizerManager(config: DiarizerConfig())
+                diarizer.initialize(models: models)
+
+                Logger.log("Meeting", "Running diarization...")
+                let result = try diarizer.performCompleteDiarization(sysBuf, sampleRate: diarizationSampleRate)
+
+                Logger.log("Meeting", "Diarization complete: \(result.segments.count) speaker segments")
+                for seg in result.segments {
+                    Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
                 }
-            )
 
-            let diarizer = DiarizerManager(config: DiarizerConfig())
-            diarizer.initialize(models: models)
-
-            Logger.log("Meeting", "Running diarization...")
-            let result = try diarizer.performCompleteDiarization(buffer, sampleRate: diarizationSampleRate)
-
-            Logger.log("Meeting", "Diarization complete: \(result.segments.count) speaker segments")
-            for seg in result.segments {
-                Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
+                intervals.append(contentsOf: speakerIntervals(from: result.segments))
+            } catch {
+                Logger.log("Meeting", "Diarization failed: \(error), continuing without system speaker labels")
             }
+        } else if !sysBuf.isEmpty {
+            Logger.log("Meeting", "System audio too short for diarization (\(String(format: "%.1f", sysDuration))s), skipping")
+        }
+        let systemCount = intervals.count
 
-            // Fine-grained alignment: group phrases by speaker; each consecutive turn = one MeetingSegment.
-            // Fine-grained: label each phrase by speaker, group consecutive phrases
-            // into speaker turns, polish each turn. Falls back to the coarse
-            // per-batch alignment when there are no phrase entries (bench path).
-            let phraseEntries = allPhraseEntries
-            if phraseEntries.isEmpty {
-                return alignTranscriptionWithDiarization(segments: segments, diarization: result.segments)
-            }
-            return await buildSpeakerTurns(entries: phraseEntries, diarization: result.segments)
+        // --- Mic channel (local user "me") → energy-based VAD, no clustering model ---
+        var micIntervalCount = 0
+        if !micBuf.isEmpty {
+            let speech = detectSpeechIntervals(samples: micBuf, sampleRate: diarizationSampleRate)
+            intervals.append(contentsOf: speech.map {
+                SpeakerInterval(
+                    speakerId: Self.localSpeakerId,
+                    start: $0.start,
+                    end: $0.end,
+                    source: .mic
+                )
+            })
+            micIntervalCount = speech.count
+        }
 
-        } catch {
-            Logger.log("Meeting", "Diarization failed: \(error), returning segments without speaker labels")
-            // Diarization failed, keep the L2 segments with speakerId = nil
+        // No-diarization fallback: both channels absent/too short → return L2 segments unlabeled.
+        guard !intervals.isEmpty else {
+            Logger.log("Meeting", "No speaker intervals from either channel, returning segments without speaker labels")
             return segments
         }
+
+        intervals.sort { $0.start < $1.start }
+        Logger.log("Meeting", "Merged speaker timeline: \(intervals.count) intervals (system=\(systemCount) me=\(micIntervalCount)), distinct speakers=\(Set(intervals.map(\.speakerId)).count)")
+
+        // Fine-grained alignment: label each phrase by speaker, group consecutive phrases
+        // into speaker turns, polish each turn. Falls back to the coarse per-batch alignment
+        // when there are no phrase entries (bench path).
+        if allPhraseEntries.isEmpty {
+            return alignTranscriptionWithDiarization(segments: segments, intervals: intervals)
+        }
+        return await buildSpeakerTurns(entries: allPhraseEntries, intervals: intervals)
     }
 
     /// Align L2 batch segments with diarization segments based on time overlap.
@@ -680,9 +715,8 @@ final class MeetingSession {
     /// speaker" behavior was intentionally removed — it mislabeled interruptions).
     private func alignTranscriptionWithDiarization(
         segments: [MeetingSegment],
-        diarization: [TimedSpeakerSegment]
+        intervals: [SpeakerInterval]
     ) -> [MeetingSegment] {
-        let intervals = speakerIntervals(from: diarization)
         return segments.map { tSeg in
             let assignment = assignSpeaker(
                 to: PhraseSpan(start: tSeg.startTime, end: tSeg.endTime),
@@ -722,11 +756,10 @@ final class MeetingSession {
     /// now split the transcript instead of being flattened into coarse L2 chunks.
     private func buildSpeakerTurns(
         entries: [SegmentBuffer.Entry],
-        diarization: [TimedSpeakerSegment]
+        intervals: [SpeakerInterval]
     ) async -> [MeetingSegment] {
         // Assign + group phrases into speaker turns in pure Core (tested seam).
         let phrases = entries.map { (span: PhraseSpan(start: $0.startTime, end: $0.endTime), text: $0.text) }
-        let intervals = speakerIntervals(from: diarization)
         let turns = groupIntoTurns(phrases: phrases, intervals: intervals)
 
         // Polish each turn → one MeetingSegment per speaker turn.
