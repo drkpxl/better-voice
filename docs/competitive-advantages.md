@@ -46,7 +46,7 @@ the minimum: it can hear the meeting, and that's it. "We record the meeting, not
 
 ## 3. It knows *you* from *them* (per-channel speaker separation)
 
-**Status: In progress (current pipeline work).**
+**Status: Shipping (0.7.0).**
 
 Better Voice captures your microphone and the call's system audio as **separate channels**. Your
 voice is attributed to "you" deterministically by channel of origin — it is never confused with a
@@ -63,7 +63,7 @@ gracefully instead of scrambling the transcript.
 
 ## 4. Built for real meetings — many voices, not a hard cap
 
-**Status: In progress.**
+**Status: Shipping (0.7.0).**
 
 The diarizer is clustering-based with **no fixed speaker limit** and a tunable sensitivity, so a
 9-person roundtable is separated into 9 speakers, not squeezed into a fixed number of slots. Each
@@ -77,12 +77,12 @@ room.
 
 ## 5. Speakers you'll recognize across meetings (fingerprinting)
 
-**Status: Roadmap (foundation built now).**
+**Status: Roadmap (foundation shipped in 0.7.0).**
 
 Because Better Voice retains a voice embedding for each speaker, it can build a **persistent speaker
 identity** — so "Speaker 3" in today's standup can be recognized as the same person next week, and
 eventually named once and remembered. The plumbing (per-speaker embeddings + a speaker-registry
-interface) is being put in place now; cross-meeting recognition is the next feature on top of it.
+interface) shipped in 0.7.0; cross-meeting recognition is the next feature on top of it.
 
 **Why it matters / the pitch:** Turns a pile of anonymous transcripts into a searchable record of
 *who* said things over time — the kind of continuity cloud tools charge a subscription for, done
@@ -92,12 +92,12 @@ locally.
 
 ## 6. Efficient enough to just leave running
 
-**Status: In progress.**
+**Status: Shipping (0.7.0).**
 
 The audio pipeline is engineered for long meetings on a laptop: diarization is processed in bounded
-chunks (peak memory stays flat instead of growing with meeting length), audio mixing uses Accelerate
-(vDSP), and the hot path stays off the main thread. Dictation and meeting capture live quietly in the
-menu bar and stay out of the way.
+chunks (peak memory stays flat instead of growing with meeting length), it runs under a timeout so
+stopping always returns promptly, and the hot path stays off the main thread. Dictation and meeting
+capture live quietly in the menu bar and stay out of the way.
 
 **Why it matters / the pitch:** No fan-spinning, no memory bloat over a two-hour meeting, no app to
 babysit. It's ambient.
