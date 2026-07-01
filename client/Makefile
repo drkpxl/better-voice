@@ -1,25 +1,46 @@
-.PHONY: build run run-raw clean setup install uninstall check-data check-log
+.PHONY: build bundle run run-raw clean setup install uninstall check-data check-log
 
 APP_BUNDLE = .build/BetterVoice.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
 APP_MACOS = $(APP_CONTENTS)/MacOS
+APP_FRAMEWORKS = $(APP_CONTENTS)/Frameworks
+BIN_PATH = .build/debug
+
+# 签名身份：默认用稳定的自签名证书，让 TCC 权限（麦克风/输入监控/系统音频）跨重新编译保留。
+# ad-hoc 签名每次 hash 变化 -> 系统视为新 app -> 已授权的权限被重置。
+# 覆盖: SIGN_IDENTITY="Apple Development: ..." make run   （先 `make setup` 创建证书）
+SIGN_IDENTITY ?= Better Voice Development
 
 # 安装相关变量
 INSTALL_DIR = $(HOME)/Applications
 INSTALL_APP = $(INSTALL_DIR)/BetterVoice.app
-CERT_NAME = Apple Development: steven@drkpxl.com (LV6ATJK43V)
 LAUNCHD_LABEL = com.drkpxl.bettervoice
 LAUNCHD_PLIST = ~/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
 
 build:
 	swift build
 
-# 构建 app bundle 并通过 LaunchServices 启动（TCC 权限归属 BetterVoice 而非 Terminal）
-run: build
-	@mkdir -p $(APP_MACOS)
-	@cp .build/debug/BetterVoice $(APP_MACOS)/BetterVoice
+# 构建已签名的 app bundle（内嵌 Sparkle.framework）——run/install 共用，与 build-dmg.sh 保持一致。
+# SPM 只产出 Sparkle.framework，不会自动嵌入 .app，需手动拷贝 + 加 rpath + 签名（rpath 必须在签名前改）。
+bundle: build
+	@mkdir -p $(APP_MACOS) $(APP_FRAMEWORKS)
+	@cp $(BIN_PATH)/BetterVoice $(APP_MACOS)/BetterVoice
 	@cp Sources/Info.plist $(APP_CONTENTS)/Info.plist
-	@codesign --force --sign "$(CERT_NAME)" $(APP_BUNDLE) 2>/dev/null || codesign --force --sign - $(APP_BUNDLE)
+	@rm -rf $(APP_FRAMEWORKS)/Sparkle.framework
+	@cp -R $(BIN_PATH)/Sparkle.framework $(APP_FRAMEWORKS)/Sparkle.framework
+	@otool -l $(APP_MACOS)/BetterVoice | grep -q "@executable_path/../Frameworks" \
+		|| install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_MACOS)/BetterVoice
+	@if security find-identity -v -p codesigning 2>/dev/null | grep -q "$(SIGN_IDENTITY)"; then \
+		echo "Signing: $(SIGN_IDENTITY) (stable — TCC survives rebuilds)"; SIGN="$(SIGN_IDENTITY)"; \
+	else \
+		echo "WARNING: signing identity '$(SIGN_IDENTITY)' not found; falling back to ad-hoc (-)."; \
+		echo "         Run 'make setup' first so permissions survive rebuilds."; SIGN="-"; \
+	fi; \
+	codesign --force --deep --sign "$$SIGN" $(APP_FRAMEWORKS)/Sparkle.framework; \
+	codesign --force --sign "$$SIGN" $(APP_BUNDLE)
+
+# 构建 app bundle 并通过 LaunchServices 启动（TCC 权限归属 BetterVoice 而非 Terminal）
+run: bundle
 	@killall BetterVoice 2>/dev/null; sleep 0.5; true
 	@echo "Launching BetterVoice.app... (logs: tail -f ~/.better-voice/debug.log)"
 	@open $(APP_BUNDLE)
@@ -38,12 +59,7 @@ setup:
 	@bash scripts/setup-cert.sh
 
 # 安装到 ~/Applications 并设置开机自启
-install: build
-	@echo "=== 构建 app bundle ==="
-	@mkdir -p $(APP_MACOS)
-	@cp .build/debug/BetterVoice $(APP_MACOS)/BetterVoice
-	@cp Sources/Info.plist $(APP_CONTENTS)/Info.plist
-	@codesign --force --sign "$(CERT_NAME)" $(APP_BUNDLE) 2>/dev/null || codesign --force --sign - $(APP_BUNDLE)
+install: bundle
 	@echo "=== 安装到 $(INSTALL_DIR) ==="
 	@mkdir -p $(INSTALL_DIR)
 	@rm -rf $(INSTALL_APP)
