@@ -5,7 +5,7 @@ final class DiarizationConfigTests: XCTestCase {
 
     func testEmptyDictYieldsAllDefaults() {
         let s = parseDiarizationSettings([:])
-        XCTAssertEqual(s.clusteringThreshold, 0.55, accuracy: 1e-6)
+        XCTAssertEqual(s.clusteringThreshold, 0.57, accuracy: 1e-6)
         XCTAssertEqual(s.minSpeechDuration, 1.0, accuracy: 1e-6)
         XCTAssertEqual(s.minSilenceGap, 0.5, accuracy: 1e-6)
     }
@@ -33,12 +33,12 @@ final class DiarizationConfigTests: XCTestCase {
 
     func testWrongTypedValueFallsBackToDefault() {
         let s = parseDiarizationSettings(["clustering_threshold": "high"])
-        XCTAssertEqual(s.clusteringThreshold, 0.55, accuracy: 1e-6)
+        XCTAssertEqual(s.clusteringThreshold, 0.57, accuracy: 1e-6)
     }
 
     func testPartialDictMixesParsedAndDefaults() {
         let s = parseDiarizationSettings(["min_silence_gap": 0.9])
-        XCTAssertEqual(s.clusteringThreshold, 0.55, accuracy: 1e-6)  // default
+        XCTAssertEqual(s.clusteringThreshold, 0.57, accuracy: 1e-6)  // default
         XCTAssertEqual(s.minSpeechDuration, 1.0, accuracy: 1e-6)     // default
         XCTAssertEqual(s.minSilenceGap, 0.9, accuracy: 1e-6)         // parsed
     }

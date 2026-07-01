@@ -37,7 +37,7 @@ final class SystemDiarizationChunker: Sendable {
         sampleRate: Int,
         chunkSeconds: Double = 60,
         finishTimeoutSec: TimeInterval = 120,
-        clusteringThreshold: Float = 0.55,
+        clusteringThreshold: Float = 0.57,
         minSpeechDuration: Float = 1.0,
         minSilenceGap: Float = 0.5
     ) {
@@ -118,9 +118,9 @@ final class SystemDiarizationChunker: Sendable {
         }
 
         // DiarizerManager is NOT Sendable — created and used only here, confined to this task.
-        // clusteringThreshold: lower = more speakers. FluidAudio's default 0.7 over-merges (a
-        // clean 9-speaker clip collapsed to 4); 0.55 recovers the true count on multi-speaker
-        // content. These knobs come from RuntimeConfig `meeting.diarization` (default 0.55/1.0/0.5).
+        // clusteringThreshold: lower = more speakers. FluidAudio's default 0.7 over-merges;
+        // 0.57 gave the best frame agreement vs the pyannote gold standard on our test clip.
+        // These knobs come from RuntimeConfig `meeting.diarization` (default 0.57/1.0/0.5).
         var diarizerConfig = DiarizerConfig()
         diarizerConfig.clusteringThreshold = clusteringThreshold
         diarizerConfig.minSpeechDuration = minSpeechDuration

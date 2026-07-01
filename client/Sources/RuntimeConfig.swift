@@ -153,8 +153,9 @@ final class RuntimeConfig {
                     // diarization (speaker clustering) sub-section.
                     "diarization": [
                         // speaker clustering threshold, 0.5…0.9. Lower = more speakers.
-                        // FluidAudio's own default 0.7 over-merges; 0.55 recovers the true count.
-                        "clustering_threshold": 0.55,
+                        // FluidAudio's own default 0.7 over-merges; 0.57 gave the best frame
+                        // agreement vs the pyannote gold standard on our test clip (see tools/pyannote).
+                        "clustering_threshold": 0.57,
                         // minimum speech duration in seconds (FluidAudio default 1.0).
                         "min_speech_duration": 1.0,
                         // minimum silence gap in seconds (FluidAudio default 0.5).

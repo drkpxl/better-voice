@@ -4,7 +4,8 @@ import Foundation
 /// so the app maps these values onto FluidAudio's `DiarizerConfig` at the call site.
 public struct DiarizationSettings: Sendable, Equatable {
     /// Speaker clustering threshold, 0.5…0.9. Lower = more speakers.
-    /// FluidAudio's own default is 0.7 (over-merges); we default to 0.55.
+    /// FluidAudio's own default is 0.7 (over-merges); we default to 0.57 (best frame agreement
+    /// vs the pyannote gold standard on our test clip — to be re-validated on real recordings).
     public let clusteringThreshold: Float
     /// Minimum speech duration in seconds (FluidAudio default 1.0).
     public let minSpeechDuration: Float
@@ -12,7 +13,7 @@ public struct DiarizationSettings: Sendable, Equatable {
     public let minSilenceGap: Float
 
     public init(
-        clusteringThreshold: Float = 0.55,
+        clusteringThreshold: Float = 0.57,
         minSpeechDuration: Float = 1.0,
         minSilenceGap: Float = 0.5
     ) {
