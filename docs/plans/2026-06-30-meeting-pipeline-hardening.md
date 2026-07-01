@@ -373,13 +373,36 @@ Stop diarizing the mono mix. Mic = "me" via VAD; system = FluidAudio; merge onto
 - On the labeled fixtures, `DER-proxy fer` and `speakerCountError` are **no worse than baseline and materially better on the interruption fixture** (record numbers).
 - A manual "both" meeting with an interruption labels the mic speaker as "me" throughout and does not merge all remote speech under one label.
 - `stop()` returns within the diarization timeout even on a long meeting; peak diarization RAM ≈ one chunk.
-- No `DispatchQueue.main.async` on the audio hot path; mix uses vDSP.
+- No `DispatchQueue.main.async` on the audio hot path. (vDSP mix consciously declined — see Task 4.2.)
 - `MeetingSegment` carries `speakerEmbedding`/`speakerConfidence`; `SpeakerRegistry` seam exists and is tested, with **no persistence** (that's the next project).
 
-## Results (fill in during Phase 5)
+## Results
 
-| Fixture | Baseline fer / scErr | After Phase 1 | After Phase 3 | Chosen threshold |
-|---------|----------------------|---------------|---------------|------------------|
-| 2-speaker (mic+remote) | | | | |
-| 4-speaker (system) | | | | |
-| interruptions | | | | |
+**Fixtures assembled so far:** only one — `client/.fixtures/videoplayback.wav` (309 s, mono multi-speaker
+"system audio"). It exercises the system-channel diarizer but **not** the per-channel mic+system path or
+interruption handling; the 2-speaker (mic+remote) and interruption fixtures still need real app recordings
+(`both` mode). So Task 5.2's cross-fixture sweep is partial and the chosen 0.57 default is **interim**,
+to be re-validated on real meetings.
+
+Scoring is vs pyannote gold labels (a reference, not ground truth). Full methodology + raw sweep live in
+`tools/pyannote/README.md`. Per-phase historical baselines were not captured on this clip; the numbers
+below are the current pipeline swept over `clustering_threshold`.
+
+### `videoplayback.wav` — human-verified 7 speakers, pyannote gold 6
+
+| clustering_threshold | BetterVoice speakers | scErr vs pyannote | frame error (`fer`) |
+|---|---|---|---|
+| 0.55 | 9 | 3 | — |
+| **0.56–0.57 (chosen)** | **8** | **2** | **0.289** (best) |
+| 0.58–0.60 | 5 | 1 | 0.368 |
+| 0.70 (old default) | 4 | 2 | — |
+
+The clusterer jumps 8→5 between 0.57 and 0.58 (a count of 7 is unreachable by threshold alone on this
+clip). 0.57 wins on frame agreement (~71%). Note `scErr` is lowest at 0.58–0.60 but `fer` is worse there
+— we optimize `fer` (per-frame attribution) over exact count, since attribution is what the UI shows.
+
+| Fixture | Status | scErr | fer | Chosen threshold |
+|---------|--------|-------|-----|------------------|
+| multi-speaker system (`videoplayback`) | ✅ scored | 2 (8 vs gold 6) | 0.289 | 0.57 (interim) |
+| 2-speaker (mic+remote) | ⏳ needs a real `both` recording | — | — | — |
+| interruptions | ⏳ needs a real `both` recording | — | — | — |
