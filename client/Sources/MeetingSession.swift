@@ -237,6 +237,11 @@ final class MeetingSession {
                 audioPath: fileURL.path
             )
 
+            // DER-proxy scoring against the optional <wav>.speakers.json ground-truth sidecar.
+            if let score = MeetingBenchmark.benchDiarizationScore(segments: diarizedSegments, audioPath: fileURL.path) {
+                Logger.log("Meeting", "[Bench] DER-proxy: fer=\(String(format: "%.3f", score.frameErrorRate)) scErr=\(score.speakerCountError)")
+            }
+
             // Cleanup
             diarizationBuffer = []
             polishedSegments = []
