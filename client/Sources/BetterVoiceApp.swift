@@ -195,7 +195,7 @@ enum MeetingBenchmark {
     }
 
     static func formatResult(_ result: MeetingResult, totalTime: Double, mdPath: String?) -> [String: Any] {
-        let json: [String: Any] = [
+        var json: [String: Any] = [
             "audio": result.audioPath ?? "",
             "duration_s": round(result.duration * 100) / 100,
             "total_processing_s": round(totalTime * 100) / 100,
@@ -214,7 +214,25 @@ enum MeetingBenchmark {
                 ] as [String: Any]
             }
         ]
+        // DER-proxy scores against the optional <wav>.speakers.json ground-truth sidecar.
+        if let score = benchDiarizationScore(segments: result.segments, audioPath: result.audioPath) {
+            json["der_proxy_fer"] = round(score.frameErrorRate * 1000) / 1000
+            json["der_proxy_sc_err"] = score.speakerCountError
+        }
         return json
+    }
+
+    /// Loads the optional `<wav>.speakers.json` diarization ground-truth sidecar next to `audioPath`
+    /// (a JSON array of `{"speaker","start","end"}`) and scores the produced segments against it with
+    /// the lightweight DER proxy. Returns nil when no valid sidecar exists so scoring is skipped silently.
+    static func benchDiarizationScore(segments: [MeetingSegment], audioPath: String?) -> DiarizationScore? {
+        guard let audioPath else { return nil }
+        let sidecar = audioPath + ".speakers.json"
+        guard let data = FileManager.default.contents(atPath: sidecar) else { return nil }
+        let hypothesis = segments.map {
+            LabeledInterval(speaker: $0.speakerId ?? "?", start: $0.startTime, end: $0.endTime)
+        }
+        return scoreDiarizationAgainstSidecar(hypothesis: hypothesis, sidecarJSONData: data)
     }
 
     static func parseArg(_ args: [String], key: String) -> String? {

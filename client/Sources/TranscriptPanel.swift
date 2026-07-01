@@ -71,7 +71,7 @@ struct TranscriptContentView: View {
                 .foregroundStyle(.secondary)
 
             // speaker label
-            if let speaker = segment.speakerLabel(prefix: t("Speaker")) {
+            if let speaker = segment.speakerLabel(prefix: t("Speaker"), localLabel: t("You")) {
                 Text(speaker + ":")
                     .font(.caption)
                     .fontWeight(.semibold)

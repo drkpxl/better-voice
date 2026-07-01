@@ -50,10 +50,8 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         )
     }()
 
-    // WAV writing
-    private var fileHandle: FileHandle?
-    private var wavDataSize: UInt32 = 0
-    private var wavFormat: AVAudioFormat?
+    // WAV writing (shared implementation)
+    private lazy var wavWriter = PCMWavWriter(url: audioFileURL, logLabel: "SysAudio WAV saved")
 
     // Core Audio tap state
     private var tapID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
@@ -159,12 +157,12 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     /// Stops capture + finalizes WAV
     func stop() async {
         cleanupCoreAudio()
-        finalizeWAV()
+        wavWriter.finalize()
         Logger.log("Meeting", "SystemAudioCapturer stopped, bufferCount=\(bufferCount)")
     }
 
     func close() {
-        finalizeWAV()
+        wavWriter.finalize()
     }
 
     private func cleanupCoreAudio() {
@@ -223,7 +221,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
                 Logger.log("Meeting", "SysAudio analyzer converter: \(pcmBuffer.format) → \(targetFormat)")
             }
             guard let converter = analyzerConverter,
-                  let converted = convert(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+                  let converted = convertPCM(buffer: pcmBuffer, using: converter, to: targetFormat) else {
                 if bufferCount <= 3 { Logger.log("Meeting", "SysAudio #\(bufferCount): analyzer conversion failed") }
                 return
             }
@@ -239,7 +237,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         }
 
         // Write WAV (raw system stream, kept even in mixing mode)
-        writeToWAV(buffer: analyzerBuffer)
+        wavWriter.write(buffer: analyzerBuffer)
 
         // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
         if let diaFmt = diarizationFormat {
@@ -252,7 +250,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
                     Logger.log("Meeting", "SysAudio diarization converter: \(pcmBuffer.format) → \(diaFmt)")
                 }
                 guard let converter = diarizationConverter,
-                      let converted = convert(buffer: pcmBuffer, using: converter, to: diaFmt) else {
+                      let converted = convertPCM(buffer: pcmBuffer, using: converter, to: diaFmt) else {
                     return
                 }
                 diaBuffer = converted
@@ -337,95 +335,5 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         let status = AudioObjectGetPropertyData(deviceID, &uidAddress, 0, nil, &uidSize, &uid)
         guard status == noErr else { return nil }
         return uid?.takeRetainedValue() as String?
-    }
-
-    // MARK: - WAV writing (isomorphic to MeetingCaptureDelegate)
-
-    private func writeToWAV(buffer: AVAudioPCMBuffer) {
-        if fileHandle == nil {
-            wavFormat = buffer.format
-            let dir = audioFileURL.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            FileManager.default.createFile(atPath: audioFileURL.path, contents: nil)
-            fileHandle = try? FileHandle(forWritingTo: audioFileURL)
-            fileHandle?.write(Data(count: 44))
-            wavDataSize = 0
-        }
-
-        let abl = buffer.audioBufferList.pointee
-        guard let mData = abl.mBuffers.mData else { return }
-        let byteCount = Int(abl.mBuffers.mDataByteSize)
-        let data = Data(bytes: mData, count: byteCount)
-        fileHandle?.write(data)
-        wavDataSize += UInt32(byteCount)
-    }
-
-    private func finalizeWAV() {
-        guard let fh = fileHandle, let fmt = wavFormat else {
-            fileHandle = nil
-            return
-        }
-
-        let asbd = fmt.streamDescription.pointee
-        let numChannels = UInt16(asbd.mChannelsPerFrame)
-        let sampleRate = UInt32(asbd.mSampleRate)
-        let bitsPerSample = UInt16(asbd.mBitsPerChannel)
-        let blockAlign = numChannels * (bitsPerSample / 8)
-        let byteRate = sampleRate * UInt32(blockAlign)
-
-        var header = Data(capacity: 44)
-        header.append(contentsOf: "RIFF".utf8)
-        header.appendSysLE(UInt32(36 + wavDataSize))
-        header.append(contentsOf: "WAVE".utf8)
-        header.append(contentsOf: "fmt ".utf8)
-        header.appendSysLE(UInt32(16))
-        header.appendSysLE(UInt16(1))
-        header.appendSysLE(numChannels)
-        header.appendSysLE(sampleRate)
-        header.appendSysLE(byteRate)
-        header.appendSysLE(blockAlign)
-        header.appendSysLE(bitsPerSample)
-        header.append(contentsOf: "data".utf8)
-        header.appendSysLE(wavDataSize)
-
-        fh.seek(toFileOffset: 0)
-        fh.write(header)
-        try? fh.close()
-        fileHandle = nil
-
-        Logger.log("Meeting", "SysAudio WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
-    }
-
-    // MARK: - Format conversion (isomorphic to MeetingCaptureDelegate)
-
-    private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-        let ratio = targetFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1
-        guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
-
-        var error: NSError?
-        let consumed = Box(false)
-        converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed.value {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed.value = true
-            outStatus.pointee = .haveData
-            return buffer
-        }
-
-        return (error == nil && output.frameLength > 0) ? output : nil
-    }
-}
-
-// MARK: - Data little-endian helpers (distinct naming to avoid conflicts)
-
-private extension Data {
-    mutating func appendSysLE(_ value: UInt16) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
-    }
-    mutating func appendSysLE(_ value: UInt32) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
     }
 }

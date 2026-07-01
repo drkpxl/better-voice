@@ -35,12 +35,16 @@ public func parseMeetingType(from response: String, default fallback: MeetingTyp
 }
 
 /// Build a "Label: text" transcript from (named) segments for the summarizer.
-public func buildSummarizationTranscript(segments: [MeetingSegment], speakerPrefix: String) -> String {
+public func buildSummarizationTranscript(
+    segments: [MeetingSegment],
+    speakerPrefix: String,
+    localLabel: String = "You"
+) -> String {
     var lines: [String] = []
     for seg in segments {
         let text = seg.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { continue }
-        if let label = seg.speakerLabel(prefix: speakerPrefix) {
+        if let label = seg.speakerLabel(prefix: speakerPrefix, localLabel: localLabel) {
             lines.append("\(label): \(text)")
         } else {
             lines.append(text)

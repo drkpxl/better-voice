@@ -42,15 +42,38 @@ final class MeetingSession {
 
     private var analyzerFormat: AVAudioFormat?
 
-    // MARK: - Diarization Buffer (16kHz Float32 mono)
+    // MARK: - Diarization Buffers (16kHz Float32 mono)
 
-    private var diarizationBuffer: [Float] = []
+    /// Mic-channel VAD is streamed incrementally into this chunker instead of accumulating the
+    /// whole meeting in a buffer, bounding peak memory to ~one chunk. VAD (`detectSpeechIntervals`)
+    /// is pure/model-free/cheap, so the chunker is synchronous + NSLock-guarded (no async/models).
+    /// Created for the mic-producing modes (`mic`/`both`); in the bench `runFromFile` path it is
+    /// created but receives no samples (bench fills only the system channel). `finish()` at
+    /// performDiarization() returns the merged global "me" speech intervals.
+    private var micVadChunker: MicVoiceActivityChunker?
+
+    /// System-channel diarization is streamed incrementally into this chunker instead of
+    /// being accumulated into a whole-meeting buffer, bounding peak memory to ~one chunk.
+    /// Created only when system diarization is needed (audio_source system/both, and the
+    /// bench runFromFile path); nil in mic-only mode. Confines its own DiarizerManager.
+    private var systemDiarizationChunker: SystemDiarizationChunker?
+
+    /// Deterministic speaker id for the local user, derived from the mic channel via VAD
+    /// (not FluidAudio clustering). Single source of truth lives in Core (`SpeakerIds.local`);
+    /// FluidAudio ids are numeric strings ("1", "2", ...), so "me" never collides with a
+    /// clustered remote speaker.
+    private static let localSpeakerId = SpeakerIds.local
 
     /// Phrase-level transcript entries (with timestamps), used at stop() for fine-grained per-speaker grouping.
     /// Phrase-level transcript entries with timestamps; used at stop() for
     /// fine-grained per-speaker grouping. Populated only on the live start() path.
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
+
+    /// Hang-safety deadline for awaiting the system-diarization chunker's `finish()`. This only
+    /// abandons the await (the confined DiarizerManager is never touched; the consumer keeps
+    /// running detached). Diarizing a 5-min clip takes ~1s, so 120s is generous for long meetings.
+    private static let finishTimeoutSec: TimeInterval = 120
 
     // MARK: - Duration Timer
 
@@ -94,13 +117,29 @@ final class MeetingSession {
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
-        diarizationBuffer = []
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
         setupSegmentBuffer()
         audioFileURL = fileURL
         meetingId = "bench-" + fileURL.deletingPathExtension().lastPathComponent
+
+        // Mic VAD chunker: created for symmetry with the live path. In bench the mic channel
+        // receives no samples (the WAV is routed into the system channel), so finish() returns [].
+        micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
+
+        // Bench always exercises the system-diarization path: stream the WAV into the chunker.
+        let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
+        Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
+        let benchChunker = SystemDiarizationChunker(
+            sampleRate: diarizationSampleRate,
+            finishTimeoutSec: Self.finishTimeoutSec,
+            clusteringThreshold: diar.clusteringThreshold,
+            minSpeechDuration: diar.minSpeechDuration,
+            minSilenceGap: diar.minSilenceGap
+        )
+        benchChunker.start()
+        self.systemDiarizationChunker = benchChunker
 
         let localeObj = Locale(identifier: locale)
 
@@ -156,7 +195,7 @@ final class MeetingSession {
                 }
             }
 
-            // 4. Read audio from file to fill diarizationBuffer (16kHz Float32 mono)
+            // 4. Read audio from file and stream it into the diarization chunker (16kHz Float32 mono)
             Logger.log("Meeting", "[Bench] Loading audio: \(fileURL.lastPathComponent)")
             let audioFile = try AVAudioFile(forReading: fileURL)
             let fileFormat = audioFile.processingFormat
@@ -171,6 +210,20 @@ final class MeetingSession {
                 channels: 1,
                 interleaved: false
             )!
+
+            // Feed the WAV into the chunker in small ~0.1s batches to mimic live streaming: this
+            // keeps the bench path memory-bounded (the consumer discards processed samples) and
+            // drives the real incremental chunk-boundary logic, instead of one giant add() that
+            // would park the whole meeting in the unbounded stream buffer.
+            let benchBatch = max(diarizationSampleRate / 10, 1)  // ~0.1s
+            let streamIntoChunker: ([Float]) -> Void = { samples in
+                var i = 0
+                while i < samples.count {
+                    let end = min(i + benchBatch, samples.count)
+                    benchChunker.add(Array(samples[i..<end]))
+                    i = end
+                }
+            }
 
             let fullBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount)!
             try audioFile.read(into: fullBuffer)
@@ -196,14 +249,15 @@ final class MeetingSession {
                 }
 
                 if let floatData = outBuffer.floatChannelData {
-                    diarizationBuffer = Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength)))
+                    // Bench path: route the WAV into the system channel (mic stays empty).
+                    streamIntoChunker(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
                 }
             } else {
                 if let floatData = fullBuffer.floatChannelData {
-                    diarizationBuffer = Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength)))
+                    streamIntoChunker(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
                 }
             }
-            Logger.log("Meeting", "[Bench] Diarization buffer: \(diarizationBuffer.count) samples")
+            Logger.log("Meeting", "[Bench] Streamed system audio into diarization chunker")
 
             // 5. Use SpeechAnalyzer's file input API (Apple-native, replaces AVCaptureSession)
             Logger.log("Meeting", "[Bench] Starting SpeechAnalyzer from file...")
@@ -237,10 +291,19 @@ final class MeetingSession {
                 audioPath: fileURL.path
             )
 
+            // DER-proxy scoring against the optional <wav>.speakers.json ground-truth sidecar.
+            if let score = MeetingBenchmark.benchDiarizationScore(segments: diarizedSegments, audioPath: fileURL.path) {
+                Logger.log("Meeting", "[Bench] DER-proxy: fer=\(String(format: "%.3f", score.frameErrorRate)) scErr=\(score.speakerCountError)")
+            }
+
             // Cleanup
-            diarizationBuffer = []
+            micVadChunker = nil
             polishedSegments = []
             segmentBuffer = nil
+            if let chunker = systemDiarizationChunker {
+                _ = try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) { await chunker.finish() }
+                systemDiarizationChunker = nil
+            }
 
             Logger.log("Meeting", "[Bench] Complete: \(diarizedSegments.count) segments with speaker labels")
             return result
@@ -264,7 +327,7 @@ final class MeetingSession {
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
-        diarizationBuffer = []
+        micVadChunker = nil
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
@@ -362,11 +425,39 @@ final class MeetingSession {
             interleaved: false
         )!
 
-        // Diarization callback (shared)
-        let onDiaSamples: @Sendable ([Float]) -> Void = { [weak self] samples in
-            DispatchQueue.main.async {
-                self?.diarizationBuffer.append(contentsOf: samples)
-            }
+        // System diarization runs incrementally in a background chunker (bounded memory).
+        // Create + start it only when system audio is present; mic-only mode skips it entirely.
+        if audioSource == "system" || audioSource == "both" {
+            let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
+            Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
+            let chunker = SystemDiarizationChunker(
+                sampleRate: diarizationSampleRate,
+                finishTimeoutSec: Self.finishTimeoutSec,
+                clusteringThreshold: diar.clusteringThreshold,
+                minSpeechDuration: diar.minSpeechDuration,
+                minSilenceGap: diar.minSilenceGap
+            )
+            chunker.start()
+            self.systemDiarizationChunker = chunker
+        }
+
+        // Mic VAD also runs incrementally in a chunker (bounded memory). Create it only when mic
+        // audio is present; system-only mode skips it (no "me" timeline).
+        if audioSource == "mic" || audioSource == "both" {
+            self.micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
+        }
+
+        // Per-channel diarization append closures. In mic/system modes these run on the
+        // capture queue (off-main); in both mode they run from the mixer's 100ms MainActor
+        // drain. Both incremental chunkers are Sendable-safe off-main (mic: NSLock-guarded VAD;
+        // system: ordered, non-blocking stream yield).
+        let micChunker = self.micVadChunker
+        let appendMic: @Sendable ([Float]) -> Void = { samples in
+            micChunker?.add(samples)
+        }
+        let sysChunker = self.systemDiarizationChunker
+        let appendSys: @Sendable ([Float]) -> Void = { samples in
+            sysChunker?.add(samples)
         }
 
         switch audioSource {
@@ -376,19 +467,24 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: url,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples
+                onDiarizationSamples: appendSys
             )
             try await cap.start()
             self.systemAudioCapturer = cap
 
         case "both":
             // B4: mic + system captured in parallel → AudioMixer sample-level mixing → SA
+            // Echo guard: `both` assumes headphones. With open speakers the remote voice leaks into
+            // the mic and is double-counted. Full acoustic echo cancellation is out of scope; per-channel
+            // diarization (Phase 1) already prevents the *attribution* error (remote speech stays off "me").
             let mixer = AudioMixer(
                 analyzerFormat: analyzerFormat,
                 diarizationFormat: diarizationFormat,
-                inputBuilder: inputBuilder,
-                onDiarizationSamples: onDiaSamples
+                inputBuilder: inputBuilder
             )
+            // Per-channel (pre-mix) samples feed the two diarization buffers.
+            mixer.onMicSamples = appendMic
+            mixer.onSysSamples = appendSys
             mixer.start()
             self.audioMixer = mixer
 
@@ -410,7 +506,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: micFileURL,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples,
+                onDiarizationSamples: appendMic,  // unused while mixer present (feeds mixer.feedMic)
                 mixer: mixer
             )
             audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
@@ -427,7 +523,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: sysFileURL,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples,
+                onDiarizationSamples: appendSys,  // unused while mixer present (feeds mixer.feedSystem)
                 mixer: mixer
             )
             try await sysCap.start()
@@ -451,7 +547,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: url,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples
+                onDiarizationSamples: appendMic
             )
             audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
             session.addOutput(audioOutput)
@@ -535,9 +631,9 @@ final class MeetingSession {
         await segmentBuffer?.flushFinal()
         logL2Summary()
 
-        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, \(diarizationBuffer.count) audio samples")
+        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments")
 
-        // Run speaker diarization
+        // Run speaker diarization (system channel finishes + flushes inside performDiarization)
         let diarizedSegments = await performDiarization()
 
         // Build the result
@@ -548,9 +644,16 @@ final class MeetingSession {
         )
 
         // Clean up buffers
-        diarizationBuffer = []
+        micVadChunker = nil
         polishedSegments = []
         segmentBuffer = nil
+
+        // Defensive: if performDiarization early-returned (no L2 segments) without finishing
+        // the chunker, drain it now (bounded) so its consumer task can't leak.
+        if let chunker = systemDiarizationChunker {
+            _ = try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) { await chunker.finish() }
+            systemDiarizationChunker = nil
+        }
 
         Logger.log("Meeting", "Session stopped, duration=\(String(format: "%.1f", finalDuration))s, segments=\(diarizedSegments.count)")
         return result
@@ -558,100 +661,126 @@ final class MeetingSession {
 
     // MARK: - Speaker Diarization
 
-    /// Run FluidAudio diarization in batch and align the result with L2-corrected batch segments.
-    /// Note: Scheme D (one flush batch = one MeetingSegment) — diarization looks up speakers by each batch's time range.
+    /// Build a merged speaker timeline from the two per-channel diarization buffers, then
+    /// align the L2-corrected transcript against it.
+    ///
+    /// - The **mic** channel is the local user: energy-based VAD (`detectSpeechIntervals`)
+    ///   attributes every mic speech run to the deterministic `localSpeakerId` ("me"); the
+    ///   FluidAudio clustering model is never run on it.
+    /// - The **system** channel is the remote participants: it goes through FluidAudio
+    ///   speaker clustering, and each clustered segment becomes a `.system` interval.
+    /// Both sets are merged onto one `[SpeakerInterval]` timeline that the alignment
+    /// functions consume. Mode fallout: `both` gets me + remotes; `system` gets remotes
+    /// only (mic empty → no "me"); `mic` gets "me" only and skips the model download entirely
+    /// (sys empty → FluidAudio branch never runs); bench fills sys only → clustering path.
     private func performDiarization() async -> [MeetingSegment] {
-        let buffer = diarizationBuffer
         let segments = polishedSegments
 
-        // If there are no L2 segments, return empty right away
+        // If there are no L2 segments, return empty right away.
         guard !segments.isEmpty else {
             Logger.log("Meeting", "No polished segments to diarize")
             return []
         }
 
-        // Audio too short, skip diarization
-        let audioDuration = Double(buffer.count) / Double(diarizationSampleRate)
-        guard audioDuration >= 2.0 else {
-            Logger.log("Meeting", "Audio too short for diarization (\(String(format: "%.1f", audioDuration))s), skipping")
-            return segments
+        var intervals: [SpeakerInterval] = []
+
+        // --- System channel (remote participants) → incremental FluidAudio clustering ---
+        // The system audio was diarized chunk-by-chunk while it streamed in (bounded memory,
+        // one reused DiarizerManager for stable ids + retained embeddings). finish() flushes
+        // the tail and returns all accumulated global-timed segments. Returns [] if system
+        // diarization was unavailable/too short, in which case the mic "me" timeline still merges.
+        //
+        // Hang-safety: bound the await so stop() can never block forever on a pathologically slow
+        // tail. The timeout only abandons the await — it never touches the confined DiarizerManager
+        // (the consumer task keeps running detached), so it's safe.
+        let sysSegments: [TimedSpeakerSegment]
+        if let chunker = systemDiarizationChunker {
+            sysSegments = (try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) {
+                await chunker.finish()
+            }) ?? []
+        } else {
+            sysSegments = []
         }
+        systemDiarizationChunker = nil
+        Logger.log("Meeting", "System diarization: \(sysSegments.count) speaker segments")
+        for seg in sysSegments {
+            Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
+        }
+        intervals.append(contentsOf: speakerIntervals(from: sysSegments))
+        let systemIntervalCount = intervals.count
 
-        Logger.log("Meeting", "Starting diarization: \(String(format: "%.1f", audioDuration))s audio")
-
-        do {
-            // Download/load models
-            Logger.log("Meeting", "Loading diarization models...")
-            let models = try await DiarizerModels.downloadIfNeeded(
-                progressHandler: { progress in
-                    Logger.log("Meeting", "Model download progress: \(String(format: "%.0f%%", progress.fractionCompleted * 100))")
-                }
+        // --- Mic channel (local user "me") → incremental energy-based VAD, no clustering model ---
+        // Mic VAD ran chunk-by-chunk while audio streamed in (bounded memory: processed samples
+        // discarded). finish() flushes the tail and returns all speech intervals in global time,
+        // boundary-merged so runs split at chunk edges aren't fragmented. Empty in system-only /
+        // bench mode (chunker received no mic samples).
+        let micIntervals = micVadChunker?.finish() ?? []
+        micVadChunker = nil
+        intervals.append(contentsOf: micIntervals.map {
+            SpeakerInterval(
+                speakerId: Self.localSpeakerId,
+                start: $0.start,
+                end: $0.end,
+                source: .mic
             )
+        })
+        let micIntervalCount = micIntervals.count
 
-            let diarizer = DiarizerManager(config: DiarizerConfig())
-            diarizer.initialize(models: models)
-
-            Logger.log("Meeting", "Running diarization...")
-            let result = try diarizer.performCompleteDiarization(buffer, sampleRate: diarizationSampleRate)
-
-            Logger.log("Meeting", "Diarization complete: \(result.segments.count) speaker segments")
-            for seg in result.segments {
-                Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
-            }
-
-            // Fine-grained alignment: group phrases by speaker; each consecutive turn = one MeetingSegment.
-            // Fine-grained: label each phrase by speaker, group consecutive phrases
-            // into speaker turns, polish each turn. Falls back to the coarse
-            // per-batch alignment when there are no phrase entries (bench path).
-            let phraseEntries = allPhraseEntries
-            if phraseEntries.isEmpty {
-                return alignTranscriptionWithDiarization(segments: segments, diarization: result.segments)
-            }
-            return await buildSpeakerTurns(entries: phraseEntries, diarization: result.segments)
-
-        } catch {
-            Logger.log("Meeting", "Diarization failed: \(error), returning segments without speaker labels")
-            // Diarization failed, keep the L2 segments with speakerId = nil
+        // No-diarization fallback: both channels absent/too short → return L2 segments unlabeled.
+        guard !intervals.isEmpty else {
+            Logger.log("Meeting", "No speaker intervals from either channel, returning segments without speaker labels")
             return segments
         }
+
+        intervals.sort { $0.start < $1.start }
+        Logger.log("Meeting", "Merged speaker timeline: \(intervals.count) intervals (system=\(systemIntervalCount) me=\(micIntervalCount)), distinct speakers=\(Set(intervals.map(\.speakerId)).count)")
+
+        // Fine-grained alignment: label each phrase by speaker, group consecutive phrases
+        // into speaker turns, polish each turn. Falls back to the coarse per-batch alignment
+        // when there are no phrase entries (bench path).
+        if allPhraseEntries.isEmpty {
+            return alignTranscriptionWithDiarization(segments: segments, intervals: intervals)
+        }
+        return await buildSpeakerTurns(entries: allPhraseEntries, intervals: intervals)
     }
 
     /// Align L2 batch segments with diarization segments based on time overlap.
-    /// For each batch segment, find the diarization segment with the longest overlap and take its speakerId.
+    /// Delegates the overlap math to `BetterVoiceCore.assignSpeaker`. Segments that do not
+    /// overlap any diarization interval now get a `nil` speakerId (the old "snap to nearest
+    /// speaker" behavior was intentionally removed — it mislabeled interruptions).
     private func alignTranscriptionWithDiarization(
         segments: [MeetingSegment],
-        diarization: [TimedSpeakerSegment]
+        intervals: [SpeakerInterval]
     ) -> [MeetingSegment] {
         return segments.map { tSeg in
-            let tStart = tSeg.startTime
-            let tEnd = tSeg.endTime
-
-            // Find the diarization segment with the most overlap
-            var bestSpeaker: String? = nil
-            var maxOverlap: TimeInterval = 0
-
-            for dSeg in diarization {
-                let dStart = TimeInterval(dSeg.startTimeSeconds)
-                let dEnd = TimeInterval(dSeg.endTimeSeconds)
-
-                let overlapStart = max(tStart, dStart)
-                let overlapEnd = min(tEnd, dEnd)
-                let overlap = max(0, overlapEnd - overlapStart)
-
-                if overlap > maxOverlap {
-                    maxOverlap = overlap
-                    bestSpeaker = dSeg.speakerId
-                }
-            }
-
+            let assignment = assignSpeaker(
+                to: PhraseSpan(start: tSeg.startTime, end: tSeg.endTime),
+                among: intervals
+            )
             return MeetingSegment(
                 text: tSeg.text,
                 rawText: tSeg.rawText,
                 startTime: tSeg.startTime,
                 endTime: tSeg.endTime,
-                speakerId: bestSpeaker,
+                speakerId: assignment.speakerId,
                 l2Kind: tSeg.l2Kind,
-                isFinal: tSeg.isFinal
+                isFinal: tSeg.isFinal,
+                speakerEmbedding: assignment.embedding,
+                speakerConfidence: assignment.confidence
+            )
+        }
+    }
+
+    /// Convert FluidAudio diarization segments into pure-Core `SpeakerInterval`s.
+    private func speakerIntervals(from diarization: [TimedSpeakerSegment]) -> [SpeakerInterval] {
+        diarization.map { d in
+            SpeakerInterval(
+                speakerId: d.speakerId,
+                start: TimeInterval(d.startTimeSeconds),
+                end: TimeInterval(d.endTimeSeconds),
+                embedding: d.embedding,
+                quality: d.qualityScore,
+                source: .system
             )
         }
     }
@@ -664,71 +793,32 @@ final class MeetingSession {
     /// now split the transcript instead of being flattened into coarse L2 chunks.
     private func buildSpeakerTurns(
         entries: [SegmentBuffer.Entry],
-        diarization: [TimedSpeakerSegment]
+        intervals: [SpeakerInterval]
     ) async -> [MeetingSegment] {
-        // 1. label each phrase by speaker
-        let labeled = entries.map { entry -> (entry: SegmentBuffer.Entry, speaker: String?) in
-            (entry, speakerForTimeRange(start: entry.startTime, end: entry.endTime, in: diarization))
-        }
+        // Assign + group phrases into speaker turns in pure Core (tested seam).
+        let phrases = entries.map { (span: PhraseSpan(start: $0.startTime, end: $0.endTime), text: $0.text) }
+        let turns = groupIntoTurns(phrases: phrases, intervals: intervals)
 
-        // 2. group consecutive phrases by speaker into turns
-        var turns: [(speaker: String?, entries: [SegmentBuffer.Entry])] = []
-        for item in labeled {
-            if !turns.isEmpty, turns[turns.count - 1].speaker == item.speaker {
-                turns[turns.count - 1].entries.append(item.entry)
-            } else {
-                turns.append((speaker: item.speaker, entries: [item.entry]))
-            }
-        }
-
-        // 3. polish each turn → one MeetingSegment per speaker turn
+        // Polish each turn → one MeetingSegment per speaker turn.
         var result: [MeetingSegment] = []
         for turn in turns {
-            guard let first = turn.entries.first, let last = turn.entries.last else { continue }
-            let raw = turn.entries.map(\.text).joined()
+            let raw = turn.text
             let polished = await polishTurnText(raw)
             result.append(MeetingSegment(
                 text: polished.text,
                 rawText: raw,
-                startTime: first.startTime,
-                endTime: last.endTime,
-                speakerId: turn.speaker,
+                startTime: turn.start,
+                endTime: turn.end,
+                speakerId: turn.speakerId,
                 l2Kind: polished.kind,
-                isFinal: true
+                isFinal: true,
+                speakerEmbedding: turn.embedding,
+                speakerConfidence: turn.minConfidence
             ))
         }
         let speakerCount = Set(result.compactMap(\.speakerId)).count
         Logger.log("Meeting", "Speaker turns: \(result.count) turns from \(entries.count) phrases, \(speakerCount) distinct speakers")
         return result
-    }
-
-    /// Find the speakerId of the diarization segment with the longest overlap with the given time range.
-    /// Speaker whose diarization segment overlaps this time range the most.
-    private func speakerForTimeRange(start: TimeInterval, end: TimeInterval, in diarization: [TimedSpeakerSegment]) -> String? {
-        var bestSpeaker: String? = nil
-        var maxOverlap: TimeInterval = 0
-        var nearestSpeaker: String? = nil
-        var nearestDistance = TimeInterval.greatestFiniteMagnitude
-        let mid = (start + end) / 2
-        for d in diarization {
-            let dStart = TimeInterval(d.startTimeSeconds)
-            let dEnd = TimeInterval(d.endTimeSeconds)
-            let overlap = max(0, min(end, dEnd) - max(start, dStart))
-            if overlap > maxOverlap {
-                maxOverlap = overlap
-                bestSpeaker = d.speakerId
-            }
-            // Time distance to this diarization segment (0 if inside it); used as a fallback when there's no overlap.
-            let distance = mid < dStart ? dStart - mid : (mid > dEnd ? mid - dEnd : 0)
-            if distance < nearestDistance {
-                nearestDistance = distance
-                nearestSpeaker = d.speakerId
-            }
-        }
-        // Prefer the most-overlapping speaker; otherwise take the temporally nearest speaker, eliminating "Unknown" for brief interjections.
-        // Prefer the most-overlapping speaker; otherwise snap to the nearest one
-        // so brief interjections in diarization gaps aren't labelled "Unknown".
-        return bestSpeaker ?? nearestSpeaker
     }
 
     /// Run a single L2 polish pass on a chunk of text (reusing PolishClient); falls back to the raw text when disabled or on failure.
@@ -1013,10 +1103,8 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         )
     }()
 
-    // WAV writing
-    private var fileHandle: FileHandle?
-    private var wavDataSize: UInt32 = 0
-    private var wavFormat: AVAudioFormat?
+    // WAV writing (shared implementation)
+    private lazy var wavWriter = PCMWavWriter(url: audioFileURL, logLabel: "WAV saved")
 
     private var bufferCount = 0
 
@@ -1038,7 +1126,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     }
 
     func close() {
-        finalizeWAV()
+        wavWriter.finalize()
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -1065,7 +1153,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
                 Logger.log("Meeting", "Analyzer converter: \(pcmBuffer.format) → \(targetFormat)")
             }
             guard let converter = analyzerConverter,
-                  let converted = convert(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+                  let converted = convertPCM(buffer: pcmBuffer, using: converter, to: targetFormat) else {
                 if bufferCount <= 3 { Logger.log("Meeting", "Audio #\(bufferCount): analyzer conversion failed") }
                 return
             }
@@ -1081,7 +1169,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         }
 
         // Write the WAV file (raw mic stream, kept even in mixing mode for later analysis)
-        writeToWAV(buffer: analyzerBuffer)
+        wavWriter.write(buffer: analyzerBuffer)
 
         // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
         if let diaFmt = diarizationFormat {
@@ -1095,7 +1183,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
                     Logger.log("Meeting", "Diarization converter: \(pcmBuffer.format) → \(diaFmt)")
                 }
                 guard let converter = diarizationConverter,
-                      let converted = convert(buffer: pcmBuffer, using: converter, to: diaFmt) else {
+                      let converted = convertPCM(buffer: pcmBuffer, using: converter, to: diaFmt) else {
                     return
                 }
                 diaBuffer = converted
@@ -1115,93 +1203,4 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         }
     }
 
-    // MARK: - Manual WAV Writing
-
-    private func writeToWAV(buffer: AVAudioPCMBuffer) {
-        if fileHandle == nil {
-            wavFormat = buffer.format
-            let dir = audioFileURL.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            FileManager.default.createFile(atPath: audioFileURL.path, contents: nil)
-            fileHandle = try? FileHandle(forWritingTo: audioFileURL)
-            fileHandle?.write(Data(count: 44)) // WAV header placeholder
-            wavDataSize = 0
-        }
-
-        let abl = buffer.audioBufferList.pointee
-        guard let mData = abl.mBuffers.mData else { return }
-        let byteCount = Int(abl.mBuffers.mDataByteSize)
-        let data = Data(bytes: mData, count: byteCount)
-        fileHandle?.write(data)
-        wavDataSize += UInt32(byteCount)
-    }
-
-    private func finalizeWAV() {
-        guard let fh = fileHandle, let fmt = wavFormat else {
-            fileHandle = nil
-            return
-        }
-
-        let asbd = fmt.streamDescription.pointee
-        let numChannels = UInt16(asbd.mChannelsPerFrame)
-        let sampleRate = UInt32(asbd.mSampleRate)
-        let bitsPerSample = UInt16(asbd.mBitsPerChannel)
-        let blockAlign = numChannels * (bitsPerSample / 8)
-        let byteRate = sampleRate * UInt32(blockAlign)
-
-        var header = Data(capacity: 44)
-        header.append(contentsOf: "RIFF".utf8)
-        header.appendMeetingLE(UInt32(36 + wavDataSize))
-        header.append(contentsOf: "WAVE".utf8)
-        header.append(contentsOf: "fmt ".utf8)
-        header.appendMeetingLE(UInt32(16))
-        header.appendMeetingLE(UInt16(1)) // PCM
-        header.appendMeetingLE(numChannels)
-        header.appendMeetingLE(sampleRate)
-        header.appendMeetingLE(byteRate)
-        header.appendMeetingLE(blockAlign)
-        header.appendMeetingLE(bitsPerSample)
-        header.append(contentsOf: "data".utf8)
-        header.appendMeetingLE(wavDataSize)
-
-        fh.seek(toFileOffset: 0)
-        fh.write(header)
-        try? fh.close()
-        fileHandle = nil
-
-        Logger.log("Meeting", "WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
-    }
-
-    // MARK: - Format Conversion (same block-based API as VoiceSession)
-
-    private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-        let ratio = targetFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1
-        guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
-
-        var error: NSError?
-        let consumed = Box(false)
-        converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed.value {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed.value = true
-            outStatus.pointee = .haveData
-            return buffer
-        }
-
-        return (error == nil && output.frameLength > 0) ? output : nil
-    }
-}
-
-// MARK: - Data little-endian helpers (avoids conflicting with VoiceSession's private extension)
-
-private extension Data {
-    mutating func appendMeetingLE(_ value: UInt16) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
-    }
-    mutating func appendMeetingLE(_ value: UInt32) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
-    }
 }

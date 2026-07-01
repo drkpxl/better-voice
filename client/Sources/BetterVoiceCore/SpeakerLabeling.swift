@@ -1,12 +1,33 @@
 import Foundation
 
-/// Prefer a user-supplied name; otherwise fall back to "<prefix> <id>". Returns
-/// nil when there is no speaker id at all.
-public func resolveSpeakerLabel(speakerId: String?, speakerName: String?, prefix: String) -> String? {
+/// Deterministic speaker id constants shared by the app and Core label logic, so the
+/// mic-channel local-user id has a single source of truth.
+public enum SpeakerIds {
+    /// Deterministic id for the local user's mic-channel speech (derived from VAD, not
+    /// FluidAudio clustering). FluidAudio ids are numeric strings ("1", "2", ...), so
+    /// "me" never collides with a clustered remote speaker.
+    public static let local = "me"
+}
+
+/// Prefer a user-supplied name; then the local-user label for the local speaker id;
+/// otherwise fall back to "<prefix> <id>". Returns nil when there is no speaker id.
+///
+/// `prefix` and `localLabel` are passed in by the caller (already localized), keeping
+/// BetterVoiceCore free of the localization layer. `localLabel` defaults to "You"; a UI
+/// caller should pass `t("You")`.
+// TODO: A future enhancement could resolve the local speaker to the user's real name
+// from personal context instead of the second-person "You".
+public func resolveSpeakerLabel(
+    speakerId: String?,
+    speakerName: String?,
+    prefix: String,
+    localLabel: String = "You"
+) -> String? {
     if let name = speakerName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
         return name
     }
     guard let speakerId else { return nil }
+    if speakerId == SpeakerIds.local { return localLabel }
     return "\(prefix) \(speakerId)"
 }
 
@@ -27,7 +48,9 @@ public func applySpeakerNames(_ names: [String: String], to segments: [MeetingSe
             speakerId: seg.speakerId,
             l2Kind: seg.l2Kind,
             isFinal: seg.isFinal,
-            speakerName: name
+            speakerName: name,
+            speakerEmbedding: seg.speakerEmbedding,
+            speakerConfidence: seg.speakerConfidence
         )
     }
 }
