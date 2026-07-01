@@ -140,32 +140,19 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         }
         aggregateDeviceID = newAggID
 
-        // The tap advertises its nominal format (`kAudioTapPropertyFormat`, e.g. 48kHz), but the IO
-        // proc is clocked by the aggregate's main sub-device — the default OUTPUT device. When that's
-        // a Bluetooth headset in hands-free (SCO) mode (AirPods on a call), the real rate drops to
-        // ~24kHz, so the tap delivers half the samples per second. Wrapping those buffers with the
-        // tap's 48kHz format then "downsamples" data that was really 24kHz → captured system audio
-        // plays back 2× too fast, which wrecks transcription and diarization.
-        //
-        // The aggregate device's input stream format is exactly what the IO proc delivers, so it's
-        // the authoritative wrap format — use it wholesale (rate + channels + interleave) when it
-        // disagrees with the tap. Fall back to the tap's layout at the output device's nominal rate
-        // only if the aggregate format is unavailable; otherwise leave the tap format untouched.
-        let outRate = Self.defaultOutputDeviceSampleRate() ?? 0
-        let aggFormat = Self.readDeviceInputFormat(aggregateDeviceID)
-        if let aggFormat, abs(aggFormat.sampleRate - format.sampleRate) > 1 {
-            Logger.log("Meeting", "System tap rate mismatch: tap=\(format.sampleRate)Hz → aggregate=\(aggFormat.sampleRate)Hz (out=\(outRate)) — using aggregate input format")
+        // The tap advertises a nominal format (`kAudioTapPropertyFormat`, e.g. 48kHz), but the IO proc
+        // delivers at whatever rate the aggregate's clock actually runs at. Guessing that rate from
+        // device properties is fragile — it produced 2× fast on SCO output, then 2× slow once we moved
+        // the clock to built-in — because the device we'd guess from (default output) isn't necessarily
+        // the clock. Instead, read the aggregate's OWN input stream format: that is exactly what the IO
+        // proc hands us, correct for any device/clock/SCO state. Always wrap with it; only if the read
+        // fails do we leave the tap's nominal format. No per-device rate heuristics.
+        if let aggFormat = Self.readDeviceInputFormat(aggregateDeviceID) {
+            let changed = abs(aggFormat.sampleRate - format.sampleRate) > 1 || aggFormat.channelCount != format.channelCount
+            Logger.log("Meeting", "System tap wrap: tap=\(format.sampleRate)Hz/\(format.channelCount)ch → delivered=\(aggFormat.sampleRate)Hz/\(aggFormat.channelCount)ch\(changed ? " (authoritative)" : " (matches)")")
             tapFormat = aggFormat
-        } else if outRate > 1, abs(outRate - format.sampleRate) > 1,
-                  let corrected = AVAudioFormat(
-                      commonFormat: format.commonFormat,
-                      sampleRate: outRate,
-                      channels: format.channelCount,
-                      interleaved: format.isInterleaved) {
-            Logger.log("Meeting", "System tap rate mismatch: tap=\(format.sampleRate)Hz → output=\(outRate)Hz (aggregate format unavailable) — correcting rate")
-            tapFormat = corrected
         } else {
-            Logger.log("Meeting", "System tap format: tap=\(format.sampleRate)Hz (agg=\(aggFormat?.sampleRate ?? 0) out=\(outRate), no correction)")
+            Logger.log("Meeting", "System tap wrap: aggregate input format unavailable — using tap nominal \(format.sampleRate)Hz")
         }
 
         // 4. Install the IO proc that receives tapped audio.
@@ -376,21 +363,6 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
             AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
         ) == noErr, deviceID != kAudioObjectUnknown else { return nil }
         return deviceID
-    }
-
-    /// Default output device nominal sample rate — fallback for the true delivery rate when the
-    /// aggregate's input format is unavailable (also logged for SCO/A2DP visibility).
-    private static func defaultOutputDeviceSampleRate() -> Double? {
-        guard let deviceID = defaultOutputDeviceID() else { return nil }
-        var rate = Double(0)
-        var rateSize = UInt32(MemoryLayout<Double>.size)
-        var rateAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyNominalSampleRate,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        let status = AudioObjectGetPropertyData(deviceID, &rateAddr, 0, nil, &rateSize, &rate)
-        return status == noErr && rate > 0 ? rate : nil
     }
 
     /// The UID to use as the aggregate's clock/main sub-device. Normally the default output device
