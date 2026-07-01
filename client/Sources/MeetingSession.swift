@@ -1100,10 +1100,8 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         )
     }()
 
-    // WAV writing
-    private var fileHandle: FileHandle?
-    private var wavDataSize: UInt32 = 0
-    private var wavFormat: AVAudioFormat?
+    // WAV writing (shared implementation)
+    private lazy var wavWriter = PCMWavWriter(url: audioFileURL, logLabel: "WAV saved")
 
     private var bufferCount = 0
 
@@ -1125,7 +1123,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     }
 
     func close() {
-        finalizeWAV()
+        wavWriter.finalize()
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -1152,7 +1150,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
                 Logger.log("Meeting", "Analyzer converter: \(pcmBuffer.format) → \(targetFormat)")
             }
             guard let converter = analyzerConverter,
-                  let converted = convert(buffer: pcmBuffer, using: converter, to: targetFormat) else {
+                  let converted = convertPCM(buffer: pcmBuffer, using: converter, to: targetFormat) else {
                 if bufferCount <= 3 { Logger.log("Meeting", "Audio #\(bufferCount): analyzer conversion failed") }
                 return
             }
@@ -1168,7 +1166,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         }
 
         // Write the WAV file (raw mic stream, kept even in mixing mode for later analysis)
-        writeToWAV(buffer: analyzerBuffer)
+        wavWriter.write(buffer: analyzerBuffer)
 
         // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
         if let diaFmt = diarizationFormat {
@@ -1182,7 +1180,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
                     Logger.log("Meeting", "Diarization converter: \(pcmBuffer.format) → \(diaFmt)")
                 }
                 guard let converter = diarizationConverter,
-                      let converted = convert(buffer: pcmBuffer, using: converter, to: diaFmt) else {
+                      let converted = convertPCM(buffer: pcmBuffer, using: converter, to: diaFmt) else {
                     return
                 }
                 diaBuffer = converted
@@ -1202,93 +1200,4 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         }
     }
 
-    // MARK: - Manual WAV Writing
-
-    private func writeToWAV(buffer: AVAudioPCMBuffer) {
-        if fileHandle == nil {
-            wavFormat = buffer.format
-            let dir = audioFileURL.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            FileManager.default.createFile(atPath: audioFileURL.path, contents: nil)
-            fileHandle = try? FileHandle(forWritingTo: audioFileURL)
-            fileHandle?.write(Data(count: 44)) // WAV header placeholder
-            wavDataSize = 0
-        }
-
-        let abl = buffer.audioBufferList.pointee
-        guard let mData = abl.mBuffers.mData else { return }
-        let byteCount = Int(abl.mBuffers.mDataByteSize)
-        let data = Data(bytes: mData, count: byteCount)
-        fileHandle?.write(data)
-        wavDataSize += UInt32(byteCount)
-    }
-
-    private func finalizeWAV() {
-        guard let fh = fileHandle, let fmt = wavFormat else {
-            fileHandle = nil
-            return
-        }
-
-        let asbd = fmt.streamDescription.pointee
-        let numChannels = UInt16(asbd.mChannelsPerFrame)
-        let sampleRate = UInt32(asbd.mSampleRate)
-        let bitsPerSample = UInt16(asbd.mBitsPerChannel)
-        let blockAlign = numChannels * (bitsPerSample / 8)
-        let byteRate = sampleRate * UInt32(blockAlign)
-
-        var header = Data(capacity: 44)
-        header.append(contentsOf: "RIFF".utf8)
-        header.appendMeetingLE(UInt32(36 + wavDataSize))
-        header.append(contentsOf: "WAVE".utf8)
-        header.append(contentsOf: "fmt ".utf8)
-        header.appendMeetingLE(UInt32(16))
-        header.appendMeetingLE(UInt16(1)) // PCM
-        header.appendMeetingLE(numChannels)
-        header.appendMeetingLE(sampleRate)
-        header.appendMeetingLE(byteRate)
-        header.appendMeetingLE(blockAlign)
-        header.appendMeetingLE(bitsPerSample)
-        header.append(contentsOf: "data".utf8)
-        header.appendMeetingLE(wavDataSize)
-
-        fh.seek(toFileOffset: 0)
-        fh.write(header)
-        try? fh.close()
-        fileHandle = nil
-
-        Logger.log("Meeting", "WAV saved: \(audioFileURL.lastPathComponent) (\(wavDataSize) bytes)")
-    }
-
-    // MARK: - Format Conversion (same block-based API as VoiceSession)
-
-    private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter, to targetFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-        let ratio = targetFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1
-        guard let output = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return nil }
-
-        var error: NSError?
-        let consumed = Box(false)
-        converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed.value {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed.value = true
-            outStatus.pointee = .haveData
-            return buffer
-        }
-
-        return (error == nil && output.frameLength > 0) ? output : nil
-    }
-}
-
-// MARK: - Data little-endian helpers (avoids conflicting with VoiceSession's private extension)
-
-private extension Data {
-    mutating func appendMeetingLE(_ value: UInt16) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
-    }
-    mutating func appendMeetingLE(_ value: UInt32) {
-        Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
-    }
 }
