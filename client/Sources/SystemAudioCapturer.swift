@@ -13,13 +13,12 @@ import Speech
 ///
 /// External interface aligns with MeetingCaptureDelegate:
 /// - Yields PCM samples to inputBuilder (consumed by SpeechAnalyzer)
-/// - Pushes 16kHz Float32 mono samples to onDiarizationSamples (consumed by diarization)
-/// - Writes a WAV file (persisted audio)
+/// - Writes a WAV file (persisted audio; diarized offline at stop)
 ///
 /// Notes:
 /// - The tap excludes the current process so Better Voice's own output isn't recorded.
-/// - In `both` mode this is the system/remote channel: it feeds the live analyzer + system
-///   diarization; the mic is a separate channel transcribed offline at stop (no mixing).
+/// - In `both` mode this is the system/remote channel: it feeds the live analyzer; the mic
+///   is a separate channel transcribed offline at stop (no mixing).
 final class SystemAudioCapturer: NSObject, @unchecked Sendable {
 
     enum CaptureError: Error {
@@ -33,22 +32,9 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     private let analyzerFormat: AVAudioFormat?
     private let audioFileURL: URL
-    private let diarizationSampleRate: Int
-    private let onDiarizationSamples: @Sendable ([Float]) -> Void
 
     // Format conversion
     private var analyzerConverter: AVAudioConverter?
-    private var diarizationConverter: AVAudioConverter?
-
-    // Separate target format: 16kHz Float32 mono
-    private lazy var diarizationFormat: AVAudioFormat? = {
-        AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: Double(diarizationSampleRate),
-            channels: 1,
-            interleaved: false
-        )
-    }()
 
     // WAV writing (shared implementation)
     private lazy var wavWriter = PCMWavWriter(url: audioFileURL, logLabel: "SysAudio WAV saved")
@@ -65,15 +51,11 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     init(
         inputBuilder: AsyncStream<AnalyzerInput>.Continuation,
         analyzerFormat: AVAudioFormat?,
-        audioFileURL: URL,
-        diarizationSampleRate: Int,
-        onDiarizationSamples: @escaping @Sendable ([Float]) -> Void
+        audioFileURL: URL
     ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
         self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
-        self.diarizationSampleRate = diarizationSampleRate
-        self.onDiarizationSamples = onDiarizationSamples
         super.init()
     }
 
@@ -254,34 +236,8 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         let input = AnalyzerInput(buffer: analyzerBuffer)
         inputBuilder.yield(input)
 
-        // Write WAV (raw system stream)
+        // Write WAV (raw system stream; diarized offline from this file at stop)
         wavWriter.write(buffer: analyzerBuffer)
-
-        // --- Branch 2: 16kHz Float32 mono samples → system diarization ---
-        if let diaFmt = diarizationFormat {
-            let diaBuffer: AVAudioPCMBuffer
-            if pcmBuffer.format.sampleRate != diaFmt.sampleRate
-                || pcmBuffer.format.commonFormat != diaFmt.commonFormat
-                || pcmBuffer.format.channelCount != diaFmt.channelCount {
-                if diarizationConverter == nil {
-                    diarizationConverter = AVAudioConverter(from: pcmBuffer.format, to: diaFmt)
-                    Logger.log("Meeting", "SysAudio diarization converter: \(pcmBuffer.format) → \(diaFmt)")
-                }
-                guard let converter = diarizationConverter,
-                      let converted = convertPCM(buffer: pcmBuffer, using: converter, to: diaFmt) else {
-                    return
-                }
-                diaBuffer = converted
-            } else {
-                diaBuffer = pcmBuffer
-            }
-
-            if let floatData = diaBuffer.floatChannelData {
-                let frameCount = Int(diaBuffer.frameLength)
-                let samples = Array(UnsafeBufferPointer(start: floatData[0], count: frameCount))
-                onDiarizationSamples(samples)
-            }
-        }
     }
 
     // MARK: - Core Audio helpers

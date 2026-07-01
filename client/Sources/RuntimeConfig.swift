@@ -30,11 +30,6 @@ final class RuntimeConfig {
         meetingConfig["summarization"] as? [String: Any] ?? [:]
     }
 
-    /// Diarization configuration (meeting.diarization sub-section)
-    var meetingDiarizationConfig: [String: Any] {
-        meetingConfig["diarization"] as? [String: Any] ?? [:]
-    }
-
     /// Transcription & UI language (BCP-47 or language code, e.g. "en", "zh-Hans").
     /// When nil, follows the system language.
     /// Transcription & UI language (BCP-47 or language code, e.g. "en", "zh-Hans").
@@ -128,17 +123,6 @@ final class RuntimeConfig {
                         "classify_enabled": true,
                         // custom prompt overrides per meeting type (leave empty to use the built-in templates).
                         "prompts": [String: String]()
-                    ],
-                    // diarization (speaker clustering) sub-section.
-                    "diarization": [
-                        // speaker clustering threshold, 0.5…0.9. Lower = more speakers.
-                        // FluidAudio's own default 0.7 over-merges; 0.57 gave the best frame
-                        // agreement vs the pyannote gold standard on our test clip (see tools/pyannote).
-                        "clustering_threshold": 0.57,
-                        // minimum speech duration in seconds (FluidAudio default 1.0).
-                        "min_speech_duration": 1.0,
-                        // minimum silence gap in seconds (FluidAudio default 0.5).
-                        "min_silence_gap": 0.5
                     ]
                 ],
                 "hotkey": [

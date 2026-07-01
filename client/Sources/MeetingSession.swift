@@ -42,27 +42,14 @@ final class MeetingSession {
     /// whole meeting in a buffer, bounding peak memory to ~one chunk. VAD (`detectSpeechIntervals`)
     /// is pure/model-free/cheap, so the chunker is synchronous + NSLock-guarded (no async/models).
     /// Created for the mic-producing modes (`mic`/`both`); in the bench `runFromFile` path it is
-    /// created but receives no samples (bench fills only the system channel). `finish()` at
+    /// created but receives no samples (bench has no live mic). `finish()` at
     /// performDiarization() returns the merged global "me" speech intervals.
     private var micVadChunker: MicVoiceActivityChunker?
 
-    /// System-channel diarization is streamed incrementally into this chunker instead of
-    /// being accumulated into a whole-meeting buffer, bounding peak memory to ~one chunk.
-    /// Created only when system diarization is needed (audio_source system/both, and the
-    /// bench runFromFile path); nil in mic-only mode. Confines its own DiarizerManager.
-    private var systemDiarizationChunker: SystemDiarizationChunker?
-
-    /// When true (default), the system channel is diarized **post-hoc** at stop() with FluidAudio's
-    /// offline VBx pipeline over the on-disk system WAV — global clustering is more accurate on a
-    /// completed recording than the incremental online path. When false, the live
-    /// `SystemDiarizationChunker` is used instead (kept for A/B validation). Set from
-    /// `meeting.diarization.offline` in start(); stays false on the bench `runFromFile` path so
-    /// that path keeps scoring the online chunker against its sidecar.
-    private var useOfflineDiarization = false
-
-    /// Path to the raw system-audio WAV (remotes only), used by offline diarization. Set in start()
-    /// per mode: the main file in `system` mode, the `.system.wav` sibling in `both` mode; nil in
-    /// `mic` mode (no system audio).
+    /// Path to the raw system-audio WAV (remotes only), diarized post-hoc at stop() with FluidAudio's
+    /// offline VBx pipeline — global clustering on the completed recording. Set in start() per mode:
+    /// the main file in `system` mode, the `.system.wav` sibling in `both` mode; nil in `mic` mode
+    /// (no system audio). The bench `runFromFile` path sets it to the input WAV.
     private var systemAudioFileURL: URL?
 
     /// `both` mode only: the `.mic.wav` sibling, transcribed OFFLINE at stop() and labeled "me".
@@ -83,11 +70,6 @@ final class MeetingSession {
     /// fine-grained per-speaker grouping. Populated only on the live start() path.
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
-
-    /// Hang-safety deadline for awaiting the system-diarization chunker's `finish()`. This only
-    /// abandons the await (the confined DiarizerManager is never touched; the consumer keeps
-    /// running detached). Diarizing a 5-min clip takes ~1s, so 120s is generous for long meetings.
-    private static let finishTimeoutSec: TimeInterval = 120
 
     // MARK: - Duration Timer
 
@@ -140,18 +122,9 @@ final class MeetingSession {
         // receives no samples (the WAV is routed into the system channel), so finish() returns [].
         micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
 
-        // Bench always exercises the system-diarization path: stream the WAV into the chunker.
-        let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
-        Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
-        let benchChunker = SystemDiarizationChunker(
-            sampleRate: diarizationSampleRate,
-            finishTimeoutSec: Self.finishTimeoutSec,
-            clusteringThreshold: diar.clusteringThreshold,
-            minSpeechDuration: diar.minSpeechDuration,
-            minSilenceGap: diar.minSilenceGap
-        )
-        benchChunker.start()
-        self.systemDiarizationChunker = benchChunker
+        // Bench exercises the same offline path as a real meeting: performDiarization() runs
+        // the VBx pipeline directly over the input WAV.
+        systemAudioFileURL = fileURL
 
         let localeObj = Locale(identifier: locale)
 
@@ -198,69 +171,13 @@ final class MeetingSession {
                 }
             }
 
-            // 4. Read audio from file and stream it into the diarization chunker (16kHz Float32 mono)
+            // 4. Read the audio duration (diarization happens offline over the WAV at step 6)
             Logger.log("Meeting", "[Bench] Loading audio: \(fileURL.lastPathComponent)")
             let audioFile = try AVAudioFile(forReading: fileURL)
             let fileFormat = audioFile.processingFormat
             let frameCount = AVAudioFrameCount(audioFile.length)
             duration = Double(frameCount) / fileFormat.sampleRate
             Logger.log("Meeting", "[Bench] Audio: \(String(format: "%.1f", duration))s, \(Int(fileFormat.sampleRate))Hz, \(fileFormat.channelCount)ch")
-
-            // Convert to 16kHz Float32 mono for diarization
-            let diaFormat = AVAudioFormat(
-                commonFormat: .pcmFormatFloat32,
-                sampleRate: Double(diarizationSampleRate),
-                channels: 1,
-                interleaved: false
-            )!
-
-            // Feed the WAV into the chunker in small ~0.1s batches to mimic live streaming: this
-            // keeps the bench path memory-bounded (the consumer discards processed samples) and
-            // drives the real incremental chunk-boundary logic, instead of one giant add() that
-            // would park the whole meeting in the unbounded stream buffer.
-            let benchBatch = max(diarizationSampleRate / 10, 1)  // ~0.1s
-            let streamIntoChunker: ([Float]) -> Void = { samples in
-                var i = 0
-                while i < samples.count {
-                    let end = min(i + benchBatch, samples.count)
-                    benchChunker.add(Array(samples[i..<end]))
-                    i = end
-                }
-            }
-
-            let fullBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount)!
-            try audioFile.read(into: fullBuffer)
-
-            if fileFormat.sampleRate != diaFormat.sampleRate
-                || fileFormat.commonFormat != diaFormat.commonFormat
-                || fileFormat.channelCount != diaFormat.channelCount {
-                let converter = AVAudioConverter(from: fileFormat, to: diaFormat)!
-                let ratio = diaFormat.sampleRate / fileFormat.sampleRate
-                let outCapacity = AVAudioFrameCount(Double(frameCount) * ratio) + 1
-                let outBuffer = AVAudioPCMBuffer(pcmFormat: diaFormat, frameCapacity: outCapacity)!
-
-                var error: NSError?
-                let consumed = Box(false)
-                converter.convert(to: outBuffer, error: &error) { _, outStatus in
-                    if consumed.value {
-                        outStatus.pointee = .noDataNow
-                        return nil
-                    }
-                    consumed.value = true
-                    outStatus.pointee = .haveData
-                    return fullBuffer
-                }
-
-                if let floatData = outBuffer.floatChannelData {
-                    // Bench path: route the WAV into the system channel (mic stays empty).
-                    streamIntoChunker(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
-                }
-            } else {
-                if let floatData = fullBuffer.floatChannelData {
-                    streamIntoChunker(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
-                }
-            }
-            Logger.log("Meeting", "[Bench] Streamed system audio into diarization chunker")
 
             // 5. Use SpeechAnalyzer's file input API (Apple-native, replaces AVCaptureSession)
             Logger.log("Meeting", "[Bench] Starting SpeechAnalyzer from file...")
@@ -303,10 +220,6 @@ final class MeetingSession {
             micVadChunker = nil
             polishedSegments = []
             segmentBuffer = nil
-            if let chunker = systemDiarizationChunker {
-                _ = try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) { await chunker.finish() }
-                systemDiarizationChunker = nil
-            }
 
             Logger.log("Meeting", "[Bench] Complete: \(diarizedSegments.count) segments with speaker labels")
             return result
@@ -412,9 +325,7 @@ final class MeetingSession {
         let audioSource = (RuntimeConfig.shared.meetingConfig["audio_source"] as? String) ?? "mic"
         Logger.log("Meeting", "Audio source: \(audioSource)")
 
-        // Diarization mode: offline (post-hoc VBx over the system WAV) by default; the live chunker
-        // is used only when explicitly disabled. Record the system WAV path for the offline pass.
-        useOfflineDiarization = (RuntimeConfig.shared.meetingDiarizationConfig["offline"] as? Bool) ?? true
+        // Record the system WAV path: it is diarized post-hoc at stop() with the offline VBx pass.
         micAudioFileURL = nil
         bothMode = false
         switch audioSource {
@@ -425,24 +336,20 @@ final class MeetingSession {
             bothMode = true
         default:       systemAudioFileURL = nil
         }
-        Logger.log("Meeting", "Diarization: \(useOfflineDiarization ? "offline (VBx)" : "online (chunker)")")
 
-        // System diarization runs incrementally in a background chunker (bounded memory).
-        // Create + start it only when system audio is present AND we're in online mode; the offline
-        // path (default) diarizes the on-disk system WAV post-hoc at stop() instead, so the live
-        // chunker (and its per-buffer clustering compute) is skipped entirely.
-        if !useOfflineDiarization, audioSource == "system" || audioSource == "both" {
-            let diar = parseDiarizationSettings(RuntimeConfig.shared.meetingDiarizationConfig)
-            Logger.log("Meeting", "[Chunker] clusteringThreshold=\(diar.clusteringThreshold)")
-            let chunker = SystemDiarizationChunker(
-                sampleRate: diarizationSampleRate,
-                finishTimeoutSec: Self.finishTimeoutSec,
-                clusteringThreshold: diar.clusteringThreshold,
-                minSpeechDuration: diar.minSpeechDuration,
-                minSilenceGap: diar.minSilenceGap
-            )
-            chunker.start()
-            self.systemDiarizationChunker = chunker
+        // Fire-and-forget offline-diarizer warm-up: download/compile the VBx models during the
+        // meeting so stop() doesn't pay the first-run cost. Failures are ignored on purpose —
+        // offlineDiarizeSystem retries and reports properly at stop().
+        if systemAudioFileURL != nil {
+            Task.detached(priority: .utility) {
+                do {
+                    let manager = OfflineDiarizerManager(config: Self.offlineDiarizerConfig())
+                    try await manager.prepareModels()
+                    Logger.log("Meeting", "[Offline] diarizer models warmed up")
+                } catch {
+                    Logger.log("Meeting", "[Offline] warm-up failed (stop() will retry): \(error)")
+                }
+            }
         }
 
         // Mic VAD runs incrementally in a chunker (bounded memory) to label the local user's turns
@@ -454,16 +361,12 @@ final class MeetingSession {
             self.micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
         }
 
-        // Per-channel diarization append closures, run off-main on the capture queues. Both
-        // incremental chunkers are Sendable-safe off-main (mic: NSLock-guarded VAD; system:
-        // ordered, non-blocking stream yield). In `both` mode micChunker is nil → appendMic no-ops.
+        // Mic-channel VAD append closure, run off-main on the capture queue (NSLock-guarded,
+        // Sendable-safe). In `both` mode micChunker is nil → appendMic no-ops. The system channel
+        // needs no live diarization samples: it is diarized offline from the WAV at stop().
         let micChunker = self.micVadChunker
         let appendMic: @Sendable ([Float]) -> Void = { samples in
             micChunker?.add(samples)
-        }
-        let sysChunker = self.systemDiarizationChunker
-        let appendSys: @Sendable ([Float]) -> Void = { samples in
-            sysChunker?.add(samples)
         }
 
         switch audioSource {
@@ -471,9 +374,7 @@ final class MeetingSession {
             let cap = SystemAudioCapturer(
                 inputBuilder: inputBuilder,
                 analyzerFormat: analyzerFormat,
-                audioFileURL: url,
-                diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: appendSys
+                audioFileURL: url
             )
             try await cap.start()
             self.systemAudioCapturer = cap
@@ -524,9 +425,7 @@ final class MeetingSession {
             let sysCap = SystemAudioCapturer(
                 inputBuilder: inputBuilder,
                 analyzerFormat: analyzerFormat,
-                audioFileURL: sysFileURL,
-                diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: appendSys  // no mixer → feeds the live analyzer + system diarization
+                audioFileURL: sysFileURL  // no mixer → feeds the live analyzer; diarized offline from WAV
             )
             try await sysCap.start()
             self.systemAudioCapturer = sysCap
@@ -660,13 +559,6 @@ final class MeetingSession {
         polishedSegments = []
         segmentBuffer = nil
 
-        // Defensive: if performDiarization early-returned (no L2 segments) without finishing
-        // the chunker, drain it now (bounded) so its consumer task can't leak.
-        if let chunker = systemDiarizationChunker {
-            _ = try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) { await chunker.finish() }
-            systemDiarizationChunker = nil
-        }
-
         Logger.log("Meeting", "Session stopped, duration=\(String(format: "%.1f", finalDuration))s, segments=\(finalSegments.count)")
         return result
     }
@@ -679,12 +571,12 @@ final class MeetingSession {
     /// - The **mic** channel is the local user: energy-based VAD (`detectSpeechIntervals`)
     ///   attributes every mic speech run to the deterministic `localSpeakerId` ("me"); the
     ///   FluidAudio clustering model is never run on it.
-    /// - The **system** channel is the remote participants: it goes through FluidAudio
-    ///   speaker clustering, and each clustered segment becomes a `.system` interval.
+    /// - The **system** channel is the remote participants: the on-disk system WAV goes through
+    ///   FluidAudio's offline VBx clustering, and each clustered segment becomes an interval.
     /// Both sets are merged onto one `[SpeakerInterval]` timeline that the alignment
     /// functions consume. Mode fallout: `both` gets me + remotes; `system` gets remotes
     /// only (mic empty → no "me"); `mic` gets "me" only and skips the model download entirely
-    /// (sys empty → FluidAudio branch never runs); bench fills sys only → clustering path.
+    /// (no system WAV → VBx never runs); bench sets the system WAV only → clustering path.
     private func performDiarization() async -> [MeetingSegment] {
         let segments = polishedSegments
 
@@ -696,27 +588,15 @@ final class MeetingSession {
 
         var intervals: [SpeakerInterval] = []
 
-        // --- System channel (remote participants) → incremental FluidAudio clustering ---
-        // The system audio was diarized chunk-by-chunk while it streamed in (bounded memory,
-        // one reused DiarizerManager for stable ids + retained embeddings). finish() flushes
-        // the tail and returns all accumulated global-timed segments. Returns [] if system
-        // diarization was unavailable/too short, in which case the mic "me" timeline still merges.
-        //
-        // Hang-safety: bound the await so stop() can never block forever on a pathologically slow
-        // tail. The timeout only abandons the await — it never touches the confined DiarizerManager
-        // (the consumer task keeps running detached), so it's safe.
+        // --- System channel (remote participants) → offline VBx clustering over the system WAV ---
+        // Returns [] if system diarization was unavailable/failed, in which case the mic "me"
+        // timeline still merges.
         let sysSegments: [TimedSpeakerSegment]
-        if useOfflineDiarization, let sysURL = systemAudioFileURL {
-            // Offline (default): global VBx clustering over the completed system WAV.
+        if let sysURL = systemAudioFileURL {
             sysSegments = await offlineDiarizeSystem(url: sysURL)
-        } else if let chunker = systemDiarizationChunker {
-            sysSegments = (try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) {
-                await chunker.finish()
-            }) ?? []
         } else {
             sysSegments = []
         }
-        systemDiarizationChunker = nil
         Logger.log("Meeting", "System diarization: \(sysSegments.count) speaker segments")
         for seg in sysSegments {
             Logger.log("Meeting", "  Speaker \(seg.speakerId): \(String(format: "%.1f", seg.startTimeSeconds))-\(String(format: "%.1f", seg.endTimeSeconds))s")
@@ -794,8 +674,24 @@ final class MeetingSession {
     /// crossing the boundary are Sendable. Any failure (models unavailable, decode error, missing WAV)
     /// returns [] — the mic "me" timeline still merges downstream, same as the online skip path.
     ///
-    /// Note: uses `OfflineDiarizerConfig` defaults. The online `clustering_threshold` (0.57) is tuned
-    /// for the online greedy clusterer and does NOT transfer to VBx, so it is intentionally not mapped.
+    /// Clustering threshold for the offline VBx pipeline. FluidAudio's config value is a COSINE
+    /// SIMILARITY (converted internally to a Euclidean merge distance, `sqrt(2-2s)`), so HIGHER
+    /// = less merging = more speakers. FluidAudio's 0.6 default under-splits multi-speaker audio:
+    /// on the 5-speaker `.fixtures/videoplayback.wav` it collapsed everything into 1 speaker
+    /// (DER-proxy fer=0.614). Threshold sweep on that fixture (fer / speakers found):
+    /// 0.30–0.55 → 0.614 / 1; 0.65 → 0.416 / 2; 0.70 → 0.353 / 3; 0.75 → 0.303 / 3;
+    /// 0.80–0.85 → 0.344 / 3; **0.90 → 0.202 / 4** — beating the old online chunker (fer=0.284).
+    /// Robustness: on the real ~3-speaker `.fixtures/bluetooth-sco-24k-recovered.wav`, 0.90 found
+    /// 4 balanced speakers vs 2 at 0.6 (both off by one; no spurious fragmentation).
+    /// Deliberately a constant, not a user config key.
+    private nonisolated static let offlineClusteringThreshold = 0.90
+
+    /// Offline diarizer config shared by the stop() diarization pass and the start() warm-up.
+    /// nonisolated so the detached (off-MainActor) tasks can call it.
+    private nonisolated static func offlineDiarizerConfig() -> OfflineDiarizerConfig {
+        OfflineDiarizerConfig(clusteringThreshold: offlineClusteringThreshold)
+    }
+
     // ponytail: fresh manager per meeting reloads the ~100MB models from disk cache each stop; make it
     // a shared @MainActor-confined instance if that reload latency proves noticeable.
     private func offlineDiarizeSystem(url: URL) async -> [TimedSpeakerSegment] {
@@ -805,7 +701,7 @@ final class MeetingSession {
         }
         return await Task.detached(priority: .userInitiated) {
             do {
-                let manager = OfflineDiarizerManager()
+                let manager = OfflineDiarizerManager(config: Self.offlineDiarizerConfig())
                 try await manager.prepareModels()
                 let result = try await manager.process(url)
                 Logger.log("Meeting", "[Offline] \(result.segments.count) speaker segments (VBx)")
