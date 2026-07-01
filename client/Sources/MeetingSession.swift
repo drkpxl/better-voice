@@ -674,7 +674,7 @@ final class MeetingSession {
         } else if !sysBuf.isEmpty {
             Logger.log("Meeting", "System audio too short for diarization (\(String(format: "%.1f", sysDuration))s), skipping")
         }
-        let systemCount = intervals.count
+        let systemIntervalCount = intervals.count
 
         // --- Mic channel (local user "me") → energy-based VAD, no clustering model ---
         var micIntervalCount = 0
@@ -698,7 +698,9 @@ final class MeetingSession {
         }
 
         intervals.sort { $0.start < $1.start }
-        Logger.log("Meeting", "Merged speaker timeline: \(intervals.count) intervals (system=\(systemCount) me=\(micIntervalCount)), distinct speakers=\(Set(intervals.map(\.speakerId)).count)")
+        Logger.log("Meeting", "Merged speaker timeline: \(intervals.count) intervals (system=\(systemIntervalCount) me=\(micIntervalCount)), distinct speakers=\(Set(intervals.map(\.speakerId)).count)")
+        // TODO(Task 2.2): thread each turn's overlapped/confidence signal onto the MeetingSegment
+        // (SpeakerTurn already carries containedOverlap/minConfidence; MeetingSegment lacks the fields until Task 2.1).
 
         // Fine-grained alignment: label each phrase by speaker, group consecutive phrases
         // into speaker turns, polish each turn. Falls back to the coarse per-batch alignment
