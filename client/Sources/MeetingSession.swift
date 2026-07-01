@@ -63,6 +63,10 @@ final class MeetingSession {
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
 
+    /// Safety net so `stop()` can never block forever on system-channel diarization.
+    /// Diarizing a 5-min clip takes ~1s, so 120s is generous even for multi-hour meetings.
+    private static let diarizationTimeoutSec: TimeInterval = 120
+
     // MARK: - Duration Timer
 
     private var durationTimer: Task<Void, Never>?
@@ -656,11 +660,24 @@ final class MeetingSession {
                     }
                 )
 
-                let diarizer = DiarizerManager(config: DiarizerConfig())
-                diarizer.initialize(models: models)
-
                 Logger.log("Meeting", "Running diarization...")
-                let result = try diarizer.performCompleteDiarization(sysBuf, sampleRate: diarizationSampleRate)
+                // Bound the synchronous, CPU-bound diarization with a deadline so stop() stops
+                // awaiting after the timeout rather than blocking forever. The work runs on a
+                // detached task (off the MainActor) that the timeout can race; it can't be
+                // hard-cancelled mid-flight (performCompleteDiarization doesn't check
+                // Task.isCancelled), but the await unblocks at the deadline.
+                //
+                // DiarizerManager is not Sendable, so it's built + initialized INSIDE the detached
+                // task; only `models` (Sendable) and `sampleRate`/`sysBuf` (both Sendable) cross the
+                // boundary in, and the Sendable DiarizationResult crosses back out.
+                let sampleRate = diarizationSampleRate
+                let result = try await withThrowingTimeout(seconds: Self.diarizationTimeoutSec) {
+                    try await Task.detached(priority: .userInitiated) {
+                        let diarizer = DiarizerManager(config: DiarizerConfig())
+                        diarizer.initialize(models: models)
+                        return try diarizer.performCompleteDiarization(sysBuf, sampleRate: sampleRate)
+                    }.value
+                }
 
                 Logger.log("Meeting", "Diarization complete: \(result.segments.count) speaker segments")
                 for seg in result.segments {
@@ -669,7 +686,11 @@ final class MeetingSession {
 
                 intervals.append(contentsOf: speakerIntervals(from: result.segments))
             } catch {
-                Logger.log("Meeting", "Diarization failed: \(error), continuing without system speaker labels")
+                if case VoiceError.timeout = error {
+                    Logger.log("Meeting", "Diarization timed out after \(Int(Self.diarizationTimeoutSec))s, continuing without system speaker labels")
+                } else {
+                    Logger.log("Meeting", "Diarization failed: \(error), continuing without system speaker labels")
+                }
             }
         } else if !sysBuf.isEmpty {
             Logger.log("Meeting", "System audio too short for diarization (\(String(format: "%.1f", sysDuration))s), skipping")
