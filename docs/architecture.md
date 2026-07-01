@@ -2,15 +2,11 @@
 
 ## System Overview
 
-Better Voice is a macOS menu bar application that provides two core capabilities: **dictation mode** (ambient or hotkey-triggered voice-to-text input into any application) and **meeting mode** (long-form meeting recording with real-time transcription, speaker diarization, and Markdown export). The client is built in Swift 6.2 targeting macOS 26 (Tahoe), using Apple's SpeechAnalyzer framework for on-device speech recognition and AVCaptureSession for audio capture. Post-processing (L2 polish) is handled by a local LLM served via ollama, personalized through a free-text `~/.better-voice/personal-context.md` injected into the prompt.
+Better Voice is a macOS menu bar application that provides two core capabilities: **dictation mode** (hotkey-triggered voice-to-text input into any application) and **meeting mode** (long-form meeting recording with real-time transcription, speaker diarization, and Markdown export). The client is built in Swift 6.2 targeting macOS 26 (Tahoe), using Apple's SpeechAnalyzer framework for on-device speech recognition and AVCaptureSession for audio capture. Post-processing (L2 polish) is handled by a local LLM served via ollama, personalized through a free-text `~/.better-voice/personal-context.md` injected into the prompt.
 
 ## Dictation Mode Flow
 
-### Voice Gate via CoreAudio HAL VAD (G1)
-
-When ambient mode is enabled (`ambient_enabled` in config), `AmbientController` activates the hardware-level Voice Activity Detection built into CoreAudio HAL. It sets `kAudioDevicePropertyVoiceActivityDetectionEnable` on the default input device and listens for `kAudioDevicePropertyVoiceActivityDetectionState` changes via `AudioObjectAddPropertyListenerBlock`. When speech is detected, it fires `onSpeechStart`; when speech ends (after a configurable 0.8s settle delay to avoid sentence-gap false positives), it fires `onSpeechEnd`. A minimum duration threshold (0.5s) filters out coughs and transient noise. These callbacks are wired to `VoiceModule.onHotKeyDown()`, reusing the same recording pipeline as manual hotkey activation. Ambient mode and hotkey mode coexist -- the hotkey can still manually override at any time.
-
-### Streaming Transcription via SpeechAnalyzer (G2)
+### Streaming Transcription via SpeechAnalyzer
 
 `VoiceSession` manages the audio capture and transcription pipeline:
 
@@ -67,7 +63,7 @@ Real-time transcript updates come through `MeetingSession.onTranscriptUpdate`, w
 Diarization no longer runs on the mono mic+system mix. The mic and the call are kept as **separate channels**, which lets Better Voice attribute your own speech deterministically:
 
 1. **You (the mic).** `performDiarization()` returns your own speech intervals directly from the microphone channel and labels them **"You"** — never merged into a remote speaker, even when you talk over the other side.
-2. **The room (system audio).** The system channel is separated by [FluidAudio](https://github.com/FluidInference/FluidAudio). By default (`meeting.diarization.offline`, default `true`) this is an **offline VBx pass over the on-disk system WAV** — global clustering is more accurate on a finished recording. Setting the flag `false` uses a live online chunker that diarizes in bounded chunks with a reused speaker model (peak memory stays around one chunk). The clusterer keeps an automatic speaker count (no fixed cap), tuned by `meeting.diarization.clustering_threshold`.
+2. **The room (system audio).** The system channel is separated by [FluidAudio](https://github.com/FluidInference/FluidAudio) with a single **offline VBx pass over the on-disk system WAV** — global clustering is more accurate than a live chunker on a finished recording. Diarization models pre-warm at meeting start so the offline pass at stop doesn't pay a cold-load penalty. The clusterer keeps an automatic speaker count (no fixed cap), tuned by `MeetingSession.offlineClusteringThreshold` — a hand-tuned internal constant, not a user config key.
 3. Remote speakers are merged onto a single speaker timeline and each turn carries a **voice embedding + confidence** — the groundwork for cross-meeting recognition.
 
 Audio shorter than ~2 seconds skips diarization. The whole pass runs off the main thread under a timeout so stopping a long meeting always returns promptly.
@@ -96,7 +92,7 @@ The `transcript.md` is written the instant recording stops (durable across a cra
 
 ### Benchmark Mode
 
-The application supports a `--bench-meeting` CLI mode for offline evaluation. `MeetingSession.runFromFile()` reads a WAV file, feeds it to SpeechAnalyzer via the file-based input API (`analyzer.start(inputAudioFile:finishAfterFile:)`), runs diarization, and outputs a JSON result with segments, timings, hypothesis text, and RTFx (real-time factor).
+The application supports a `--bench-meeting` CLI mode for offline evaluation, compiled only into `#if BENCH` debug builds (not shipped in release). `MeetingSession.runFromFile()` reads a WAV file, feeds it to SpeechAnalyzer via the file-based input API (`analyzer.start(inputAudioFile:finishAfterFile:)`), runs diarization, and outputs a JSON result with segments, timings, hypothesis text, and RTFx (real-time factor).
 
 ## Key Components
 
@@ -108,7 +104,6 @@ The application supports a `--bench-meeting` CLI mode for offline evaluation. `M
 | `VoiceModule.swift` | Dictation mode state machine (idle/recording/processing) |
 | `VoiceSession.swift` | Audio capture (AVCaptureSession) + SpeechAnalyzer streaming transcription |
 | `VoicePipeline.swift` | Post-processing orchestrator: raw transcription -> L2 polish -> inject -> history |
-| `AmbientController.swift` | CoreAudio HAL VAD for hands-free voice activation |
 | `GlobalHotKey.swift` | CGEventTap-based global hotkey (Right Option toggle) |
 | `PolishClient.swift` | LLM polish client, delegates to ModelServer |
 | `ModelServer.swift` | Ollama/OpenAI-compatible API client with health monitoring |
@@ -161,9 +156,8 @@ macOS 26 introduced a Swift actor runtime issue where `NSEvent.addGlobalMonitorF
                               DICTATION MODE
                               ==============
 
- Right Option Key ──┐
-                    ├──> VoiceModule (state machine)
- HAL VAD (G1) ─────┘    idle -> recording -> processing -> idle
+ Right Option Key ───> VoiceModule (state machine)
+                       idle -> recording -> processing -> idle
                               |                    |
                               v                    v
                      ┌── VoiceSession ──┐    VoicePipeline

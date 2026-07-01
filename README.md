@@ -17,7 +17,7 @@
 Most dictation apps stop at "speech → text." Better Voice adds two things almost nobody else does:
 
 - **It knows your world.** A plain-text `personal-context.md` — who you meet with, your role, your jargon — is injected into the cleanup *and* summary prompts, so "latency ess-ell-ohs for the cue three roadmap" comes out as "latency SLOs for the Q3 roadmap."
-- **It runs on your terms.** Fully on-device by default. Point it at local Ollama or any OpenAI-compatible endpoint, pick your own model, and even dictate from another machine over your private Tailscale network.
+- **It runs on your terms.** Fully on-device by default. Point it at local Ollama or any OpenAI-compatible endpoint, pick your own model.
 
 Free, open source, no accounts, no telemetry.
 
@@ -25,10 +25,11 @@ Free, open source, no accounts, no telemetry.
 
 ## Features
 
+<!-- TODO(human): screenshot — menu bar + settings -->
+
 ### 🎙️ Dictation
 - Global hotkey (default **Right Option**) → on-device transcription → optional LLM polish → text typed at your cursor in **any app**.
 - **Live waveform** indicator (notch-aware) and subtle start/stop sounds so you always know it's listening.
-- **Custom vocabulary** — your terms bias SpeechAnalyzer directly (`contextualStrings`) so names, products, and acronyms land right.
 
 ### 📝 Meeting transcription & notes
 - **Captures the whole conversation** — microphone **and** system audio (Zoom, Teams, Meet, anything playing), or either one. No bot joins your call. Uses a lightweight **Core Audio process tap** (needs only *System Audio Recording* consent — not full Screen Recording).
@@ -45,8 +46,6 @@ Free, open source, no accounts, no telemetry.
 
 ### 🛠️ Yours to shape
 - Use **Ollama** or **any OpenAI-compatible API** (with an API key). Bring your own model.
-- **Remote Voice** — press a hotkey on **Windows**, speak, and the audio is sent over your private **Tailscale** network to the Mac, transcribed, and injected at the cursor.
-- **Ambient mode** *(optional, experimental)* — always-listening voice-activity capture instead of a held hotkey.
 - Menu-bar app with **first-launch onboarding**, a full **Settings** window, config **hot-reload**, and **in-app auto-updates** (Sparkle).
 
 ---
@@ -82,11 +81,11 @@ Granted during onboarding, or in **System Settings → Privacy & Security**:
 
 ## Usage
 
+<!-- TODO(human): GIF — dictation in action -->
+
 **Dictation** — Press **Right Option** to start, speak, press again to stop. The polished text is typed into the focused app.
 
-**Meeting** — Menu bar → **Start Meeting**. Watch the live transcript; your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the remote voices don't leak back into your microphone.
-
-**Remote Voice (from Windows)** — with the Mac running and Tailscale connected, hold **Right Alt** on the PC to speak; the text lands at the cursor on your Mac. See [Remote Voice setup](#remote-voice).
+**Meeting** — Menu bar → **Start Meeting**. Watch the live transcript; your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the other participants' voices don't leak back into your microphone.
 
 ---
 
@@ -101,7 +100,7 @@ Press hotkey
   → Local history (voice-history.jsonl / audio) for debugging
 ```
 
-Meeting mode adds mic + system-audio capture, live per-segment polish, and **per-channel** diarization at stop (the mic is deterministically "You"; the system channel is diarized by FluidAudio in bounded chunks and merged onto one speaker timeline), plus speaker renaming, meeting-type classification, and a summary pass — all on-device.
+Meeting mode adds mic + system-audio capture, live per-segment polish, and **per-channel** diarization at stop (the mic is deterministically "You"; the system channel is diarized offline by FluidAudio's VBx pipeline over the recorded WAV and merged onto one speaker timeline), plus speaker renaming, meeting-type classification, and a summary pass — all on-device.
 
 ---
 
@@ -119,15 +118,13 @@ Config lives at `~/.better-voice/config.json` and **hot-reloads** on save. All k
   },
   "polish": {
     "enabled": true,
-    "personal_context_enabled": true,
-    "context_dictionary_enabled": false
+    "personal_context_enabled": true
   },
   "meeting": {
     "audio_source": "both",
     "auto_delete_audio": false,
     "default_type": "general"
-  },
-  "remote": { "enabled": true, "port": 9800, "auth_token": "" }
+  }
 }
 ```
 
@@ -142,23 +139,10 @@ Point `server` at any OpenAI-compatible API instead of Ollama:
 }
 ```
 
-Full reference (every key, meeting/summarization sub-options, remote and hotkey settings): **[docs/configuration.md](docs/configuration.md)**.
+Full reference (every key, meeting/summarization sub-options, hotkey settings): **[docs/configuration.md](docs/configuration.md)**.
 
 Other files in `~/.better-voice/`:
 - `personal-context.md` — your free-text background (see above).
-- `correction-dictionary.json` — private terms fed to SpeechAnalyzer (`{"terms": ["Claude Code", "MCP", "ollama"]}`), enabled via `polish.context_dictionary_enabled`.
-
-### Remote Voice
-
-**Mac:** Better Voice listens on `:9800` automatically once started — just keep `remote.enabled: true` in config.
-
-**Windows** (requires [Marvin Tailscale](https://github.com/Marvinngg/tailscale/releases)):
-```bash
-# Get the Mac's Tailscale IP first: run `tailscale ip` on the Mac (100.x.x.x)
-tailscale voice setup --target <YOUR_MAC_TAILSCALE_IP>:9800   # one-time; auto-starts on boot
-tailscale voice                                               # run manually
-```
-Hold **Right Alt** to speak, release to send.
 
 ---
 
@@ -176,6 +160,8 @@ Honest about what's *not* here yet:
 - **MCP / CLI** — let AI agents (Claude Code, Cursor, Codex) search your transcripts and trigger dictation.
 - **Cross-meeting speaker recognition** — remember a named voice across future meetings.
 - **Multilingual** — Better Voice is English-first today.
+
+Removed in 1.0: Remote Voice (Windows → Mac over Tailscale), ambient always-listening mode, and the correction dictionary — see git history if you need them back.
 
 Ideas and PRs welcome.
 

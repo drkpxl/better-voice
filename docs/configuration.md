@@ -67,10 +67,9 @@ The `polish` object controls the L2 semantic polish stage, which refines raw spe
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `polish.enabled` | bool | `true` | Master switch for the polish pipeline. When `false`, raw transcription is used as-is (L1 only). |
+| `polish.model` | string | `""` | Optional model override for dictation polish (can be a smaller/faster model than `server.model`). Empty falls back to `server.model`. |
 | `polish.system_prompt` | string | (locale-aware default from `Prompts.swift`) | System prompt sent to the model. Controls the style of text refinement. |
 | `polish.personal_context_enabled` | bool | `true` | When `true`, the contents of `~/.better-voice/personal-context.md` (if present and non-empty) are appended to the system prompt for disambiguation. See **Personal Context** below. |
-| `polish.context_dictionary_enabled` | bool | `false` | When `true`, terms from the dictionary at `context_dictionary_path` are fed to SpeechAnalyzer as contextual hints to bias recognition (a transcription-layer aid, separate from the polish prompt). |
-| `polish.context_dictionary_path` | string | `~/.better-voice/correction-dictionary.json` | Path to the dictionary used for SpeechAnalyzer biasing. |
 
 ---
 
@@ -107,7 +106,6 @@ injection without deleting the file. Changes are picked up on the next polish ca
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `language` | string | `"en"` | Transcription & UI language (BCP-47 or a language code, e.g. `"en"`, `"zh-Hans"`). Empty/omitted follows the system language. |
-| `ambient_enabled` | bool | `false` | Enable ambient (always-listening) mode. When `true`, the app continuously captures audio and segments speech automatically via voice-activity detection, rather than requiring the hotkey. |
 | `onboarding_version` | number | `0` | Highest onboarding version the user has completed. The app shows the first-launch welcome screen while this is below the current code constant; you normally don't edit it by hand. |
 
 ---
@@ -137,26 +135,9 @@ The `meeting` object controls meeting capture, live note-taking, diarization, an
 | `classify_enabled` | bool | `true` | Run a quick classification pass to pre-select the meeting type. |
 | `prompts` | object | `{}` | Per-type prompt overrides (`general` / `one_on_one` / `standup`). Empty uses the built-in templates. |
 
-### `meeting.diarization`
+### Diarization
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `offline` | bool | `true` | Diarize the system channel post-hoc with FluidAudio's offline VBx pipeline over the recorded WAV (global clustering, more accurate on a finished recording). `false` uses the live online chunker instead. |
-| `clustering_threshold` | number | `0.57` | Speaker clustering threshold, 0.5–0.9. **Lower = more speakers.** FluidAudio's own 0.7 over-merges; 0.57 gave the best agreement vs the pyannote gold standard on our test clip. |
-| `min_speech_duration` | number | `1.0` | Minimum speech duration in seconds to count as a turn. |
-| `min_silence_gap` | number | `0.5` | Minimum silence gap in seconds that ends a speaker turn. |
-
----
-
-## Remote Voice Settings
-
-The `remote` object controls the Remote Voice inbox that receives audio pushed from another machine (e.g. Windows over Tailscale).
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `remote.enabled` | bool | `true` | Listen for pushed audio on the local port. |
-| `remote.port` | number | `9800` | Port the inbox listens on. |
-| `remote.auth_token` | string | `""` | Optional bearer token required on incoming requests. Empty disables auth (fine on a private Tailscale network). |
+The system channel is always diarized offline with FluidAudio's VBx pipeline over the recorded WAV (global clustering, more accurate on a finished recording than a live chunker). The clustering threshold is a tuned internal constant (`MeetingSession.offlineClusteringThreshold`), not a user-configurable setting — there is no `meeting.diarization` config section.
 
 ---
 
@@ -180,7 +161,6 @@ Below is the shape Better Voice writes on first launch.
 ```json
 {
     "language": "en",
-    "ambient_enabled": false,
     "onboarding_version": 0,
 
     "server": {
@@ -194,18 +174,14 @@ Below is the shape Better Voice writes on first launch.
 
     "polish": {
         "enabled": true,
-        "personal_context_enabled": true,
-        "context_dictionary_enabled": false
+        "personal_context_enabled": true
     },
-
-    "remote": { "enabled": true, "port": 9800, "auth_token": "" },
 
     "meeting": {
         "audio_source": "both",
         "auto_delete_audio": false,
         "default_type": "general",
-        "summarization": { "enabled": true, "num_ctx": 32768, "num_predict": 2048, "classify_enabled": true },
-        "diarization": { "clustering_threshold": 0.57, "min_speech_duration": 1.0, "min_silence_gap": 0.5 }
+        "summarization": { "enabled": true, "num_ctx": 32768, "num_predict": 2048, "classify_enabled": true }
     },
 
     "hotkey": { "keyCode": 61, "modifierFlags": 0, "isModifierOnly": true, "displayName": "Right Option" }
