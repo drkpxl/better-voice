@@ -6,7 +6,8 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v26)],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio", branch: "main"),
+        // Pinned to the tested revision (main as of 0.9.2); bump deliberately, not via branch tracking.
+        .package(url: "https://github.com/FluidInference/FluidAudio", revision: "a95ec26ee05f19b5f6e69c62e1d4fae420537730"),
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0")
     ],
     targets: [
