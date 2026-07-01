@@ -52,6 +52,9 @@ __pycache__/
 client/.fixtures/
 videoplayback.mp4
 
+# Sparkle generate_appcast local backup of superseded update files
+docs/downloads/old_updates/
+
 # Playwright temp + local test artifacts
 .playwright-mcp/
 meeting-temp.wav
