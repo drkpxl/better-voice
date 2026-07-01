@@ -24,7 +24,11 @@ final class AudioMixer {
     private let analyzerFormat: AVAudioFormat?
     private let diarizationFormat: AVAudioFormat
     private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation
-    private let onDiarizationSamples: @Sendable ([Float]) -> Void
+
+    /// Per-channel (pre-mix) drained samples. Set by the owner to feed the two
+    /// diarization buffers. The mixed stream is used only for SA transcription.
+    var onMicSamples: (@Sendable ([Float]) -> Void)?
+    var onSysSamples: (@Sendable ([Float]) -> Void)?
 
     /// Shared sample buffer (nonisolated + NSLock)
     private nonisolated(unsafe) var micBuffer: [Float] = []
@@ -41,13 +45,11 @@ final class AudioMixer {
     init(
         analyzerFormat: AVAudioFormat?,
         diarizationFormat: AVAudioFormat,
-        inputBuilder: AsyncStream<AnalyzerInput>.Continuation,
-        onDiarizationSamples: @escaping @Sendable ([Float]) -> Void
+        inputBuilder: AsyncStream<AnalyzerInput>.Continuation
     ) {
         self.analyzerFormat = analyzerFormat
         self.diarizationFormat = diarizationFormat
         self.inputBuilder = inputBuilder
-        self.onDiarizationSamples = onDiarizationSamples
     }
 
     func start() {
@@ -115,6 +117,10 @@ final class AudioMixer {
             return
         }
 
+        // Per-channel (pre-mix) samples → the two diarization buffers.
+        onMicSamples?(mic)
+        onSysSamples?(sys)
+
         // Align to whichever stream is longer, padding the shorter one with zeros
         let len = max(mic.count, sys.count)
         var mixed = [Float](repeating: 0, count: len)
@@ -126,14 +132,12 @@ final class AudioMixer {
 
         mixOutputCount += 1
 
-        // Send to SA (converted to an analyzerFormat PCM buffer)
+        // Send to SA (converted to an analyzerFormat PCM buffer). Transcription
+        // still uses the mix; diarization now uses the per-channel streams above.
         if let analyzerFormat,
            let pcmBuffer = makeAnalyzerBuffer(from: mixed, targetFormat: analyzerFormat) {
             inputBuilder.yield(AnalyzerInput(buffer: pcmBuffer))
         }
-
-        // Send to diarization
-        onDiarizationSamples(mixed)
     }
 
     /// 16kHz Float32 mono samples → analyzerFormat AVAudioPCMBuffer

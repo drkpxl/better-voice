@@ -42,9 +42,15 @@ final class MeetingSession {
 
     private var analyzerFormat: AVAudioFormat?
 
-    // MARK: - Diarization Buffer (16kHz Float32 mono)
+    // MARK: - Diarization Buffers (16kHz Float32 mono)
 
-    private var diarizationBuffer: [Float] = []
+    /// Per-channel diarization accumulation. Fed off the main thread by the audio
+    /// capturers/mixer, so both buffers are `nonisolated(unsafe)` and guarded by
+    /// `diaBufferLock` (mirrors the pattern in AudioMixer). Read via a locked
+    /// snapshot at the start of performDiarization().
+    private nonisolated(unsafe) var micDiaBuffer: [Float] = []
+    private nonisolated(unsafe) var sysDiaBuffer: [Float] = []
+    private let diaBufferLock = NSLock()
 
     /// Phrase-level transcript entries (with timestamps), used at stop() for fine-grained per-speaker grouping.
     /// Phrase-level transcript entries with timestamps; used at stop() for
@@ -94,7 +100,7 @@ final class MeetingSession {
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
-        diarizationBuffer = []
+        resetDiaBuffers()
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
@@ -156,7 +162,7 @@ final class MeetingSession {
                 }
             }
 
-            // 4. Read audio from file to fill diarizationBuffer (16kHz Float32 mono)
+            // 4. Read audio from file to fill sysDiaBuffer (16kHz Float32 mono)
             Logger.log("Meeting", "[Bench] Loading audio: \(fileURL.lastPathComponent)")
             let audioFile = try AVAudioFile(forReading: fileURL)
             let fileFormat = audioFile.processingFormat
@@ -196,14 +202,16 @@ final class MeetingSession {
                 }
 
                 if let floatData = outBuffer.floatChannelData {
-                    diarizationBuffer = Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength)))
+                    // Bench path: route the WAV into the system channel (mic stays empty).
+                    appendSysSamples(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
                 }
             } else {
                 if let floatData = fullBuffer.floatChannelData {
-                    diarizationBuffer = Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength)))
+                    appendSysSamples(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
                 }
             }
-            Logger.log("Meeting", "[Bench] Diarization buffer: \(diarizationBuffer.count) samples")
+            let (_, benchSys) = snapshotDiaBuffers()
+            Logger.log("Meeting", "[Bench] Diarization buffer: \(benchSys.count) samples")
 
             // 5. Use SpeechAnalyzer's file input API (Apple-native, replaces AVCaptureSession)
             Logger.log("Meeting", "[Bench] Starting SpeechAnalyzer from file...")
@@ -243,7 +251,7 @@ final class MeetingSession {
             }
 
             // Cleanup
-            diarizationBuffer = []
+            resetDiaBuffers()
             polishedSegments = []
             segmentBuffer = nil
 
@@ -269,7 +277,7 @@ final class MeetingSession {
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
-        diarizationBuffer = []
+        resetDiaBuffers()
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
@@ -367,11 +375,13 @@ final class MeetingSession {
             interleaved: false
         )!
 
-        // Diarization callback (shared)
-        let onDiaSamples: @Sendable ([Float]) -> Void = { [weak self] samples in
-            DispatchQueue.main.async {
-                self?.diarizationBuffer.append(contentsOf: samples)
-            }
+        // Per-channel diarization append closures. These run off the main thread
+        // (audio callbacks); they lock and append directly — no hop to main.
+        let appendMic: @Sendable ([Float]) -> Void = { [weak self] samples in
+            self?.appendMicSamples(samples)
+        }
+        let appendSys: @Sendable ([Float]) -> Void = { [weak self] samples in
+            self?.appendSysSamples(samples)
         }
 
         switch audioSource {
@@ -381,7 +391,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: url,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples
+                onDiarizationSamples: appendSys
             )
             try await cap.start()
             self.systemAudioCapturer = cap
@@ -391,9 +401,11 @@ final class MeetingSession {
             let mixer = AudioMixer(
                 analyzerFormat: analyzerFormat,
                 diarizationFormat: diarizationFormat,
-                inputBuilder: inputBuilder,
-                onDiarizationSamples: onDiaSamples
+                inputBuilder: inputBuilder
             )
+            // Per-channel (pre-mix) samples feed the two diarization buffers.
+            mixer.onMicSamples = appendMic
+            mixer.onSysSamples = appendSys
             mixer.start()
             self.audioMixer = mixer
 
@@ -415,7 +427,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: micFileURL,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples,
+                onDiarizationSamples: appendMic,  // unused while mixer present (feeds mixer.feedMic)
                 mixer: mixer
             )
             audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
@@ -432,7 +444,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: sysFileURL,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples,
+                onDiarizationSamples: appendSys,  // unused while mixer present (feeds mixer.feedSystem)
                 mixer: mixer
             )
             try await sysCap.start()
@@ -456,7 +468,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: url,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: onDiaSamples
+                onDiarizationSamples: appendMic
             )
             audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
             session.addOutput(audioOutput)
@@ -540,7 +552,8 @@ final class MeetingSession {
         await segmentBuffer?.flushFinal()
         logL2Summary()
 
-        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, \(diarizationBuffer.count) audio samples")
+        let (micSamples, sysSamples) = snapshotDiaBuffers()
+        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, mic=\(micSamples.count) sys=\(sysSamples.count) audio samples")
 
         // Run speaker diarization
         let diarizedSegments = await performDiarization()
@@ -553,7 +566,7 @@ final class MeetingSession {
         )
 
         // Clean up buffers
-        diarizationBuffer = []
+        resetDiaBuffers()
         polishedSegments = []
         segmentBuffer = nil
 
@@ -561,12 +574,51 @@ final class MeetingSession {
         return result
     }
 
+    // MARK: - Diarization Buffer Accumulation (off-main, lock-guarded)
+
+    /// Append mic samples to `micDiaBuffer`. Safe to call from any thread.
+    private nonisolated func appendMicSamples(_ samples: [Float]) {
+        diaBufferLock.lock()
+        micDiaBuffer.append(contentsOf: samples)
+        diaBufferLock.unlock()
+    }
+
+    /// Append system samples to `sysDiaBuffer`. Safe to call from any thread.
+    private nonisolated func appendSysSamples(_ samples: [Float]) {
+        diaBufferLock.lock()
+        sysDiaBuffer.append(contentsOf: samples)
+        diaBufferLock.unlock()
+    }
+
+    /// Take a locked, tear-free snapshot of both diarization buffers.
+    private nonisolated func snapshotDiaBuffers() -> (mic: [Float], sys: [Float]) {
+        diaBufferLock.lock()
+        let m = micDiaBuffer
+        let s = sysDiaBuffer
+        diaBufferLock.unlock()
+        return (m, s)
+    }
+
+    /// Reset both diarization buffers under the lock.
+    private nonisolated func resetDiaBuffers() {
+        diaBufferLock.lock()
+        micDiaBuffer.removeAll(keepingCapacity: false)
+        sysDiaBuffer.removeAll(keepingCapacity: false)
+        diaBufferLock.unlock()
+    }
+
     // MARK: - Speaker Diarization
 
     /// Run FluidAudio diarization in batch and align the result with L2-corrected batch segments.
     /// Note: Scheme D (one flush batch = one MeetingSegment) — diarization looks up speakers by each batch's time range.
     private func performDiarization() async -> [MeetingSegment] {
-        let buffer = diarizationBuffer
+        // Tear-free snapshot of both per-channel buffers (capture has stopped by now).
+        let (micBuf, sysBuf) = snapshotDiaBuffers()
+        Logger.log("Meeting", "Diarization buffers: mic=\(micBuf.count) sys=\(sysBuf.count)")
+
+        // TODO(Task 1.3): diarize per-channel and merge. For now reproduce the
+        // pre-split behavior: prefer the system channel, falling back to mic.
+        let buffer = sysBuf.isEmpty ? micBuf : sysBuf
         let segments = polishedSegments
 
         // If there are no L2 segments, return empty right away
