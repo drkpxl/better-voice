@@ -166,4 +166,39 @@ final class VoiceActivityTests: XCTestCase {
             [SpeechInterval(start: 0.0, end: 1.5)]
         )
     }
+
+    // MARK: - detectSpeechIntervalsChunked
+
+    func testChunkedStitchesRunAcrossChunkBoundary() {
+        // Tone [0.5, 1.5) spans the boundary of 1.0s chunks ([0,1), [1,2), [2,3)). Each chunk
+        // detects only its half; the global boundary-merge must stitch them into ONE interval.
+        let samples = makeBuffer(
+            duration: 3.0,
+            tones: [(startSec: 0.5, endSec: 1.5, freq: 440, amplitude: 0.5)]
+        )
+        let intervals = detectSpeechIntervalsChunked(samples, sampleRate: sampleRate, chunkSeconds: 1.0)
+        XCTAssertEqual(intervals.count, 1, "run split across a chunk boundary should be stitched")
+        XCTAssertEqual(intervals.first?.start ?? -1, 0.5, accuracy: 0.05)
+        XCTAssertEqual(intervals.first?.end ?? -1, 1.5, accuracy: 0.05)
+    }
+
+    func testChunkedMatchesWholeBufferWithinFrameTolerance() {
+        // Parity: chunked (1.0s chunks) must match the whole-buffer VAD for a multi-tone buffer,
+        // including a tone that straddles a chunk boundary. Asserts offset arithmetic + no
+        // fragmentation. Tone2 [1.8, 2.3) crosses the 2.0s boundary.
+        let samples = makeBuffer(
+            duration: 3.0,
+            tones: [
+                (startSec: 0.3, endSec: 0.8, freq: 440, amplitude: 0.5),
+                (startSec: 1.8, endSec: 2.3, freq: 440, amplitude: 0.5),
+            ]
+        )
+        let whole = detectSpeechIntervals(samples: samples, sampleRate: sampleRate)
+        let chunked = detectSpeechIntervalsChunked(samples, sampleRate: sampleRate, chunkSeconds: 1.0)
+        XCTAssertEqual(chunked.count, whole.count, "chunked must not fragment vs whole-buffer VAD")
+        for (c, w) in zip(chunked, whole) {
+            XCTAssertEqual(c.start, w.start, accuracy: 0.05)
+            XCTAssertEqual(c.end, w.end, accuracy: 0.05)
+        }
+    }
 }

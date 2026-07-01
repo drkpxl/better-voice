@@ -126,6 +126,57 @@ public func detectSpeechIntervals(
     return intervals
 }
 
+/// Runs `detectSpeechIntervals` over `samples` in fixed `chunkSeconds` chunks, shifts each chunk's
+/// intervals into global time, concatenates, and boundary-merges with `mergeAdjacentSpeechIntervals`.
+///
+/// This is the pure/batch equivalent of `MicVoiceActivityChunker`'s finalize logic: the chunker
+/// keeps its incremental `add()`/`removeFirst` mechanism for bounded memory, but the per-chunk
+/// offset + boundary-merge math lives here so it is unit-testable and shared with the streaming path.
+///
+/// Two accepted boundary behaviors (same as the streaming chunker, by construction):
+///   (a) `minSpeechSec` is applied *per chunk* before the global merge, so a sub-`minSpeechSec`
+///       speech run split exactly across a chunk boundary can be dropped on both sides. Accepted as
+///       boundary-local: full-length runs split at a boundary are still stitched by the merge.
+///   (b) The noise floor is estimated *per chunk* (local adaptation to room-tone drift over a long
+///       meeting), not once globally. Accepted: adjacent chunks may pick slightly different floors.
+///
+/// - Returns: speech intervals in global seconds, sorted, boundary-merged. Empty input → `[]`.
+public func detectSpeechIntervalsChunked(
+    _ samples: [Float],
+    sampleRate: Int,
+    chunkSeconds: Double = 60,
+    frameSec: TimeInterval = 0.03,
+    minSpeechSec: TimeInterval = 0.20,
+    minSilenceSec: TimeInterval = 0.20,
+    absoluteFloor: Float = 0.005,
+    noiseMultiplier: Float = 3.0
+) -> [SpeechInterval] {
+    guard sampleRate > 0, chunkSeconds > 0, !samples.isEmpty else { return [] }
+    let chunkSize = max(1, Int(chunkSeconds * Double(sampleRate)))
+
+    var accumulated: [SpeechInterval] = []
+    var processedSamples = 0
+    while processedSamples < samples.count {
+        let end = min(processedSamples + chunkSize, samples.count)
+        let chunk = Array(samples[processedSamples..<end])
+        let offset = Double(processedSamples) / Double(sampleRate)
+        let speech = detectSpeechIntervals(
+            samples: chunk,
+            sampleRate: sampleRate,
+            frameSec: frameSec,
+            minSpeechSec: minSpeechSec,
+            minSilenceSec: minSilenceSec,
+            absoluteFloor: absoluteFloor,
+            noiseMultiplier: noiseMultiplier
+        )
+        accumulated.append(contentsOf: speech.map {
+            SpeechInterval(start: $0.start + offset, end: $0.end + offset)
+        })
+        processedSamples = end
+    }
+    return mergeAdjacentSpeechIntervals(accumulated, minSilenceSec: minSilenceSec)
+}
+
 /// Merges consecutive speech intervals whose silent gap is smaller than `minSilenceSec`.
 /// Used to stitch a speech run that was split across processing-chunk boundaries back together.
 /// Assumes input is sorted by start; output is sorted, non-overlapping, gap>=minSilenceSec between entries.
