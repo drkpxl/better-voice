@@ -1,4 +1,5 @@
 import Foundation
+import ApplicationServices
 
 /// Voice post-processing pipeline
 /// L2: PolishClient semantic polishing (can be disabled)
@@ -9,7 +10,8 @@ final class VoicePipeline {
 
     func process(
         transcription: TranscriptionResult,
-        targetApp: AppIdentity?
+        targetApp: AppIdentity?,
+        focusTarget: AXUIElement? = nil
     ) async {
         let tStart = CFAbsoluteTimeGetCurrent()
         let rawText = transcription.fullText
@@ -47,7 +49,7 @@ final class VoicePipeline {
 
         // Inject into the focused app
         let tInject = CFAbsoluteTimeGetCurrent()
-        TextInjector.inject(text: finalText, to: targetApp)
+        TextInjector.inject(text: finalText, to: targetApp, focusTarget: focusTarget)
         let injectMs = Int((CFAbsoluteTimeGetCurrent() - tInject) * 1000)
 
         // Persist to history (always written, local debug log: paired with audio/*.wav to help debug transcription issues)

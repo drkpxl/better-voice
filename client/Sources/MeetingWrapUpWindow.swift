@@ -87,33 +87,37 @@ final class MeetingWrapUpWindow {
         }
 
         let width: CGFloat = 620
-
-        // Measure the content's natural height (cards laid out inline, no scroll)
-        // at our fixed width, then clamp to what fits on screen. This makes the
-        // window exactly as tall as it needs to be for the number of speakers,
-        // and only scrolls when that would run off the display.
-        let probe = NSHostingView(rootView: MeetingWrapUpContentView(viewModel: viewModel, scrolls: false))
-        probe.translatesAutoresizingMaskIntoConstraints = false
-        probe.widthAnchor.constraint(equalToConstant: width).isActive = true
-        probe.layoutSubtreeIfNeeded()
-        let natural = probe.fittingSize.height
-
         let screenCap = (NSScreen.main?.visibleFrame.height ?? 900) - 40
-        let needsScroll = natural > screenCap
-        let height = min(natural, screenCap)
 
-        let host = NSHostingView(rootView: MeetingWrapUpContentView(viewModel: viewModel, scrolls: needsScroll))
-        host.sizingOptions = []   // we set the window size explicitly; don't let SwiftUI override it
-        host.frame = NSRect(x: 0, y: 0, width: width, height: height)
-
+        // Build the window first, then measure the content *inside* it. NSHostingView's
+        // fittingSize is only reliable once the view lives in a real window hierarchy —
+        // measuring a detached probe under-reports the height, so the footer buttons
+        // (Skip/Summarize) render below the window's bottom edge and get clipped.
         let win = NSWindow(
-            contentRect: host.frame,
+            contentRect: NSRect(x: 0, y: 0, width: width, height: min(screenCap, 400)),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
-        win.title = t("Wrap up meeting")
+
+        // Measure the natural (inline, no-scroll) height at our fixed width, then clamp to
+        // what fits on screen — only scroll when the content would run off the display.
+        let probe = NSHostingView(rootView: MeetingWrapUpContentView(viewModel: viewModel, scrolls: false))
+        win.contentView = probe
+        probe.layoutSubtreeIfNeeded()
+        let natural = probe.fittingSize.height
+
+        let needsScroll = natural > screenCap
+        let height = min(natural, screenCap)
+
+        let host = needsScroll
+            ? NSHostingView(rootView: MeetingWrapUpContentView(viewModel: viewModel, scrolls: true))
+            : probe
+        host.sizingOptions = []   // we set the window size explicitly; don't let SwiftUI override it
         win.contentView = host
+        win.setContentSize(NSSize(width: width, height: height))
+
+        win.title = t("Wrap up meeting")
         win.minSize = NSSize(width: width, height: min(height, 300))
         win.center()
         win.isReleasedWhenClosed = false

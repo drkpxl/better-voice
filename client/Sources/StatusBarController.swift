@@ -8,6 +8,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private let config = RuntimeConfig.shared
 
     private var isRecording = false
+    private var isProcessing = false   // dictation is transcribing/polishing (VoiceModule .processing)
     private var remoteStatus: RemoteInbox.Status = .idle
 
     // meeting mode
@@ -44,6 +45,17 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         updateIcon()
     }
 
+    /// Dictation is transcribing/polishing. Drives the menu-bar "processing" glyph so the
+    /// user sees the app is busy (and knows why the hotkey is inert).
+    func setProcessing(_ processing: Bool) {
+        isProcessing = processing
+        updateIcon()
+    }
+
+    /// True while a meeting's wrap-up (classification/naming/summary) is running. The hotkey
+    /// path checks this to avoid starting a dictation on top of an in-progress transcription.
+    var isBusy: Bool { isFinishingMeeting || isProcessing }
+
     func setRemoteStatus(_ status: RemoteInbox.Status) {
         remoteStatus = status
         setupMenu()
@@ -59,9 +71,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         button.image = icon
         button.imagePosition = .imageLeading
 
+        // Priority: meeting recording > dictation recording > busy (processing/wrap-up) > connection.
+        if isMeetingActive {
+            button.title = "◉"
+            button.contentTintColor = .systemOrange
+            return
+        }
         if isRecording {
             button.title = "●"
             button.contentTintColor = .systemRed
+            return
+        }
+        if isBusy {
+            button.title = "⋯"
+            button.contentTintColor = .systemGray
             return
         }
 
@@ -207,6 +230,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             Logger.log("StatusBar", "Ignored start: previous meeting still finishing")
             return
         }
+        // ...nor while a dictation is still recording or transcribing (don't record on top of it).
+        if let vm = moduleManager.activeModule as? VoiceModule, vm.state != .idle {
+            Logger.log("StatusBar", "Ignored start: dictation in progress")
+            return
+        }
         let session = MeetingSession()
         self.meetingSession = session
 
@@ -221,7 +249,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 Logger.log("StatusBar", "Meeting started")
                 RecordingIndicator.shared.show()
                 self.setupMenu()
-                self.updateMeetingIcon()
+                self.updateIcon()
             } catch {
                 Logger.log("StatusBar", "Meeting start failed: \(error)")
                 RecordingIndicator.shared.hide()
@@ -253,7 +281,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             // entering wrap-up: starting a new meeting is blocked until the summary flow finishes.
             self.isFinishingMeeting = true
             self.setupMenu()
-            self.updateMeetingIcon()
+            self.updateIcon()
             Logger.log("StatusBar", "Meeting stopped, \(result.segments.count) segments, \(String(format: "%.0f", result.duration))s")
 
             // wrap-up: classify -> naming/type panel -> export transcript -> summarize -> optionally delete audio.
@@ -261,7 +289,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
             self.isFinishingMeeting = false
             self.setupMenu()
-            self.updateMeetingIcon()
+            self.updateIcon()
         }
     }
 
@@ -367,16 +395,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             } catch {
                 Logger.log("StatusBar", "Audio delete failed for \(url.lastPathComponent): \(error)")
             }
-        }
-    }
-
-    private func updateMeetingIcon() {
-        guard let button = statusItem.button else { return }
-        if isMeetingActive {
-            button.title = "◉"
-            button.contentTintColor = .systemOrange
-        } else if !isRecording {
-            updateIcon()
         }
     }
 

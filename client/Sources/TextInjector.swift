@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 
 /// Text injector
 ///
@@ -17,7 +18,7 @@ import AppKit
 ///    verifying is an observability gap — only after verifying do we know whether it was a real paste or a failure. The log includes `verified=Y/N`.
 enum TextInjector {
     @MainActor
-    static func inject(text: String, to app: AppIdentity?) {
+    static func inject(text: String, to app: AppIdentity?, focusTarget: AXUIElement? = nil) {
         guard !text.isEmpty else { return }
 
         let pb = NSPasteboard.general
@@ -33,6 +34,19 @@ enum TextInjector {
 
         // Let the OS commit the clipboard content (visible across processes)
         usleep(5_000)
+
+        // Re-focus where dictation started. Without this, ⌘V lands in whatever window the user
+        // clicked into while the (possibly long) transcription was still processing, so the
+        // dictation gets pasted into the wrong place or lost. First bring the owning app forward
+        // (only when we've actually drifted away, to avoid latency in the common case), then
+        // restore focus to the exact text field via Accessibility.
+        if let app,
+           NSWorkspace.shared.frontmostApplication?.processIdentifier != app.processID,
+           let running = NSRunningApplication(processIdentifier: app.processID) {
+            running.activate()
+            usleep(120_000)   // give the app a moment to become frontmost before we re-focus
+        }
+        FocusTarget.restore(focusTarget)
 
         // Simulate ⌘V — using cgSessionEventTap, which is more reliable than cghidEventTap on macOS 14+
         let source = CGEventSource(stateID: .combinedSessionState)

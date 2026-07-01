@@ -281,6 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceModule.onStateChange = { [weak self] state in
             guard let self else { return }
             self.statusBar?.setRecording(state == .recording)
+            self.statusBar?.setProcessing(state == .processing)
             switch state {
             case .recording:
                 self.recordingIndicator.show()
@@ -301,7 +302,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // register the global hotkey
         GlobalHotKey.shared.onPress = { [weak self] in
-            self?.moduleManager.activeModule?.onHotKeyDown()
+            guard let self else { return }
+            // Don't let the hotkey start a dictation on top of a meeting wrap-up that's
+            // still summarizing (a long transcription in progress). Dictation-vs-dictation
+            // is already gated inside VoiceModule by its .processing state.
+            if self.statusBar?.isBusy == true {
+                Logger.log("Hotkey", "Ignored: processing in progress")
+                return
+            }
+            self.moduleManager.activeModule?.onHotKeyDown()
         }
         GlobalHotKey.shared.onRelease = { [weak self] in
             self?.moduleManager.activeModule?.onHotKeyUp()
@@ -327,7 +336,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if config.ambientEnabled {
             let ambient = AmbientController.shared
             ambient.onSpeechStart = { [weak self] in
-                guard let vm = self?.moduleManager.activeModule as? VoiceModule,
+                guard let self,
+                      self.statusBar?.isBusy != true,
+                      let vm = self.moduleManager.activeModule as? VoiceModule,
                       vm.state == .idle else { return }
                 vm.onHotKeyDown()  // reuse the hotkey flow: start recording
             }

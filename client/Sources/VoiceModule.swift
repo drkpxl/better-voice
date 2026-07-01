@@ -1,4 +1,5 @@
 import Foundation
+import ApplicationServices
 
 /// Voice module
 /// Interaction: press right Command to start recording+transcription -> press right Command again to stop -> auto-inject
@@ -26,6 +27,7 @@ final class VoiceModule: BetterVoiceModule {
     private var session: VoiceSession?
     private let pipeline = VoicePipeline()
     private var pinnedApp: AppIdentity?
+    private var pinnedFocus: AXUIElement?   // the exact text field focused when recording started
     private var recordingStartT: CFAbsoluteTime = 0
 
     func onHotKeyDown() {
@@ -54,8 +56,10 @@ final class VoiceModule: BetterVoiceModule {
         state = .recording
         recordingStartT = CFAbsoluteTimeGetCurrent()
 
-        // Pin the currently focused app
+        // Pin the currently focused app and text field, so we can paste back into exactly
+        // where the user started even if they click elsewhere while transcription runs.
         pinnedApp = AppIdentity.current()
+        pinnedFocus = FocusTarget.capture()
         Logger.log("Voice", "Pinned app: \(pinnedApp?.bundleID ?? "unknown")")
 
         let voiceSession = VoiceSession()
@@ -117,7 +121,8 @@ final class VoiceModule: BetterVoiceModule {
             let tPipe = CFAbsoluteTimeGetCurrent()
             await pipeline.process(
                 transcription: result,
-                targetApp: pinnedApp
+                targetApp: pinnedApp,
+                focusTarget: pinnedFocus
             )
             let pipelineMs = Int((CFAbsoluteTimeGetCurrent() - tPipe) * 1000)
             let voiceTotalMs = Int((CFAbsoluteTimeGetCurrent() - tStop0) * 1000)
