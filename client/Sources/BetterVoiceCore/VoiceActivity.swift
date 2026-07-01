@@ -125,3 +125,21 @@ public func detectSpeechIntervals(
     // 6 & 7. Already sorted by construction (runs are built left-to-right).
     return intervals
 }
+
+/// Merges consecutive speech intervals whose silent gap is smaller than `minSilenceSec`.
+/// Used to stitch a speech run that was split across processing-chunk boundaries back together.
+/// Assumes input is sorted by start; output is sorted, non-overlapping, gap>=minSilenceSec between entries.
+public func mergeAdjacentSpeechIntervals(_ intervals: [SpeechInterval], minSilenceSec: TimeInterval) -> [SpeechInterval] {
+    guard var current = intervals.first else { return [] }
+    var out: [SpeechInterval] = []
+    for next in intervals.dropFirst() {
+        if next.start - current.end < minSilenceSec {
+            current = SpeechInterval(start: current.start, end: max(current.end, next.end))
+        } else {
+            out.append(current)
+            current = next
+        }
+    }
+    out.append(current)
+    return out
+}

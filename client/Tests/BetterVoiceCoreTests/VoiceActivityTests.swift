@@ -107,4 +107,63 @@ final class VoiceActivityTests: XCTestCase {
         )
         XCTAssertEqual(detectSpeechIntervals(samples: samples, sampleRate: sampleRate), [])
     }
+
+    // MARK: - mergeAdjacentSpeechIntervals
+
+    func testMergeAdjacentEmptyYieldsEmpty() {
+        XCTAssertEqual(mergeAdjacentSpeechIntervals([], minSilenceSec: 0.20), [])
+    }
+
+    func testMergeAdjacentSingleReturnsItself() {
+        let one = [SpeechInterval(start: 1.0, end: 2.0)]
+        XCTAssertEqual(mergeAdjacentSpeechIntervals(one, minSilenceSec: 0.20), one)
+    }
+
+    func testMergeAdjacentGapBelowMinSilenceMerges() {
+        // Gap of 0.1s < minSilenceSec (0.2s) → merge into one.
+        let intervals = [
+            SpeechInterval(start: 0.5, end: 0.9),
+            SpeechInterval(start: 1.0, end: 1.4),
+        ]
+        XCTAssertEqual(
+            mergeAdjacentSpeechIntervals(intervals, minSilenceSec: 0.20),
+            [SpeechInterval(start: 0.5, end: 1.4)]
+        )
+    }
+
+    func testMergeAdjacentGapAtOrAboveMinSilenceStaysSeparate() {
+        // Gap of 0.5s >= minSilenceSec (0.2s) → stay separate, order preserved.
+        let intervals = [
+            SpeechInterval(start: 0.5, end: 0.9),
+            SpeechInterval(start: 1.4, end: 1.8),
+        ]
+        XCTAssertEqual(
+            mergeAdjacentSpeechIntervals(intervals, minSilenceSec: 0.20),
+            intervals
+        )
+    }
+
+    func testMergeAdjacentTouchingIntervalsMerge() {
+        // Boundary case: [0,1] and [1,2] gap 0 → [0,2].
+        let intervals = [
+            SpeechInterval(start: 0.0, end: 1.0),
+            SpeechInterval(start: 1.0, end: 2.0),
+        ]
+        XCTAssertEqual(
+            mergeAdjacentSpeechIntervals(intervals, minSilenceSec: 0.20),
+            [SpeechInterval(start: 0.0, end: 2.0)]
+        )
+    }
+
+    func testMergeAdjacentOverlappingIntervalsMerge() {
+        // Overlapping: end taken as max of the two.
+        let intervals = [
+            SpeechInterval(start: 0.0, end: 1.5),
+            SpeechInterval(start: 1.0, end: 1.2),
+        ]
+        XCTAssertEqual(
+            mergeAdjacentSpeechIntervals(intervals, minSilenceSec: 0.20),
+            [SpeechInterval(start: 0.0, end: 1.5)]
+        )
+    }
 }

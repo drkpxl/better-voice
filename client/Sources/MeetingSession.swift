@@ -44,12 +44,13 @@ final class MeetingSession {
 
     // MARK: - Diarization Buffers (16kHz Float32 mono)
 
-    /// Mic-channel diarization accumulation. Fed off the main thread by the audio
-    /// capturers/mixer, so it is `nonisolated(unsafe)` and guarded by `diaBufferLock`
-    /// (mirrors the pattern in AudioMixer). Read via a locked snapshot at the start of
-    /// performDiarization(). (Mic memory bounding is a separate later task.)
-    private nonisolated(unsafe) var micDiaBuffer: [Float] = []
-    private let diaBufferLock = NSLock()
+    /// Mic-channel VAD is streamed incrementally into this chunker instead of accumulating the
+    /// whole meeting in a buffer, bounding peak memory to ~one chunk. VAD (`detectSpeechIntervals`)
+    /// is pure/model-free/cheap, so the chunker is synchronous + NSLock-guarded (no async/models).
+    /// Created for the mic-producing modes (`mic`/`both`); in the bench `runFromFile` path it is
+    /// created but receives no samples (bench fills only the system channel). `finish()` at
+    /// performDiarization() returns the merged global "me" speech intervals.
+    private var micVadChunker: MicVoiceActivityChunker?
 
     /// System-channel diarization is streamed incrementally into this chunker instead of
     /// being accumulated into a whole-meeting buffer, bounding peak memory to ~one chunk.
@@ -115,13 +116,16 @@ final class MeetingSession {
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
-        resetDiaBuffers()
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
         setupSegmentBuffer()
         audioFileURL = fileURL
         meetingId = "bench-" + fileURL.deletingPathExtension().lastPathComponent
+
+        // Mic VAD chunker: created for symmetry with the live path. In bench the mic channel
+        // receives no samples (the WAV is routed into the system channel), so finish() returns [].
+        micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
 
         // Bench always exercises the system-diarization path: stream the WAV into the chunker.
         let benchChunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate, finishTimeoutSec: Self.finishTimeoutSec)
@@ -284,7 +288,7 @@ final class MeetingSession {
             }
 
             // Cleanup
-            resetDiaBuffers()
+            micVadChunker = nil
             polishedSegments = []
             segmentBuffer = nil
             if let chunker = systemDiarizationChunker {
@@ -314,7 +318,7 @@ final class MeetingSession {
         transcriptSegments = []
         polishedSegments = []
         currentVolatileText = ""
-        resetDiaBuffers()
+        micVadChunker = nil
         allPhraseEntries = []
         duration = 0
         resetL2Stats()
@@ -420,12 +424,19 @@ final class MeetingSession {
             self.systemDiarizationChunker = chunker
         }
 
+        // Mic VAD also runs incrementally in a chunker (bounded memory). Create it only when mic
+        // audio is present; system-only mode skips it (no "me" timeline).
+        if audioSource == "mic" || audioSource == "both" {
+            self.micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
+        }
+
         // Per-channel diarization append closures. In mic/system modes these run on the
         // capture queue (off-main); in both mode they run from the mixer's 100ms MainActor
-        // drain. Mic samples lock + append synchronously; system samples are yielded (ordered,
-        // non-blocking) into the incremental chunker. Both are Sendable-safe off-main.
-        let appendMic: @Sendable ([Float]) -> Void = { [weak self] samples in
-            self?.appendMicSamples(samples)
+        // drain. Both incremental chunkers are Sendable-safe off-main (mic: NSLock-guarded VAD;
+        // system: ordered, non-blocking stream yield).
+        let micChunker = self.micVadChunker
+        let appendMic: @Sendable ([Float]) -> Void = { samples in
+            micChunker?.add(samples)
         }
         let sysChunker = self.systemDiarizationChunker
         let appendSys: @Sendable ([Float]) -> Void = { samples in
@@ -600,8 +611,7 @@ final class MeetingSession {
         await segmentBuffer?.flushFinal()
         logL2Summary()
 
-        let micSamples = snapshotMicDiaBuffer()
-        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments, mic=\(micSamples.count) audio samples")
+        Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments")
 
         // Run speaker diarization (system channel finishes + flushes inside performDiarization)
         let diarizedSegments = await performDiarization()
@@ -614,7 +624,7 @@ final class MeetingSession {
         )
 
         // Clean up buffers
-        resetDiaBuffers()
+        micVadChunker = nil
         polishedSegments = []
         segmentBuffer = nil
 
@@ -627,30 +637,6 @@ final class MeetingSession {
 
         Logger.log("Meeting", "Session stopped, duration=\(String(format: "%.1f", finalDuration))s, segments=\(diarizedSegments.count)")
         return result
-    }
-
-    // MARK: - Diarization Buffer Accumulation (off-main, lock-guarded)
-
-    /// Append mic samples to `micDiaBuffer`. Safe to call from any thread.
-    private nonisolated func appendMicSamples(_ samples: [Float]) {
-        diaBufferLock.lock()
-        micDiaBuffer.append(contentsOf: samples)
-        diaBufferLock.unlock()
-    }
-
-    /// Take a locked, tear-free snapshot of the mic diarization buffer.
-    private nonisolated func snapshotMicDiaBuffer() -> [Float] {
-        diaBufferLock.lock()
-        let m = micDiaBuffer
-        diaBufferLock.unlock()
-        return m
-    }
-
-    /// Reset the mic diarization buffer under the lock.
-    private nonisolated func resetDiaBuffers() {
-        diaBufferLock.lock()
-        micDiaBuffer.removeAll(keepingCapacity: false)
-        diaBufferLock.unlock()
     }
 
     // MARK: - Speaker Diarization
@@ -668,10 +654,6 @@ final class MeetingSession {
     /// only (mic empty → no "me"); `mic` gets "me" only and skips the model download entirely
     /// (sys empty → FluidAudio branch never runs); bench fills sys only → clustering path.
     private func performDiarization() async -> [MeetingSegment] {
-        // Tear-free snapshot of the mic buffer (capture has stopped by now).
-        let micBuf = snapshotMicDiaBuffer()
-        Logger.log("Meeting", "Diarization buffers: mic=\(micBuf.count)")
-
         let segments = polishedSegments
 
         // If there are no L2 segments, return empty right away.
@@ -707,20 +689,22 @@ final class MeetingSession {
         intervals.append(contentsOf: speakerIntervals(from: sysSegments))
         let systemIntervalCount = intervals.count
 
-        // --- Mic channel (local user "me") → energy-based VAD, no clustering model ---
-        var micIntervalCount = 0
-        if !micBuf.isEmpty {
-            let speech = detectSpeechIntervals(samples: micBuf, sampleRate: diarizationSampleRate)
-            intervals.append(contentsOf: speech.map {
-                SpeakerInterval(
-                    speakerId: Self.localSpeakerId,
-                    start: $0.start,
-                    end: $0.end,
-                    source: .mic
-                )
-            })
-            micIntervalCount = speech.count
-        }
+        // --- Mic channel (local user "me") → incremental energy-based VAD, no clustering model ---
+        // Mic VAD ran chunk-by-chunk while audio streamed in (bounded memory: processed samples
+        // discarded). finish() flushes the tail and returns all speech intervals in global time,
+        // boundary-merged so runs split at chunk edges aren't fragmented. Empty in system-only /
+        // bench mode (chunker received no mic samples).
+        let micIntervals = micVadChunker?.finish() ?? []
+        micVadChunker = nil
+        intervals.append(contentsOf: micIntervals.map {
+            SpeakerInterval(
+                speakerId: Self.localSpeakerId,
+                start: $0.start,
+                end: $0.end,
+                source: .mic
+            )
+        })
+        let micIntervalCount = micIntervals.count
 
         // No-diarization fallback: both channels absent/too short → return L2 segments unlabeled.
         guard !intervals.isEmpty else {
