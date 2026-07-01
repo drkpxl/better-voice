@@ -9,7 +9,9 @@ final class BetterVoiceCoreTests: XCTestCase {
         _ text: String,
         speaker: String?,
         start: TimeInterval = 0,
-        name: String? = nil
+        name: String? = nil,
+        embedding: [Float]? = nil,
+        confidence: Double? = nil
     ) -> MeetingSegment {
         MeetingSegment(
             text: text,
@@ -19,7 +21,9 @@ final class BetterVoiceCoreTests: XCTestCase {
             speakerId: speaker,
             l2Kind: .changed,
             isFinal: true,
-            speakerName: name
+            speakerName: name,
+            speakerEmbedding: embedding,
+            speakerConfidence: confidence
         )
     }
 
@@ -107,6 +111,26 @@ final class BetterVoiceCoreTests: XCTestCase {
         XCTAssertNil(named[2].speakerName)
         XCTAssertEqual(named[0].speakerLabel(prefix: "Speaker"), "Steven")
         XCTAssertEqual(named[1].speakerLabel(prefix: "Speaker"), "Speaker 2")
+    }
+
+    func testMeetingSegmentRoundTripsEmbeddingAndConfidence() {
+        let s = seg("hi", speaker: "1", embedding: [0.1, 0.2, 0.3], confidence: 0.87)
+        XCTAssertEqual(s.speakerEmbedding, [0.1, 0.2, 0.3])
+        XCTAssertEqual(s.speakerConfidence, 0.87)
+    }
+
+    func testMeetingSegmentDefaultsEmbeddingAndConfidenceToNil() {
+        let s = seg("hi", speaker: "1")
+        XCTAssertNil(s.speakerEmbedding)
+        XCTAssertNil(s.speakerConfidence)
+    }
+
+    func testApplySpeakerNamesPreservesEmbeddingAndConfidence() {
+        let segs = [seg("hi", speaker: "1", embedding: [0.4, 0.5], confidence: 0.42)]
+        let named = applySpeakerNames(["1": "Steven"], to: segs)
+        XCTAssertEqual(named[0].speakerName, "Steven")
+        XCTAssertEqual(named[0].speakerEmbedding, [0.4, 0.5])
+        XCTAssertEqual(named[0].speakerConfidence, 0.42)
     }
 
     func testOrderedUniqueSpeakerIds() {

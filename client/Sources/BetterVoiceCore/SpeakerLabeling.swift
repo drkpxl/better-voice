@@ -27,7 +27,9 @@ public func applySpeakerNames(_ names: [String: String], to segments: [MeetingSe
             speakerId: seg.speakerId,
             l2Kind: seg.l2Kind,
             isFinal: seg.isFinal,
-            speakerName: name
+            speakerName: name,
+            speakerEmbedding: seg.speakerEmbedding,
+            speakerConfidence: seg.speakerConfidence
         )
     }
 }

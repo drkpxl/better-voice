@@ -24,6 +24,11 @@ public struct MeetingSegment: Sendable, Identifiable {
     public let l2Kind: L2Kind
     public let isFinal: Bool
     public let speakerName: String?      // User-specified speaker name (nullable)
+    /// The speaker's voice embedding from diarization (nil for the local "me" speaker
+    /// or when diarization didn't run), retained for cross-meeting fingerprinting.
+    public let speakerEmbedding: [Float]?
+    /// Alignment confidence 0…1 (nil when unknown).
+    public let speakerConfidence: Double?
 
     public init(
         text: String,
@@ -33,7 +38,9 @@ public struct MeetingSegment: Sendable, Identifiable {
         speakerId: String?,
         l2Kind: L2Kind,
         isFinal: Bool,
-        speakerName: String? = nil
+        speakerName: String? = nil,
+        speakerEmbedding: [Float]? = nil,
+        speakerConfidence: Double? = nil
     ) {
         self.text = text
         self.rawText = rawText
@@ -43,6 +50,8 @@ public struct MeetingSegment: Sendable, Identifiable {
         self.l2Kind = l2Kind
         self.isFinal = isFinal
         self.speakerName = speakerName
+        self.speakerEmbedding = speakerEmbedding
+        self.speakerConfidence = speakerConfidence
     }
 
     /// Display label for the speaker. Prefers the user-specified name, otherwise "<prefix> <id>".
