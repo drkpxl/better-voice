@@ -56,7 +56,7 @@ public struct SpeakerAssignment: Sendable, Equatable {
 ///
 /// - `text`: concatenation of the turn's phrase texts (in order).
 /// - `start` / `end`: span the turn (first phrase start … last phrase end).
-/// - `embedding`: the first non-nil phrase embedding in the turn.
+/// - `embedding`: the element-wise mean of the turn's non-nil phrase embeddings.
 /// - `minConfidence`: the minimum phrase confidence in the turn.
 /// - `containedOverlap`: `true` if any phrase in the turn was flagged `overlapped`.
 public struct SpeakerTurn: Sendable, Equatable {
@@ -77,6 +77,20 @@ public struct SpeakerTurn: Sendable, Equatable {
         self.minConfidence = minConfidence
         self.containedOverlap = containedOverlap
     }
+}
+
+/// Element-wise mean of equal-length embedding vectors. Returns nil for an empty input
+/// or if the vectors have differing lengths (ragged input is a programming error, not averaged).
+public func meanEmbedding(_ embeddings: [[Float]]) -> [Float]? {
+    guard let first = embeddings.first else { return nil }
+    let dim = first.count
+    guard embeddings.allSatisfy({ $0.count == dim }) else { return nil }
+    var sums = [Double](repeating: 0, count: dim)
+    for vec in embeddings {
+        for i in 0..<dim { sums[i] += Double(vec[i]) }
+    }
+    let count = Double(embeddings.count)
+    return sums.map { Float($0 / count) }
 }
 
 /// Duration of the temporal overlap between two `[start, end)` ranges (0 if disjoint).
@@ -188,7 +202,7 @@ public func groupIntoTurns(phrases: [(span: PhraseSpan, text: String)],
     return groups.compactMap { group in
         guard let first = group.first, let last = group.last else { return nil }
         let text = group.map(\.text).joined()
-        let embedding = group.compactMap(\.assignment.embedding).first
+        let embedding = meanEmbedding(group.compactMap(\.assignment.embedding))
         let minConfidence = group.map(\.assignment.confidence).min() ?? 0
         let containedOverlap = group.contains { $0.assignment.overlapped }
         return SpeakerTurn(

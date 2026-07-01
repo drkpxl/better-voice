@@ -699,8 +699,6 @@ final class MeetingSession {
 
         intervals.sort { $0.start < $1.start }
         Logger.log("Meeting", "Merged speaker timeline: \(intervals.count) intervals (system=\(systemIntervalCount) me=\(micIntervalCount)), distinct speakers=\(Set(intervals.map(\.speakerId)).count)")
-        // TODO(Task 2.2): thread each turn's overlapped/confidence signal onto the MeetingSegment
-        // (SpeakerTurn already carries containedOverlap/minConfidence; MeetingSegment lacks the fields until Task 2.1).
 
         // Fine-grained alignment: label each phrase by speaker, group consecutive phrases
         // into speaker turns, polish each turn. Falls back to the coarse per-batch alignment
@@ -731,7 +729,9 @@ final class MeetingSession {
                 endTime: tSeg.endTime,
                 speakerId: assignment.speakerId,
                 l2Kind: tSeg.l2Kind,
-                isFinal: tSeg.isFinal
+                isFinal: tSeg.isFinal,
+                speakerEmbedding: assignment.embedding,
+                speakerConfidence: assignment.confidence
             )
         }
     }
@@ -776,7 +776,9 @@ final class MeetingSession {
                 endTime: turn.end,
                 speakerId: turn.speakerId,
                 l2Kind: polished.kind,
-                isFinal: true
+                isFinal: true,
+                speakerEmbedding: turn.embedding,
+                speakerConfidence: turn.minConfidence
             ))
         }
         let speakerCount = Set(result.compactMap(\.speakerId)).count

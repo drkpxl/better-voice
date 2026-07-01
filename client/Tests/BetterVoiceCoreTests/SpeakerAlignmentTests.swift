@@ -136,17 +136,58 @@ final class SpeakerAlignmentTests: XCTestCase {
         XCTAssertTrue(turns[0].containedOverlap)
     }
 
-    func testTurnEmbeddingIsFirstNonNilAndMinConfidenceIsMinimum() {
+    func testTurnEmbeddingIsMeanAndMinConfidenceIsMinimum() {
         let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 10, embedding: [9, 9])]
         // Second phrase sits fully in speaker 1 (confidence 1); first phrase juts past the
         // interval so its confidence is lower.
         let phrases = [(span: PhraseSpan(start: 8, end: 12), text: "a "),
                        (span: PhraseSpan(start: 5, end: 6), text: "b")]
-        // Both phrases map to speaker "1", so they collapse into one turn.
+        // Both phrases map to speaker "1", so they collapse into one turn. Both carry the same
+        // embedding [9,9], so the mean is [9,9].
         let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
         XCTAssertEqual(turns.count, 1)
         XCTAssertEqual(turns[0].embedding, [9, 9])
         XCTAssertEqual(turns[0].minConfidence, 0.5, accuracy: 0.001) // first phrase: 2s overlap / 4s
+    }
+
+    func testTurnEmbeddingIsMeanOfDifferingPhraseEmbeddings() {
+        // Speaker "1" has two intervals with different embeddings. Each phrase overlaps a
+        // different interval most, so they carry different embeddings; the merged turn's
+        // embedding is their element-wise mean.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 5, embedding: [2, 2]),
+                   SpeakerInterval(speakerId: "1", start: 5, end: 10, embedding: [4, 4])]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "a "),   // -> [2,2]
+                       (span: PhraseSpan(start: 6, end: 7), text: "b")]    // -> [4,4]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].speakerId, "1")
+        XCTAssertEqual(turns[0].embedding, [3, 3])
+    }
+
+    func testTurnEmbeddingIsNilWhenNoPhraseEmbeddings() {
+        // No diarization intervals -> nil speaker, nil per-phrase embeddings -> nil turn embedding.
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "hi")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: [])
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertNil(turns[0].embedding)
+    }
+
+    // MARK: - meanEmbedding
+
+    func testMeanEmbeddingAveragesElementWise() {
+        XCTAssertEqual(meanEmbedding([[1, 2], [3, 4]]), [2, 3])
+    }
+
+    func testMeanEmbeddingSingleVectorReturnsItself() {
+        XCTAssertEqual(meanEmbedding([[1, 2, 3]]), [1, 2, 3])
+    }
+
+    func testMeanEmbeddingEmptyReturnsNil() {
+        XCTAssertNil(meanEmbedding([]))
+    }
+
+    func testMeanEmbeddingRaggedReturnsNil() {
+        XCTAssertNil(meanEmbedding([[1, 2], [1]]))
     }
 
     func testConsecutiveNilSpeakerPhrasesMergeIntoOneNilTurn() {
