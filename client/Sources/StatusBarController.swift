@@ -288,8 +288,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // Exclude the local user ("You") from the naming list: their segments already
         // render as "You" via resolveSpeakerLabel, so prompting to name themselves is redundant.
         let speakerIds = orderedUniqueSpeakerIds(result.segments).filter { $0 != SpeakerIds.local }
-        let snippets = sampleSnippets(result.segments, maxLen: 100)
-        let speakers = speakerIds.map { (id: $0, snippet: snippets[$0] ?? "") }
+        let quotes = sampleQuotes(result.segments)
+        let speakers = speakerIds.map { (id: $0, quotes: quotes[$0] ?? []) }
         let outcome = await MeetingWrapUpWindow.shared.present(speakers: speakers, inferredType: inferred)
 
         // 3. apply names, export transcript.

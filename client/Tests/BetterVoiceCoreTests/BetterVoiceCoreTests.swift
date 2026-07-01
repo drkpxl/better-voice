@@ -197,6 +197,42 @@ final class BetterVoiceCoreTests: XCTestCase {
         XCTAssertTrue(snippets["1"]?.hasSuffix("…") ?? false)
     }
 
+    func testSampleQuotesPicksLongestTurnsInChronologicalOrder() {
+        let segs = [
+            seg("this is the longest turn speaker one said", speaker: "1", start: 30), // longest
+            seg("second longest turn here", speaker: "1", start: 10),                 // 2nd
+            seg("third turn", speaker: "1", start: 20),                               // 3rd
+            seg("tiny", speaker: "1", start: 40),                                     // dropped (only 3 kept)
+            seg("only turn", speaker: "2", start: 5),
+        ]
+        let quotes = sampleQuotes(segs, perSpeaker: 3, maxLen: 160)
+        // Speaker 1: the three longest turns, returned in start order (10, 20, 30).
+        XCTAssertEqual(quotes["1"], [
+            "second longest turn here",
+            "third turn",
+            "this is the longest turn speaker one said",
+        ])
+        XCTAssertEqual(quotes["2"], ["only turn"])
+    }
+
+    func testSampleQuotesSkipsEmptyAndDedupes() {
+        let segs = [
+            seg("hello", speaker: "1", start: 0),
+            seg("   ", speaker: "1", start: 1),
+            seg("hello", speaker: "1", start: 2), // duplicate text
+            seg("world", speaker: "1", start: 3),
+        ]
+        let quotes = sampleQuotes(segs, perSpeaker: 3, maxLen: 160)
+        XCTAssertEqual(quotes["1"], ["hello", "world"], "blank skipped, duplicate collapsed")
+    }
+
+    func testSampleQuotesTruncates() {
+        let long = String(repeating: "x", count: 100)
+        let quotes = sampleQuotes([seg(long, speaker: "1")], perSpeaker: 3, maxLen: 10)
+        XCTAssertEqual(quotes["1"]?.first?.count, 11) // 10 chars + ellipsis
+        XCTAssertTrue(quotes["1"]?.first?.hasSuffix("…") ?? false)
+    }
+
     // MARK: - Transcript building
 
     func testBuildSummarizationTranscript() {

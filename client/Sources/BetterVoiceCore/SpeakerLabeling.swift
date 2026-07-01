@@ -80,6 +80,28 @@ public func sampleSnippets(_ segments: [MeetingSegment], maxLen: Int = 80) -> [S
     return longest.mapValues { truncate($0, maxLen: maxLen) }
 }
 
+/// For each speaker, pick their N longest turns (deduped), returned in
+/// chronological order, each truncated to maxLen. Longest turns carry the most
+/// identifying content; chronological order reads naturally in the UI.
+public func sampleQuotes(_ segments: [MeetingSegment], perSpeaker: Int = 3, maxLen: Int = 160) -> [String: [String]] {
+    // Bucket non-empty turns per speaker, keeping (startTime, text) so we can
+    // re-sort chronologically after selecting the longest.
+    var bySpeaker: [String: [(start: TimeInterval, text: String)]] = [:]
+    for seg in segments {
+        guard let id = seg.speakerId else { continue }
+        let text = seg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { continue }
+        bySpeaker[id, default: []].append((seg.startTime, text))
+    }
+    return bySpeaker.mapValues { turns in
+        // Dedupe by text, keeping the earliest occurrence, then take the N longest.
+        var seenText = Set<String>()
+        let distinct = turns.filter { seenText.insert($0.text).inserted }
+        let longest = distinct.sorted { $0.text.count > $1.text.count }.prefix(perSpeaker)
+        return longest.sorted { $0.start < $1.start }.map { truncate($0.text, maxLen: maxLen) }
+    }
+}
+
 private func truncate(_ s: String, maxLen: Int) -> String {
     guard maxLen > 0, s.count > maxLen else { return s }
     let idx = s.index(s.startIndex, offsetBy: maxLen)
