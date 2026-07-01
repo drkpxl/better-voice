@@ -68,6 +68,11 @@ final class MeetingSession {
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private let diarizationSampleRate: Int = 16000
 
+    /// Hang-safety deadline for awaiting the system-diarization chunker's `finish()`. This only
+    /// abandons the await (the confined DiarizerManager is never touched; the consumer keeps
+    /// running detached). Diarizing a 5-min clip takes ~1s, so 120s is generous for long meetings.
+    private static let finishTimeoutSec: TimeInterval = 120
+
     // MARK: - Duration Timer
 
     private var durationTimer: Task<Void, Never>?
@@ -119,7 +124,7 @@ final class MeetingSession {
         meetingId = "bench-" + fileURL.deletingPathExtension().lastPathComponent
 
         // Bench always exercises the system-diarization path: stream the WAV into the chunker.
-        let benchChunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate)
+        let benchChunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate, finishTimeoutSec: Self.finishTimeoutSec)
         benchChunker.start()
         self.systemDiarizationChunker = benchChunker
 
@@ -193,6 +198,20 @@ final class MeetingSession {
                 interleaved: false
             )!
 
+            // Feed the WAV into the chunker in small ~0.1s batches to mimic live streaming: this
+            // keeps the bench path memory-bounded (the consumer discards processed samples) and
+            // drives the real incremental chunk-boundary logic, instead of one giant add() that
+            // would park the whole meeting in the unbounded stream buffer.
+            let benchBatch = max(diarizationSampleRate / 10, 1)  // ~0.1s
+            let streamIntoChunker: ([Float]) -> Void = { samples in
+                var i = 0
+                while i < samples.count {
+                    let end = min(i + benchBatch, samples.count)
+                    benchChunker.add(Array(samples[i..<end]))
+                    i = end
+                }
+            }
+
             let fullBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount)!
             try audioFile.read(into: fullBuffer)
 
@@ -218,11 +237,11 @@ final class MeetingSession {
 
                 if let floatData = outBuffer.floatChannelData {
                     // Bench path: route the WAV into the system channel (mic stays empty).
-                    benchChunker.add(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
+                    streamIntoChunker(Array(UnsafeBufferPointer(start: floatData[0], count: Int(outBuffer.frameLength))))
                 }
             } else {
                 if let floatData = fullBuffer.floatChannelData {
-                    benchChunker.add(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
+                    streamIntoChunker(Array(UnsafeBufferPointer(start: floatData[0], count: Int(fullBuffer.frameLength))))
                 }
             }
             Logger.log("Meeting", "[Bench] Streamed system audio into diarization chunker")
@@ -269,7 +288,7 @@ final class MeetingSession {
             polishedSegments = []
             segmentBuffer = nil
             if let chunker = systemDiarizationChunker {
-                _ = await chunker.finish()
+                _ = try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) { await chunker.finish() }
                 systemDiarizationChunker = nil
             }
 
@@ -396,7 +415,7 @@ final class MeetingSession {
         // System diarization runs incrementally in a background chunker (bounded memory).
         // Create + start it only when system audio is present; mic-only mode skips it entirely.
         if audioSource == "system" || audioSource == "both" {
-            let chunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate)
+            let chunker = SystemDiarizationChunker(sampleRate: diarizationSampleRate, finishTimeoutSec: Self.finishTimeoutSec)
             chunker.start()
             self.systemDiarizationChunker = chunker
         }
@@ -600,9 +619,9 @@ final class MeetingSession {
         segmentBuffer = nil
 
         // Defensive: if performDiarization early-returned (no L2 segments) without finishing
-        // the chunker, drain it now so its consumer task can't leak.
+        // the chunker, drain it now (bounded) so its consumer task can't leak.
         if let chunker = systemDiarizationChunker {
-            _ = await chunker.finish()
+            _ = try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) { await chunker.finish() }
             systemDiarizationChunker = nil
         }
 
@@ -668,7 +687,18 @@ final class MeetingSession {
         // one reused DiarizerManager for stable ids + retained embeddings). finish() flushes
         // the tail and returns all accumulated global-timed segments. Returns [] if system
         // diarization was unavailable/too short, in which case the mic "me" timeline still merges.
-        let sysSegments = await (systemDiarizationChunker?.finish() ?? [])
+        //
+        // Hang-safety: bound the await so stop() can never block forever on a pathologically slow
+        // tail. The timeout only abandons the await — it never touches the confined DiarizerManager
+        // (the consumer task keeps running detached), so it's safe.
+        let sysSegments: [TimedSpeakerSegment]
+        if let chunker = systemDiarizationChunker {
+            sysSegments = (try? await withThrowingTimeout(seconds: chunker.finishTimeoutSec) {
+                await chunker.finish()
+            }) ?? []
+        } else {
+            sysSegments = []
+        }
         systemDiarizationChunker = nil
         Logger.log("Meeting", "System diarization: \(sysSegments.count) speaker segments")
         for seg in sysSegments {

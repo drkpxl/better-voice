@@ -17,16 +17,22 @@ final class SystemDiarizationChunker: Sendable {
     private let continuation: AsyncStream<[Float]>.Continuation
     private let sampleRate: Int
     private let chunkSeconds: Double
-    private let perChunkTimeoutSec: TimeInterval
+
+    /// Deadline the caller applies to `finish()` (see `MeetingSession.finishTimeoutSec`).
+    /// Exposed so the call site and the chunker agree on one value.
+    let finishTimeoutSec: TimeInterval
 
     /// Handle to the single consumer task. Written once in `start()`, read once in `finish()`;
     /// `Mutex` makes it Sendable-safe without `@unchecked`.
     private let consumerTask = Mutex<Task<[TimedSpeakerSegment], Never>?>(nil)
 
-    init(sampleRate: Int, chunkSeconds: Double = 60, perChunkTimeoutSec: TimeInterval = 120) {
+    init(sampleRate: Int, chunkSeconds: Double = 60, finishTimeoutSec: TimeInterval = 120) {
         self.sampleRate = sampleRate
         self.chunkSeconds = chunkSeconds
-        self.perChunkTimeoutSec = perChunkTimeoutSec
+        self.finishTimeoutSec = finishTimeoutSec
+        // `.unbounded`: audio yielded via add(_:) before the consumer catches up (notably during
+        // a first-run model download) accumulates rather than being dropped. We accept transient
+        // growth over `.bufferingNewest`, which would discard samples and degrade diarization.
         let (stream, continuation) = AsyncStream<[Float]>.makeStream(bufferingPolicy: .unbounded)
         self.stream = stream
         self.continuation = continuation
@@ -37,16 +43,21 @@ final class SystemDiarizationChunker: Sendable {
         let stream = self.stream
         let sampleRate = self.sampleRate
         let chunkSize = Int(chunkSeconds * Double(sampleRate))
-        let perChunkTimeoutSec = self.perChunkTimeoutSec
         let task = Task<[TimedSpeakerSegment], Never>(priority: .userInitiated) {
             await Self.consume(
                 stream: stream,
                 sampleRate: sampleRate,
-                chunkSize: chunkSize,
-                perChunkTimeoutSec: perChunkTimeoutSec
+                chunkSize: chunkSize
             )
         }
-        consumerTask.withLock { $0 = task }
+        // Guard against a double start() spawning a second consumer on the same (single-shot) stream.
+        consumerTask.withLock {
+            guard $0 == nil else {
+                task.cancel()
+                return
+            }
+            $0 = task
+        }
     }
 
     /// Feed system samples (called off the main thread from the audio path). Ordered, non-blocking.
@@ -70,8 +81,7 @@ final class SystemDiarizationChunker: Sendable {
     private static func consume(
         stream: AsyncStream<[Float]>,
         sampleRate: Int,
-        chunkSize: Int,
-        perChunkTimeoutSec: TimeInterval
+        chunkSize: Int
     ) async -> [TimedSpeakerSegment] {
         // Models: if unavailable, diarization is simply skipped (the mic "me" timeline still
         // merges downstream). Drain the stream so `add(_:)` never blocks its caller.
@@ -84,7 +94,7 @@ final class SystemDiarizationChunker: Sendable {
         // DiarizerManager is NOT Sendable — created and used only here, confined to this task.
         let diarizer = DiarizerManager(config: DiarizerConfig())
         diarizer.initialize(models: models)
-        Logger.log("Meeting", "[Chunker] Models ready; chunk=\(chunkSize) samples (~\(chunkSize / max(sampleRate, 1))s), timeoutBudget=\(Int(perChunkTimeoutSec))s")
+        Logger.log("Meeting", "[Chunker] Models ready; chunk=\(chunkSize) samples (~\(chunkSize / max(sampleRate, 1))s)")
 
         var pending: [Float] = []
         var processedSamples = 0
