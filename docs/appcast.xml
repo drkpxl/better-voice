@@ -3,6 +3,22 @@
     <channel>
         <title>BetterVoice</title>
         <item>
+            <title>0.9.2</title>
+            <pubDate>Wed, 01 Jul 2026 13:11:08 -0600</pubDate>
+            <sparkle:version>920</sparkle:version>
+            <sparkle:shortVersionString>0.9.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice-0.9.2.zip" length="4013247" type="application/octet-stream" sparkle:edSignature="9l+xm11CBWsX0h4dYIR/vsfGfUmq5DvhGFJpRpNTK8WzmTpmlcGqJKAmOyh14likN5E505KJU6WmbL/nQIKaAQ=="/>
+            <sparkle:deltas>
+                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice920-910.delta" sparkle:deltaFrom="910" length="453042" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="M2zu1ZkaNRlKek4JzzgHg4PNVYYFLqFowlJIzZnogqOhM6cJZmZZcZ2IlupC+xKvEZ8X0tkGOAQQwj1aRLhSBA=="/>
+                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice920-900.delta" sparkle:deltaFrom="900" length="449218" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="+xiet9MPc069wm4hyI4mgbCItbOEwqaMpKAAteAhMR7KLSn0l6B5t4F33lmWrpdcYQPbM7iDBmzab7Yi82U4BA=="/>
+                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice920-800.delta" sparkle:deltaFrom="800" length="467954" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="EEfUashb5g0uliclWfQ2qYOz5rn8WXRpKioEDDRvBiOabfSsBAO1VbIDAGfJCijidLtI6782myGuNjxnMdtyCQ=="/>
+                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice920-700.delta" sparkle:deltaFrom="700" length="586338" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="q75unfs6ix3vR3GxtmmWLaWmKNxX9oU3MLcYr14Egr6AQUsssR+conO7l+GruhhlrzXGN0bWu0+fS7lk3mxxDg=="/>
+                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice920-600.delta" sparkle:deltaFrom="600" length="680070" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="xNB6H/5iXM7/1jRJ5Ndsng1Zv6QS3ReSDIUxXqsWvzqXMGPydLRQSlO6gzE6YMk8mGpXdVoXR4I60afH2JM2DA=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>0.9.1</title>
             <pubDate>Wed, 01 Jul 2026 11:06:01 -0600</pubDate>
             <sparkle:version>910</sparkle:version>
@@ -29,19 +45,6 @@
                 <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice900-800.delta" sparkle:deltaFrom="800" length="382710" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="+fbYfAwJAtTkbgZ8ZAIg02qCw1hAg30IrwTDtKzMGgtvgMFGP1NNdKAecd5UeXMy2HokjO8Bwk4q9I1IhbpeBA=="/>
                 <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice900-700.delta" sparkle:deltaFrom="700" length="528050" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="McgQvRBEhiukgKXcDulhuGA89kzZrTKf/yYEl6IkmkSdDHyIzJO9wggzLWY/v/xux8KvfhCo8At/XZB2LwWODQ=="/>
                 <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice900-600.delta" sparkle:deltaFrom="600" length="638586" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="cAOTODhMNXTWtQDVn/0uPPo/IYPsrV1rupXhfXNWZs/n7mpCu57x6q5uEh3kZegxBzPvNcvoMWioQK8QGTPiBA=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
-            <title>0.8.0</title>
-            <pubDate>Wed, 01 Jul 2026 08:54:28 -0600</pubDate>
-            <sparkle:version>800</sparkle:version>
-            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice-0.8.0.zip" length="3994867" type="application/octet-stream" sparkle:edSignature="fxrlZRqG9HcZW3Bsp8jykbxO/FxjfSHfMv0NHUcdhTVU+j6IkHbff/11BglMPGPOnkB59sV9EEtMd3CGY9teCA=="/>
-            <sparkle:deltas>
-                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice800-700.delta" sparkle:deltaFrom="700" length="479958" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="sEV0k3S8+N2eeFlJazm2kUBjHxck9lDi+MqIDw4jLfqncKcMAEEiS2pVchAnQ/eSfq5c/Pib9go9x1kZ12DGDQ=="/>
-                <enclosure url="https://drkpxl.github.io/better-voice/downloads/BetterVoice800-600.delta" sparkle:deltaFrom="600" length="601626" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977712" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="zi3aFoNviS0rPOLnUEi8px9sW+mDFqyU5vv4Rx/GZxRZgCyvqpgtJooGravxZjB/W53P5UHmJg8lNtL/PpdcCQ=="/>
             </sparkle:deltas>
         </item>
     </channel>
