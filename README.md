@@ -25,7 +25,10 @@ Free, open source, no accounts, no telemetry.
 
 ## Features
 
-<!-- TODO(human): screenshot — menu bar + settings -->
+<p align="center">
+  <img src="docs/assets/menu.png" width="420" alt="Better Voice menu: permission status, Start Meeting Recording (Option+M), Settings">
+  <img src="docs/assets/settings.png" width="380" alt="Settings: model server endpoint, per-task model selection, summarization options">
+</p>
 
 ### 🎙️ Dictation
 - Global hotkey (default **Right Option**) → on-device transcription → optional LLM polish → text typed at your cursor in **any app**.
@@ -81,11 +84,9 @@ Granted during onboarding, or in **System Settings → Privacy & Security**:
 
 ## Usage
 
-<!-- TODO(human): GIF — dictation in action -->
-
 **Dictation** — Press **Right Option** to start, speak, press again to stop. The polished text is typed into the focused app.
 
-**Meeting** — Menu bar → **Start Meeting**. Watch the live transcript; your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the other participants' voices don't leak back into your microphone.
+**Meeting** — Press **Right Option+M** (or menu bar → **Start Meeting Recording**). Watch the live transcript; your own voice is labeled **"You"** and the other participants are separated automatically. When you stop, optionally rename the other speakers in the wrap-up window, and Better Voice writes the transcript + a type-aware summary to `~/.better-voice/meetings/`. Use headphones for the mic+system ("both") mode so the other participants' voices don't leak back into your microphone.
 
 ---
 
