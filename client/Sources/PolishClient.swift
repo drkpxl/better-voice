@@ -15,10 +15,14 @@ final class PolishClient {
         let config = RuntimeConfig.shared.polishConfig
         guard config["enabled"] as? Bool == true else { return nil }
 
-        let basePrompt = config["system_prompt"] as? String ?? Prompts.defaultPolish
-        let systemPrompt = PersonalContext.appended(to: basePrompt)
+        // Personal context is intentionally NOT injected into dictation polish. The block is large
+        // relative to a short dictation, and local models regurgitate it into the output despite the
+        // "never output this" instruction — leaking the user's context as dictated text. It remains a
+        // summarization-only signal (see SummarizationClient), where the input is long enough that the
+        // model uses it for disambiguation rather than echoing it.
+        let systemPrompt = config["system_prompt"] as? String ?? Prompts.defaultPolish
 
-        Logger.log("Polish", "server=\(ModelServer.shared.status.rawValue), app=\(app?.bundleID ?? "none"), personalContext=\(systemPrompt.count != basePrompt.count)")
+        Logger.log("Polish", "server=\(ModelServer.shared.status.rawValue), app=\(app?.bundleID ?? "none")")
 
         // Cleanup returns roughly input-length text, so size the output budget to the input.
         // Without this, the OpenAI-compatible path defaults to max_tokens=256 (ModelServer) and

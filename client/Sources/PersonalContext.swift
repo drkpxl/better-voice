@@ -7,7 +7,8 @@ import Foundation
 /// The content describes the user's semantic background -- common meeting participants,
 /// company, job title, recurring terms/topics, etc. At inference time it is appended
 /// after the system prompt to help the model disambiguate names, terms, and references
-/// during polishing (and future summarization).
+/// during meeting summarization. It is deliberately NOT used for dictation polish, where a
+/// short input caused local models to echo the whole block into the user's text.
 ///
 /// This replaces the earlier "fine-tune a small model" personalization approach:
 /// the context can be edited anytime, carries semantics (not just misspelling
@@ -34,8 +35,8 @@ enum PersonalContext {
     # Personal context
 
     This file gives the local AI background about you so it spells names, jargon,
-    and acronyms correctly when polishing dictation and summarizing meetings. It is
-    used only for disambiguation — it is never added to your text or summaries.
+    and acronyms correctly when summarizing meetings. It is used only for
+    disambiguation — it is never added to your summaries.
 
     Edit freely. Useful things to include:
     - Your name and how it's spelled.
