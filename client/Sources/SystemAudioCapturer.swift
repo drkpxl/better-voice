@@ -133,6 +133,32 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         }
         aggregateDeviceID = newAggID
 
+        // The tap advertises its nominal format (`kAudioTapPropertyFormat`, e.g. 48kHz), but the IO
+        // proc is clocked by the aggregate's main sub-device — the default OUTPUT device. When that's
+        // a Bluetooth headset in hands-free (SCO) mode (AirPods on a call), the real rate drops to
+        // ~24kHz, so the tap delivers half the samples per second. Wrapping those buffers with the
+        // tap's 48kHz format then "downsamples" data that was really 24kHz → captured system audio
+        // plays back 2× too fast, which wrecks transcription and diarization. Trust the aggregate
+        // device's actual input format instead.
+        let outRate = Self.defaultOutputDeviceSampleRate() ?? 0
+        let aggFormat = Self.readDeviceInputFormat(aggregateDeviceID)
+        // True delivery rate: prefer the aggregate's input stream format; fall back to the output
+        // device's nominal rate. Either differing from the tap's advertised rate signals the clock
+        // mismatch that time-compresses the capture.
+        let trueRate = (aggFormat?.sampleRate).flatMap { $0 > 1 ? $0 : nil }
+            ?? (outRate > 1 ? outRate : format.sampleRate)
+        if abs(trueRate - format.sampleRate) > 1,
+           let corrected = AVAudioFormat(
+               commonFormat: format.commonFormat,
+               sampleRate: trueRate,
+               channels: format.channelCount,
+               interleaved: format.isInterleaved) {
+            Logger.log("Meeting", "System tap rate mismatch: tap=\(format.sampleRate)Hz true=\(trueRate)Hz (agg=\(aggFormat?.sampleRate ?? 0) out=\(outRate)) — correcting")
+            tapFormat = corrected
+        } else {
+            Logger.log("Meeting", "System tap format: tap=\(format.sampleRate)Hz (agg=\(aggFormat?.sampleRate ?? 0) out=\(outRate), no correction)")
+        }
+
         // 4. Install the IO proc that receives tapped audio.
         let ioBlock: AudioDeviceIOBlock = { [weak self] _, inInputData, _, _, _ in
             self?.handleTapInput(inInputData)
@@ -311,6 +337,45 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         let status = AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, &asbd)
         guard status == noErr else { return nil }
         return AVAudioFormat(streamDescription: &asbd)
+    }
+
+    /// The aggregate device's actual input stream format (authoritative rate the IO proc delivers at,
+    /// which reflects the output-device clock — unlike the tap's advertised nominal format).
+    private static func readDeviceInputFormat(_ deviceID: AudioObjectID) -> AVAudioFormat? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamFormat,
+            mScope: kAudioObjectPropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var asbd = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &asbd)
+        guard status == noErr, asbd.mSampleRate > 0 else { return nil }
+        return AVAudioFormat(streamDescription: &asbd)
+    }
+
+    /// Default output device nominal sample rate (diagnostic only — logs the SCO/A2DP rate).
+    private static func defaultOutputDeviceSampleRate() -> Double? {
+        var deviceID = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
+        ) == noErr, deviceID != kAudioObjectUnknown else { return nil }
+
+        var rate = Double(0)
+        var rateSize = UInt32(MemoryLayout<Double>.size)
+        var rateAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(deviceID, &rateAddr, 0, nil, &rateSize, &rate)
+        return status == noErr && rate > 0 ? rate : nil
     }
 
     private static func defaultOutputDeviceUID() -> String? {

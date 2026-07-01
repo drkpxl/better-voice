@@ -12,7 +12,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     // meeting mode
     private var meetingSession: MeetingSession?
-    private let transcriptPanel = TranscriptPanelController()
     private var isMeetingActive: Bool { meetingSession?.isRunning ?? false }
     /// True from when the meeting stops until the wrap-up flow (classification/naming panel/export/summary) finishes; starting a new meeting is blocked during that window.
     private var isFinishingMeeting = false
@@ -211,42 +210,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let session = MeetingSession()
         self.meetingSession = session
 
-        // live transcription callback -> update panel
-        var wordCount = 0
-        session.onTranscriptUpdate = { [weak self] text, isFinal in
-            guard let self else { return }
-            if isFinal {
-                wordCount += text.count
-                let segment = MeetingSegment(
-                    text: text,
-                    rawText: text,
-                    startTime: self.meetingSession?.duration ?? 0,
-                    endTime: self.meetingSession?.duration ?? 0,
-                    speakerId: nil,
-                    l2Kind: .skipped,
-                    isFinal: true
-                )
-                self.transcriptPanel.appendSegment(segment)
-                self.transcriptPanel.updateStatus(
-                    duration: self.meetingSession?.duration ?? 0,
-                    wordCount: wordCount
-                )
-            }
-        }
-
-        session.onDurationUpdate = { [weak self] duration in
-            guard let self else { return }
-            self.transcriptPanel.updateStatus(
-                duration: duration,
-                wordCount: wordCount
-            )
-        }
-
-        // show the transcript panel
-        transcriptPanel.clear()
-        transcriptPanel.setRecording(true)
-        transcriptPanel.show()
-
         Task {
             do {
                 try await session.start()
@@ -256,22 +219,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             } catch {
                 Logger.log("StatusBar", "Meeting start failed: \(error)")
                 self.meetingSession = nil
-                self.transcriptPanel.hide()
             }
         }
     }
 
     private func stopMeeting() {
         guard let session = meetingSession else { return }
-        transcriptPanel.setRecording(false)
 
         Task {
             let result = await session.stop()
             self.meetingSession = nil
 
-            // update the panel to show the final result (with speaker labels)
             if !result.segments.isEmpty {
-                self.transcriptPanel.updateTranscript(segments: result.segments)
                 // Durability: write the transcript to disk the instant recording stops, before the
                 // (blocking) wrap-up naming panel. finishMeeting re-exports over the same file with
                 // names applied. If the app dies while the panel is open, the transcript survives.
@@ -327,7 +286,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         // 3. apply names, export transcript.
         let named = applySpeakerNames(outcome.names, to: result.segments)
-        self.transcriptPanel.updateTranscript(segments: named)
         let folder = MeetingExporter.configuredFolder()
         let transcriptURL = MeetingExporter.exportMarkdown(
             segments: named,
@@ -344,7 +302,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         var summaryProduced = false
         if client.summarizationEnabled {
             let namedTranscript = buildSummarizationTranscript(segments: named, speakerPrefix: prefix, localLabel: t("You"))
-            if let summary = await client.summarize(transcript: namedTranscript, type: outcome.type) {
+            let summary = await client.summarize(transcript: namedTranscript, type: outcome.type)
+            // An empty/whitespace result is a failure, not a summary: local models sometimes return ""
+            // (reasoning ate the num_predict budget, or the transcript was garbled). Never write a blank
+            // file or mark it produced — that would also green-light auto-deleting the audio (step 5).
+            if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 summaryProduced = true
                 let base = transcriptURL?.deletingPathExtension().lastPathComponent
                     ?? MeetingExporter.baseName(for: result.date)

@@ -48,6 +48,10 @@ config.json
 *.key
 __pycache__/
 
+# Local benchmark fixtures + media (kept out of git — large/private meeting audio)
+client/.fixtures/
+videoplayback.mp4
+
 # Playwright temp + local test artifacts
 .playwright-mcp/
 meeting-temp.wav
