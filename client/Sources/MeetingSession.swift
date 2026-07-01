@@ -26,7 +26,6 @@ final class MeetingSession {
     private var captureSession: AVCaptureSession?
     private var captureDelegate: MeetingCaptureDelegate?
     private var systemAudioCapturer: SystemAudioCapturer?
-    private var audioMixer: AudioMixer?
 
     // MARK: - SpeechAnalyzer Transcription
 
@@ -65,6 +64,13 @@ final class MeetingSession {
     /// per mode: the main file in `system` mode, the `.system.wav` sibling in `both` mode; nil in
     /// `mic` mode (no system audio).
     private var systemAudioFileURL: URL?
+
+    /// `both` mode only: the `.mic.wav` sibling, transcribed OFFLINE at stop() and labeled "me".
+    /// In `both` mode the mic is captured to WAV but NOT fed the live analyzer (which transcribes
+    /// only the system channel), so the local user's speech is never lost to overlap with meeting
+    /// audio. nil outside `both` mode.
+    private var micAudioFileURL: URL?
+    private var bothMode = false
 
     /// Deterministic speaker id for the local user, derived from the mic channel via VAD
     /// (not FluidAudio clustering). Single source of truth lives in Core (`SpeakerIds.local`);
@@ -415,20 +421,17 @@ final class MeetingSession {
         // Diarization mode: offline (post-hoc VBx over the system WAV) by default; the live chunker
         // is used only when explicitly disabled. Record the system WAV path for the offline pass.
         useOfflineDiarization = (RuntimeConfig.shared.meetingDiarizationConfig["offline"] as? Bool) ?? true
+        micAudioFileURL = nil
+        bothMode = false
         switch audioSource {
         case "system": systemAudioFileURL = url
-        case "both":   systemAudioFileURL = url.deletingPathExtension().appendingPathExtension("system.wav")
+        case "both":
+            systemAudioFileURL = url.deletingPathExtension().appendingPathExtension("system.wav")
+            micAudioFileURL = url.deletingPathExtension().appendingPathExtension("mic.wav")
+            bothMode = true
         default:       systemAudioFileURL = nil
         }
         Logger.log("Meeting", "Diarization: \(useOfflineDiarization ? "offline (VBx)" : "online (chunker)")")
-
-        // Diarization target format (shared by the mixer / capturer)
-        let diarizationFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: Double(diarizationSampleRate),
-            channels: 1,
-            interleaved: false
-        )!
 
         // System diarization runs incrementally in a background chunker (bounded memory).
         // Create + start it only when system audio is present AND we're in online mode; the offline
@@ -448,16 +451,18 @@ final class MeetingSession {
             self.systemDiarizationChunker = chunker
         }
 
-        // Mic VAD also runs incrementally in a chunker (bounded memory). Create it only when mic
-        // audio is present; system-only mode skips it (no "me" timeline).
-        if audioSource == "mic" || audioSource == "both" {
+        // Mic VAD runs incrementally in a chunker (bounded memory) to label the local user's turns
+        // — but ONLY in `mic` mode, where the mic feeds the live analyzer. In `both` mode the mic is
+        // transcribed offline at stop() and labeled "me" directly (channel = speaker), so a mic VAD
+        // timeline here would be dead at best and, worse, could steal an overlapping REMOTE phrase
+        // onto "me" during barge-in. system-only mode has no mic.
+        if audioSource == "mic" {
             self.micVadChunker = MicVoiceActivityChunker(sampleRate: diarizationSampleRate)
         }
 
-        // Per-channel diarization append closures. In mic/system modes these run on the
-        // capture queue (off-main); in both mode they run from the mixer's 100ms MainActor
-        // drain. Both incremental chunkers are Sendable-safe off-main (mic: NSLock-guarded VAD;
-        // system: ordered, non-blocking stream yield).
+        // Per-channel diarization append closures, run off-main on the capture queues. Both
+        // incremental chunkers are Sendable-safe off-main (mic: NSLock-guarded VAD; system:
+        // ordered, non-blocking stream yield). In `both` mode micChunker is nil → appendMic no-ops.
         let micChunker = self.micVadChunker
         let appendMic: @Sendable ([Float]) -> Void = { samples in
             micChunker?.add(samples)
@@ -480,25 +485,19 @@ final class MeetingSession {
             self.systemAudioCapturer = cap
 
         case "both":
-            // B4: mic + system captured in parallel → AudioMixer sample-level mixing → SA
-            // Echo guard: `both` assumes headphones. With open speakers the remote voice leaks into
-            // the mic and is double-counted. Full acoustic echo cancellation is out of scope; per-channel
-            // diarization (Phase 1) already prevents the *attribution* error (remote speech stays off "me").
-            let mixer = AudioMixer(
-                analyzerFormat: analyzerFormat,
-                diarizationFormat: diarizationFormat,
-                inputBuilder: inputBuilder
-            )
-            // Per-channel (pre-mix) samples feed the two diarization buffers.
-            mixer.onMicSamples = appendMic
-            mixer.onSysSamples = appendSys
-            mixer.start()
-            self.audioMixer = mixer
-
+            // Per-channel (no mixing). The two sources are physically separate — the system tap
+            // never contains the mic, and the mic never contains system output — so mixing them
+            // (the old AudioMixer) only CREATED overlap that made the single transcriber drop the
+            // quieter side (usually the local user). Instead:
+            //   • system → the LIVE analyzer (remote transcript) + system diarization,
+            //   • mic → captured to WAV only, then transcribed OFFLINE at stop() and labeled "me".
+            // The two transcripts are merged by timestamp in stop(). `both` still assumes headphones;
+            // with open speakers the remote voice leaks into the mic, but that is a fidelity issue,
+            // not the dropped-speech bug this fixes.
             guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
                 throw VoiceError.noAudioDevice
             }
-            Logger.log("Meeting", "[both] Mic device: \(audioDevice.localizedName)")
+            Logger.log("Meeting", "[both] Mic device: \(audioDevice.localizedName) (captured to WAV, transcribed offline at stop)")
 
             let micFileURL = url.deletingPathExtension().appendingPathExtension("mic.wav")
             let session = AVCaptureSession()
@@ -513,8 +512,8 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: micFileURL,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: appendMic,  // unused while mixer present (feeds mixer.feedMic)
-                mixer: mixer,
+                onDiarizationSamples: appendMic,
+                captureOnly: true,  // mic → WAV + mic-VAD only; NOT the live analyzer (system owns it)
                 onAudioLevel: { [weak self] level in
                     DispatchQueue.main.async { self?.onAudioLevel?(level) }
                 }
@@ -533,8 +532,7 @@ final class MeetingSession {
                 analyzerFormat: analyzerFormat,
                 audioFileURL: sysFileURL,
                 diarizationSampleRate: diarizationSampleRate,
-                onDiarizationSamples: appendSys,  // unused while mixer present (feeds mixer.feedSystem)
-                mixer: mixer
+                onDiarizationSamples: appendSys  // no mixer → feeds the live analyzer + system diarization
             )
             try await sysCap.start()
             self.systemAudioCapturer = sysCap
@@ -611,10 +609,6 @@ final class MeetingSession {
             await cap.stop()
             systemAudioCapturer = nil
         }
-        if let mixer = audioMixer {
-            await mixer.stop()
-            audioMixer = nil
-        }
 
         // Tell SpeechAnalyzer the audio has ended
         inputBuilder?.finish()
@@ -645,12 +639,24 @@ final class MeetingSession {
 
         Logger.log("Meeting", "Transcription complete: \(polishedSegments.count) L2 segments")
 
-        // Run speaker diarization (system channel finishes + flushes inside performDiarization)
-        let diarizedSegments = await performDiarization()
+        // Run speaker diarization (system channel finishes + flushes inside performDiarization).
+        // In `both` mode the live analyzer transcribed only the system channel, so these are the
+        // remote speakers.
+        let systemSegments = await performDiarization()
+
+        // `both` mode: transcribe the mic channel offline (labeled "me") and merge by timestamp.
+        // The two channels are physically separate, so this is what recovers the local user's
+        // speech that the old mixed transcriber dropped when they talked over the meeting.
+        var finalSegments = systemSegments
+        if bothMode, let micURL = micAudioFileURL {
+            let micSegments = await transcribeMicOffline(url: micURL)
+            finalSegments = (systemSegments + micSegments).sorted { $0.startTime < $1.startTime }
+            Logger.log("Meeting", "Merged per-channel transcript: system=\(systemSegments.count) mic(me)=\(micSegments.count) → \(finalSegments.count) segments")
+        }
 
         // Build the result
         let result = MeetingResult(
-            segments: diarizedSegments,
+            segments: finalSegments,
             duration: finalDuration,
             audioPath: audioFileURL?.path
         )
@@ -667,7 +673,7 @@ final class MeetingSession {
             systemDiarizationChunker = nil
         }
 
-        Logger.log("Meeting", "Session stopped, duration=\(String(format: "%.1f", finalDuration))s, segments=\(diarizedSegments.count)")
+        Logger.log("Meeting", "Session stopped, duration=\(String(format: "%.1f", finalDuration))s, segments=\(finalSegments.count)")
         return result
     }
 
@@ -735,8 +741,7 @@ final class MeetingSession {
             SpeakerInterval(
                 speakerId: Self.localSpeakerId,
                 start: $0.start,
-                end: $0.end,
-                source: .mic
+                end: $0.end
             )
         })
         let micIntervalCount = micIntervals.count
@@ -826,9 +831,85 @@ final class MeetingSession {
                 start: TimeInterval(d.startTimeSeconds),
                 end: TimeInterval(d.endTimeSeconds),
                 embedding: d.embedding,
-                quality: d.qualityScore,
-                source: .system
+                quality: d.qualityScore
             )
+        }
+    }
+
+    /// `both` mode: transcribe the captured mic WAV OFFLINE (sequentially, after the live system
+    /// analyzer has been torn down — no concurrent analyzers) and turn it into "me" segments. The
+    /// mic channel is the local user by definition (channel = speaker), so no diarization is needed:
+    /// every phrase is labeled `localSpeakerId`. Grouped into turns and L2-polished like the system
+    /// path. Returns [] on any failure (missing WAV, model unavailable) — the meeting still keeps
+    /// the system transcript.
+    private func transcribeMicOffline(url: URL) async -> [MeetingSegment] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            Logger.log("Meeting", "[both] mic WAV missing at \(url.lastPathComponent); no local-user transcript")
+            return []
+        }
+        guard let bestLocale = await findChineseLocale() else { return [] }
+        do {
+            let transcriber = SpeechTranscriber(
+                locale: bestLocale,
+                transcriptionOptions: [],
+                reportingOptions: [.volatileResults],
+                attributeOptions: [.audioTimeRange]
+            )
+            try await ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
+            let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
+            let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
+            await injectContextualStrings(analyzer: analyzer)
+
+            // Collect the final phrases (the collector Task inherits this @MainActor context, so
+            // `extractTimeRange` is safe; it returns its own array, no shared scratch state).
+            let collector = Task { () -> [(span: PhraseSpan, text: String)] in
+                var acc: [(span: PhraseSpan, text: String)] = []
+                do {
+                    for try await result in transcriber.results {
+                        guard result.isFinal else { continue }
+                        let tr = self.extractTimeRange(from: result.text)
+                        acc.append((PhraseSpan(start: tr.start, end: tr.start + tr.duration),
+                                    String(result.text.characters)))
+                    }
+                } catch {
+                    Logger.log("Meeting", "[both] mic offline result stream error: \(error)")
+                }
+                return acc
+            }
+
+            let inputFile = try AVAudioFile(forReading: url)
+            try await analyzer.start(inputAudioFile: inputFile, finishAfterFile: true)
+            let phrases = await collector.value
+            guard !phrases.isEmpty else {
+                Logger.log("Meeting", "[both] mic offline transcript empty (no local speech)")
+                return []
+            }
+
+            // Channel = speaker: one interval spanning the whole mic track pins every phrase to "me".
+            let meInterval = SpeakerInterval(
+                speakerId: Self.localSpeakerId,
+                start: 0,
+                end: (phrases.last?.span.end ?? 0) + 1
+            )
+            let turns = groupIntoTurns(phrases: phrases, intervals: [meInterval])
+            var segs: [MeetingSegment] = []
+            for turn in turns {
+                let polished = await polishTurnText(turn.text)
+                segs.append(MeetingSegment(
+                    text: polished.text,
+                    rawText: turn.text,
+                    startTime: turn.start,
+                    endTime: turn.end,
+                    speakerId: Self.localSpeakerId,
+                    l2Kind: polished.kind,
+                    isFinal: true
+                ))
+            }
+            Logger.log("Meeting", "[both] mic offline transcript: \(phrases.count) phrases → \(segs.count) me-turns")
+            return segs
+        } catch {
+            Logger.log("Meeting", "[both] mic offline transcription failed: \(error)")
+            return []
         }
     }
 
@@ -844,24 +925,6 @@ final class MeetingSession {
     ) async -> [MeetingSegment] {
         // Assign + group phrases into speaker turns in pure Core (tested seam).
         let phrases = entries.map { (span: PhraseSpan(start: $0.startTime, end: $0.endTime), text: $0.text) }
-
-        // [DIAG mic=Unknown] Compare the phrase timeline (SpeechAnalyzer / mixed-stream time) against
-        // the diarization interval timeline (per-channel time). If the phrase span is materially
-        // shorter/shifted vs the interval spans, the mixed stream was compressed by AudioMixer drift
-        // drops → phrases miss their speaker intervals → "Unknown". Also shows per-speaker interval spread.
-        if let pf = phrases.first?.span, let pl = phrases.last?.span {
-            var byS: [String: (lo: Double, hi: Double, n: Int)] = [:]
-            for iv in intervals {
-                var e = byS[iv.speakerId] ?? (lo: iv.start, hi: iv.end, n: 0)
-                e.lo = min(e.lo, iv.start); e.hi = max(e.hi, iv.end); e.n += 1
-                byS[iv.speakerId] = e
-            }
-            let ivStr = byS.sorted { $0.key < $1.key }
-                .map { "\($0.key)=[\(String(format: "%.1f", $0.value.lo))-\(String(format: "%.1f", $0.value.hi))]×\($0.value.n)" }
-                .joined(separator: " ")
-            Logger.log("Meeting", "[DIAG align] phrases=\(phrases.count) span=[\(String(format: "%.1f", pf.start))-\(String(format: "%.1f", pl.end))]s | intervals: \(ivStr)")
-        }
-
         let turns = groupIntoTurns(phrases: phrases, intervals: intervals)
 
         // Polish each turn → one MeetingSegment per speaker turn.
@@ -1155,7 +1218,9 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
     private let audioFileURL: URL
     private let diarizationSampleRate: Int
     private let onDiarizationSamples: ([Float]) -> Void
-    private let mixer: AudioMixer?
+    /// When true, this delegate captures to WAV + feeds diarization but does NOT feed the live
+    /// SpeechAnalyzer (used for the mic channel in `both` mode, which is transcribed offline at stop).
+    private let captureOnly: Bool
     private let onAudioLevel: (@Sendable (Float) -> Void)?
 
     // Format converters
@@ -1183,7 +1248,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         audioFileURL: URL,
         diarizationSampleRate: Int,
         onDiarizationSamples: @escaping ([Float]) -> Void,
-        mixer: AudioMixer? = nil,
+        captureOnly: Bool = false,
         onAudioLevel: (@Sendable (Float) -> Void)? = nil
     ) {
         self.inputBuilder = inputBuilder
@@ -1191,7 +1256,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
         self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
         self.diarizationSampleRate = diarizationSampleRate
         self.onDiarizationSamples = onDiarizationSamples
-        self.mixer = mixer
+        self.captureOnly = captureOnly
         self.onAudioLevel = onAudioLevel
         super.init()
     }
@@ -1233,13 +1298,13 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             analyzerBuffer = pcmBuffer
         }
 
-        // Feed SpeechAnalyzer (in B4 mixing mode the mixer yields uniformly; this delegate doesn't feed directly)
-        if mixer == nil {
+        // Feed SpeechAnalyzer — unless capture-only (the `both`-mode mic, transcribed offline at stop).
+        if !captureOnly {
             let input = AnalyzerInput(buffer: analyzerBuffer)
             inputBuilder.yield(input)
         }
 
-        // Write the WAV file (raw mic stream, kept even in mixing mode for later analysis)
+        // Write the WAV file (raw stream; in `both` mode the mic WAV is the offline transcription source)
         wavWriter.write(buffer: analyzerBuffer)
 
         // Mic level for the recording indicator HUD (same Int16 RMS path as dictation's VoiceSession).
@@ -1249,7 +1314,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             onAudioLevel(WaveformMath.rms(int16: samples))
         }
 
-        // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
+        // --- Branch 2: 16kHz Float32 mono samples → diarization / mic-VAD ---
         if let diaFmt = diarizationFormat {
             let diaBuffer: AVAudioPCMBuffer
             if pcmBuffer.format.sampleRate != diaFmt.sampleRate
@@ -1272,11 +1337,7 @@ final class MeetingCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBuff
             if let floatData = diaBuffer.floatChannelData {
                 let frameCount = Int(diaBuffer.frameLength)
                 let samples = Array(UnsafeBufferPointer(start: floatData[0], count: frameCount))
-                if let mixer {
-                    mixer.feedMic(samples)
-                } else {
-                    onDiarizationSamples(samples)
-                }
+                onDiarizationSamples(samples)
             }
         }
     }

@@ -6,8 +6,8 @@ import BetterVoiceCore
 /// thread via add(); finish() returns the merged global speech intervals at stop().
 ///
 /// Concurrency model: `@unchecked Sendable` with ALL mutable state (`pending`, `processedSamples`,
-/// `accumulatedIntervals`) guarded by a single private `NSLock`. This matches AudioMixer's
-/// established pattern for lock-guarded audio state and stays strict-concurrency-clean. VAD
+/// `accumulatedIntervals`) guarded by a single private `NSLock` — a standard lock-guarded
+/// audio-state pattern that stays strict-concurrency-clean. VAD
 /// (`detectSpeechIntervals`) is a pure, model-free function that runs in ~microseconds for 60s of
 /// audio, so running it under the lock in `add(_:)` is fine.
 ///

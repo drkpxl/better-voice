@@ -18,7 +18,8 @@ import Speech
 ///
 /// Notes:
 /// - The tap excludes the current process so Better Voice's own output isn't recorded.
-/// - Current version does not mix with the mic (handled separately in B4 via AudioMixer).
+/// - In `both` mode this is the system/remote channel: it feeds the live analyzer + system
+///   diarization; the mic is a separate channel transcribed offline at stop (no mixing).
 final class SystemAudioCapturer: NSObject, @unchecked Sendable {
 
     enum CaptureError: Error {
@@ -34,7 +35,6 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     private let audioFileURL: URL
     private let diarizationSampleRate: Int
     private let onDiarizationSamples: @Sendable ([Float]) -> Void
-    private let mixer: AudioMixer?
 
     // Format conversion
     private var analyzerConverter: AVAudioConverter?
@@ -67,15 +67,13 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
         analyzerFormat: AVAudioFormat?,
         audioFileURL: URL,
         diarizationSampleRate: Int,
-        onDiarizationSamples: @escaping @Sendable ([Float]) -> Void,
-        mixer: AudioMixer? = nil
+        onDiarizationSamples: @escaping @Sendable ([Float]) -> Void
     ) {
         self.inputBuilder = inputBuilder
         self.analyzerFormat = analyzerFormat
         self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
         self.diarizationSampleRate = diarizationSampleRate
         self.onDiarizationSamples = onDiarizationSamples
-        self.mixer = mixer
         super.init()
     }
 
@@ -252,16 +250,14 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
             analyzerBuffer = pcmBuffer
         }
 
-        // Feed SpeechAnalyzer (in B4 mixing mode, the mixer yields uniformly instead)
-        if mixer == nil {
-            let input = AnalyzerInput(buffer: analyzerBuffer)
-            inputBuilder.yield(input)
-        }
+        // Feed SpeechAnalyzer (system channel → live transcript in both/system modes).
+        let input = AnalyzerInput(buffer: analyzerBuffer)
+        inputBuilder.yield(input)
 
-        // Write WAV (raw system stream, kept even in mixing mode)
+        // Write WAV (raw system stream)
         wavWriter.write(buffer: analyzerBuffer)
 
-        // --- Branch 2: 16kHz Float32 mono samples → mixer or diarization ---
+        // --- Branch 2: 16kHz Float32 mono samples → system diarization ---
         if let diaFmt = diarizationFormat {
             let diaBuffer: AVAudioPCMBuffer
             if pcmBuffer.format.sampleRate != diaFmt.sampleRate
@@ -283,11 +279,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
             if let floatData = diaBuffer.floatChannelData {
                 let frameCount = Int(diaBuffer.frameLength)
                 let samples = Array(UnsafeBufferPointer(start: floatData[0], count: frameCount))
-                if let mixer {
-                    mixer.feedSystem(samples)
-                } else {
-                    onDiarizationSamples(samples)
-                }
+                onDiarizationSamples(samples)
             }
         }
     }

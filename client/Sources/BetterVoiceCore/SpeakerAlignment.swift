@@ -14,16 +14,12 @@ public struct SpeakerInterval: Sendable, Equatable {
     public let end: TimeInterval
     public let embedding: [Float]?      // retained for a later fingerprinting task
     public let quality: Float?          // FluidAudio TimedSpeakerSegment.qualityScore
-    public let source: SpeakerSource
     public init(speakerId: String, start: TimeInterval, end: TimeInterval,
-                embedding: [Float]? = nil, quality: Float? = nil, source: SpeakerSource = .system) {
+                embedding: [Float]? = nil, quality: Float? = nil) {
         self.speakerId = speakerId; self.start = start; self.end = end
-        self.embedding = embedding; self.quality = quality; self.source = source
+        self.embedding = embedding; self.quality = quality
     }
 }
-
-/// Which capture stream a speaker interval came from.
-public enum SpeakerSource: Sendable, Equatable { case mic, system }
 
 /// A transcribed phrase's time span (the thing we want to attribute to a speaker).
 public struct PhraseSpan: Sendable, Equatable {
@@ -141,9 +137,9 @@ public func assignSpeaker(to phrase: PhraseSpan,
         }
     }
 
-    // No interval overlaps. Recover from *small* timeline skew — e.g. AudioMixer drift can compress
-    // the transcription (mixed-stream) timeline relative to the per-channel diarization timeline,
-    // leaving a mic phrase just outside its speaker's interval → it would otherwise be "Unknown".
+    // No interval overlaps. Recover from *small* timeline skew — the transcription and diarization
+    // timelines can drift slightly relative to each other, leaving a phrase just outside its
+    // speaker's interval → it would otherwise be "Unknown".
     // Snap to the nearest interval only when it's within `nearestSnapSec`; beyond that, stay
     // unattributed rather than guess (confidence stays 0 to mark it as a snap, not a real overlap).
     guard !totalOverlapBySpeaker.isEmpty else {
