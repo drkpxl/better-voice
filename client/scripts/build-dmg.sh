@@ -63,6 +63,20 @@ cp "$INFO_PLIST" "$APP_CONTENTS/Info.plist"
 # LSUIElement app -> shows in Finder / Get Info / System Settings, not the Dock.
 mkdir -p "$APP_CONTENTS/Resources"
 cp icon/AppIcon.icns "$APP_CONTENTS/Resources/AppIcon.icns"
+# SwiftPM resource bundle (Bundle.module). The BetterVoice target declares
+# resources: [.process("Resources")], so `swift build` emits BetterVoice_BetterVoice.bundle
+# next to the binary. SPM does NOT embed it into the .app — without it the app fatal-errors on
+# launch ("could not load resource bundle") and dies before showing its menu-bar item. Copy it
+# into Contents/Resources so Bundle.main.resourceURL resolves it. MUST precede codesign so the
+# outer signature seals it.
+RESOURCE_BUNDLE="$BUILD_DIR/release/BetterVoice_BetterVoice.bundle"
+if [ ! -d "$RESOURCE_BUNDLE" ]; then
+    echo "ERROR: SwiftPM resource bundle not found at $RESOURCE_BUNDLE"
+    echo "       (expected from 'swift build -c release'; confirm the target still declares"
+    echo "        resources: [.process(\"Resources\")] in Package.swift)"
+    exit 1
+fi
+cp -R "$RESOURCE_BUNDLE" "$APP_CONTENTS/Resources/"
 # PkgInfo: macOS LaunchServices uses it to identify the bundle type (type=APPL/creator=????).
 # Without this file LaunchServices may not register the bundle id, so TCC can't find the
 # app and permission prompts (mic / speech recognition) never appear.

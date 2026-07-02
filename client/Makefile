@@ -23,9 +23,13 @@ build:
 # 构建已签名的 app bundle（内嵌 Sparkle.framework）——run/install 共用，与 build-dmg.sh 保持一致。
 # SPM 只产出 Sparkle.framework，不会自动嵌入 .app，需手动拷贝 + 加 rpath + 签名（rpath 必须在签名前改）。
 bundle: build
-	@mkdir -p $(APP_MACOS) $(APP_FRAMEWORKS)
+	@mkdir -p $(APP_MACOS) $(APP_FRAMEWORKS) $(APP_CONTENTS)/Resources
 	@cp $(BIN_PATH)/BetterVoice $(APP_MACOS)/BetterVoice
 	@cp Sources/Info.plist $(APP_CONTENTS)/Info.plist
+	@# SPM resource bundle (Bundle.module). Target declares resources: [.process("Resources")],
+	@# so swift build emits it next to the binary but does NOT embed it into the .app. Without it
+	@# the app fatal-errors on launch ("could not load resource bundle"). Must precede codesign.
+	@cp -R $(BIN_PATH)/BetterVoice_BetterVoice.bundle $(APP_CONTENTS)/Resources/
 	@rm -rf $(APP_FRAMEWORKS)/Sparkle.framework
 	@cp -R $(BIN_PATH)/Sparkle.framework $(APP_FRAMEWORKS)/Sparkle.framework
 	@otool -l $(APP_MACOS)/BetterVoice | grep -q "@executable_path/../Frameworks" \
