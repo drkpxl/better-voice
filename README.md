@@ -1,5 +1,10 @@
 # Better Voice
 
+[![CI](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml/badge.svg)](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Platform: macOS 26+](https://img.shields.io/badge/macOS-26%2B-black?logo=apple&logoColor=white)
+![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-black?logo=apple&logoColor=white)
+
 A macOS menu-bar app with two halves: on-device dictation, and meeting notes that land in Apple Notes. Everything — transcription, speaker recognition, summarization — is processed locally on your Mac; your audio never leaves the machine.
 
 > **Official builds are notarized.** The `.dmg` from [voice.baselinemakes.com](https://voice.baselinemakes.com/#download) is signed with a Developer ID and notarized by Apple, so it installs by drag-and-drop with no Gatekeeper workaround. In-app updates via Sparkle. Builds you compile yourself are **not** notarized — see [Building from source](#building-from-source).
