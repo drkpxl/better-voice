@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Hardened Runtime is required for notarization. BetterVoice2 is NOT sandboxed,
+	     so it needs only the entitlements below: under hardened runtime the matching
+	     Info.plist usage-description strings alone are not enough — without these
+	     entitlements the OS denies access outright and no permission prompt appears.
+	       - com.apple.security.device.audio-input: microphone access for dictation.
+	       - com.apple.security.automation.apple-events: send Apple events (AppleScript via
+	         osascript) to Apple Notes to save transcripts/summaries.
+
+	     Deliberately NOT included (add only if a runtime failure proves it's needed):
+	       - com.apple.security.cs.disable-library-validation: not needed — Sparkle.framework
+	         and all embedded code are signed by the same Developer ID team.
+	       - com.apple.security.cs.allow-jit / allow-unsigned-executable-memory: not needed —
+	         FluidAudio runs via CoreML/ANE and FoundationModels is a system framework; no
+	         in-process JIT. (Ollama, if used, is a separate out-of-process HTTP server.)
+	     Input Monitoring / Accessibility / Automation are TCC permissions, not entitlements
+	     (except Automation additionally requires the apple-events entitlement above under
+	     hardened runtime). -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

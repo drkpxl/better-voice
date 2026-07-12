@@ -1,0 +1,14 @@
+// Cloudflare Worker serving the Better Voice marketing site, Sparkle appcast, and downloads
+// as static assets at voice.baselinemakes.com. docs/ is the SvelteKit build output (source:
+// site/ — never edit docs/ by hand); release.sh rebuilds it and runs `npx wrangler deploy`.
+{
+  "name": "better-voice-site",
+  "compatibility_date": "2026-07-11",
+  "routes": [
+    { "pattern": "voice.baselinemakes.com", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./docs",
+    "not_found_handling": "404-page"
+  }
+}

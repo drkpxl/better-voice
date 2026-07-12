@@ -1,0 +1,68 @@
+========================================
+  Better Voice — Install
+========================================
+
+On-device dictation and meeting notes for macOS. Everything is processed
+locally on your Mac; audio never leaves the machine unless you point
+summarization at a server you choose.
+
+Requirements: macOS 26 or later, Apple silicon.
+(Apple Intelligence recommended for the zero-setup default provider.)
+
+----------------------------------------
+  Install
+----------------------------------------
+
+1. Drag "BetterVoice2.app" onto the Applications folder in this window.
+
+2. Open it from /Applications (double-click, or right-click -> Open).
+   This build is notarized by Apple, so it launches normally -- no Terminal
+   commands required.
+
+----------------------------------------
+  First launch
+----------------------------------------
+
+A short setup guides you through:
+
+- Choosing a workspace folder. Your transcripts, summaries, and speaker data
+  are saved here as plain files you can see, back up, and move.
+
+- Granting permissions. Better Voice will ask for these as needed:
+    - Microphone          -- to record and transcribe your voice.
+    - Input Monitoring    -- so the dictation hotkey works in any app.
+    - Accessibility       -- to insert transcribed text at your cursor.
+  Grant them in System Settings -> Privacy & Security, then quit and reopen
+  Better Voice once so macOS applies them.
+
+----------------------------------------
+  Using it
+----------------------------------------
+
+Dictation (menu bar icon):
+  Hold your hotkey, speak, release. The text is cleaned up and inserted at
+  your cursor in whatever app you're in. Set or change the hotkey from the
+  menu bar icon -> "Set Hotkey...".
+
+Meeting notes (main window):
+  Drag in an .m4a/.mp3/.wav recording -- or paste an existing transcript --
+  and the wizard transcribes it, separates and names the speakers, writes a
+  Markdown summary, and saves it to a searchable library you can edit and
+  copy from.
+
+Models:
+  Dictation cleanup and meeting summarization are configured independently.
+  Each can use Apple on-device (default), a local Ollama server, or any
+  OpenAI-compatible endpoint (LM Studio, llama.cpp, Jan, etc.). Configure
+  under Settings.
+
+Updates:
+  Menu bar icon -> "Check for Updates..." (Better Voice can also check
+  automatically and notify you when a new version is available).
+
+----------------------------------------
+  Help
+----------------------------------------
+
+Log file: ~/Library/Logs/BetterVoice2/debug.log
+Issues:   https://github.com/drkpxl/better-voice/issues

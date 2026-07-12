@@ -1,0 +1,203 @@
+/* Development language (English). Keys are the English source text.
+   To add a language, copy this folder to <lang>.lproj and translate the values. */
+
+/* --- Status bar menu --- */
+"Better Voice" = "Better Voice";
+"Check server connection" = "Check server connection";
+"Global hotkey monitoring" = "Global hotkey monitoring";
+"Text injection (cursor)" = "Text injection (cursor)";
+"Microphone" = "Microphone";
+"Screen Recording (meeting system audio)" = "Screen Recording (meeting system audio)";
+"Stop Meeting" = "Stop Meeting";
+"Start Meeting Recording" = "Start Meeting Recording";
+"Edit Config File..." = "Edit Config File...";
+"Open Data Folder..." = "Open Data Folder...";
+"View Logs..." = "View Logs...";
+"Quit" = "Quit";
+"not configured" = "not configured";
+"Authorized" = "Authorized";
+"Not authorized — click to open Settings" = "Not authorized — click to open Settings";
+
+/* --- Menu format strings (%@ filled in code) --- */
+"%@: %@" = "%@: %@";
+"Model: %@" = "Model: %@";
+"Server: connected (%@)" = "Server: connected (%@)";
+"Server: disconnected (%@)" = "Server: disconnected (%@)";
+"Server: checking..." = "Server: checking...";
+"Set Hotkey... (%@)" = "Set Hotkey... (%@)";
+"Set Hotkeys…" = "Set Hotkeys…";
+
+/* --- Meeting transcript panel --- */
+"Better Voice Meeting Transcript" = "Better Voice Meeting Transcript";
+"Recording" = "Recording";
+"Stopped" = "Stopped";
+"%@ characters" = "%@ characters";
+"Listening..." = "Listening...";
+"Speaker" = "Speaker";
+
+/* --- Meeting export (Markdown) --- */
+"Meeting Transcript" = "Meeting Transcript";
+"Date: %@" = "Date: %@";
+"Duration: %@" = "Duration: %@";
+"Total characters: %@" = "Total characters: %@";
+"Unknown" = "Unknown";
+"%dh %dm %ds" = "%dh %dm %ds";
+"%dm %ds" = "%dm %ds";
+"yyyy-MM-dd HH:mm" = "yyyy-MM-dd HH:mm";
+
+/* --- Hotkey settings window (two bindings: dictation + meeting) --- */
+"Better Voice Set Hotkey" = "Better Voice Set Hotkey";
+"This shortcut may conflict with system shortcuts." = "This shortcut may conflict with system shortcuts.";
+"Dictation Hotkey" = "Dictation Hotkey";
+"Meeting Hotkey" = "Meeting Hotkey";
+"Dictation and Meeting can't use the same hotkey." = "Dictation and Meeting can't use the same hotkey.";
+"Click a button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌥+.). Press Esc to cancel." = "Click a button, then press your desired hotkey. It can be a single modifier (like Right Option) or a combination (like ⌥+.). Press Esc to cancel.";
+"Cancel" = "Cancel";
+"Save" = "Save";
+"Press hotkey... (Esc to cancel)" = "Press hotkey... (Esc to cancel)";
+
+/* --- Settings window: two hotkey rows --- */
+"Dictation hotkey" = "Dictation hotkey";
+"Meeting hotkey" = "Meeting hotkey";
+
+/* --- Voice fingerprinting (wrap-up panel) --- */
+"Recognized from a previous meeting — edit if this is wrong." = "Recognized from a previous meeting — edit if this is wrong.";
+
+/* --- Your name (Settings > Meetings) --- */
+"Meetings" = "Meetings";
+"Your name" = "Your name";
+"Appears as the speaker label for your own voice in transcripts and summaries. Leave blank to use \"You\"." = "Appears as the speaker label for your own voice in transcripts and summaries. Leave blank to use \"You\".";
+
+/* --- Model server presets + de-Ollama'd copy (Settings / Welcome) --- */
+"Preset..." = "Preset...";
+"Local model server" = "Local model server";
+"Better Voice polishes dictation and summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac." = "Better Voice polishes dictation and summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac.";
+"New to local models? Setup guide" = "New to local models? Setup guide";
+
+/* --- Field cleanup (Settings) --- */
+"Model name (blank = same as main model)" = "Model name (blank = same as main model)";
+"Minimum is 1024 — smaller values are raised when saved." = "Minimum is 1024 — smaller values are raised when saved.";
+
+/* --- Apple on-device backend (Settings / Welcome) --- */
+"Apple on-device" = "Apple on-device";
+"Uses Apple Intelligence on this Mac — nothing to install. Requires Apple Intelligence to be enabled in System Settings." = "Uses Apple Intelligence on this Mac — nothing to install. Requires Apple Intelligence to be enabled in System Settings.";
+
+/* --- Provider picker (Settings / Welcome) --- */
+"Provider" = "Provider";
+"OpenAI-compatible" = "OpenAI-compatible";
+"API key" = "API key";
+"API key (optional)" = "API key (optional)";
+
+/* --- Custom vocabulary (Settings > Data) --- */
+"Edit Vocabulary..." = "Edit Vocabulary...";
+"Import Vocabulary CSV..." = "Import Vocabulary CSV...";
+"Vocabulary import" = "Vocabulary import";
+"Imported %lld replacements from %@." = "Imported %lld replacements from %@.";
+"No \"from,to\" rows found in %@." = "No \"from,to\" rows found in %@.";
+
+/* --- Shared folder picker (Settings / Welcome / Meetings) --- */
+"Choose..." = "Choose...";
+
+/* --- In-app text file editor (Personal Context / Vocabulary windows) --- */
+"Personal Context" = "Personal Context";
+"Vocabulary" = "Vocabulary";
+"Could not read this file." = "Could not read this file.";
+"Edited" = "Edited";
+"Saved" = "Saved";
+
+/* --- Phase 3b: Notes-only import wizard (completion / blocked / rescue screens) --- */
+"Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing." = "Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing.";
+"Better Voice needs permission to control Apple Notes. Grant Automation access in System Settings, then try again." = "Better Voice needs permission to control Apple Notes. Grant Automation access in System Settings, then try again.";
+"Added to Notes — opened the summary." = "Added to Notes — opened the summary.";
+"Added to Notes — opened the transcript." = "Added to Notes — opened the transcript.";
+"Show in Notes" = "Show in Notes";
+"The summary couldn't be generated (model server unreachable?). Your transcript was still saved." = "The summary couldn't be generated (model server unreachable?). Your transcript was still saved.";
+"Apple Notes isn't ready" = "Apple Notes isn't ready";
+"Open Notes setup" = "Open Notes setup";
+"Open Automation Settings" = "Open Automation Settings";
+"Try Again" = "Try Again";
+"Couldn't save to Apple Notes" = "Couldn't save to Apple Notes";
+"Your transcript and summary are kept — nothing was lost. Try again, or copy them out." = "Your transcript and summary are kept — nothing was lost. Try again, or copy them out.";
+"Copy transcript" = "Copy transcript";
+"Copy summary" = "Copy summary";
+"Your summary couldn't be saved to Notes — the transcript was. If this keeps happening, check your Notes setup in Settings." = "Your summary couldn't be saved to Notes — the transcript was. If this keeps happening, check your Notes setup in Settings.";
+"Saving to Apple Notes…" = "Saving to Apple Notes…";
+"Adding this meeting to your Notes folders." = "Adding this meeting to your Notes folders.";
+"Meeting not saved to Notes" = "Meeting not saved to Notes";
+"Your imported meeting hasn't been saved to Notes yet. Close anyway?" = "Your imported meeting hasn't been saved to Notes yet. Close anyway?";
+"Close Anyway" = "Close Anyway";
+"Close" = "Close";
+
+/* --- Phase 4: Apple Notes destination picker (Welcome / Settings) --- */
+"Apple Notes" = "Apple Notes";
+"Meeting transcripts and summaries are saved to Apple Notes." = "Meeting transcripts and summaries are saved to Apple Notes.";
+"Automation access" = "Automation access";
+"Lets Better Voice create notes in Apple Notes." = "Lets Better Voice create notes in Apple Notes.";
+"Not granted" = "Not granted";
+"Open Settings…" = "Open Settings…";
+"Destination" = "Destination";
+"Not set up" = "Not set up";
+"%@ — Transcripts: %@, Summaries: %@" = "%@ — Transcripts: %@, Summaries: %@";
+"Apple Notes Destination" = "Apple Notes Destination";
+"Looking for your Apple Notes accounts…" = "Looking for your Apple Notes accounts…";
+"Loading folders…" = "Loading folders…";
+"Account" = "Account";
+"Choose an account" = "Choose an account";
+"Transcripts folder" = "Transcripts folder";
+"Summaries folder" = "Summaries folder";
+"Create new folder…" = "Create new folder…";
+"Folder name" = "Folder name";
+"Transcripts" = "Transcripts";
+"Summaries" = "Summaries";
+"Apple Notes didn't respond in time. If a permission prompt is on screen, respond to it, then try again." = "Apple Notes didn't respond in time. If a permission prompt is on screen, respond to it, then try again.";
+"No Apple Notes accounts found — add an account in the Notes app, then try again." = "No Apple Notes accounts found — add an account in the Notes app, then try again.";
+"Notes setup is still saving" = "Notes setup is still saving";
+"Your Apple Notes folders are still being set up. Quit anyway?" = "Your Apple Notes folders are still being set up. Quit anyway?";
+"Quit Anyway" = "Quit Anyway";
+
+/* --- Phase 5: Settings / File menu + onboarding polish --- */
+"Settings…" = "Settings…";
+"New Import…" = "New Import…";
+"Open Audio File…" = "Open Audio File…";
+"Change..." = "Change...";
+"Same as main model" = "Same as main model";
+"Disconnected" = "Disconnected";
+"Edit Personal Context..." = "Edit Personal Context...";
+
+/* --- Phase 6: paged onboarding wizard (Welcome) --- */
+"Back" = "Back";
+"Continue" = "Continue";
+"Get Started" = "Get Started";
+"Dictate Anywhere" = "Dictate Anywhere";
+"Hold your hotkey, speak, and release — Better Voice cleans up the text and types it at your cursor in any app." = "Hold your hotkey, speak, and release — Better Voice cleans up the text and types it at your cursor in any app.";
+"Dictate into any app with a hotkey, and turn meeting recordings into titled summaries saved to Apple Notes — everything runs locally on your Mac." = "Dictate into any app with a hotkey, and turn meeting recordings into titled summaries saved to Apple Notes — everything runs locally on your Mac.";
+"Optional — dictation works without this. Set it up now if you plan to import meetings, or skip and configure it later in Settings." = "Optional — dictation works without this. Set it up now if you plan to import meetings, or skip and configure it later in Settings.";
+"You're all set" = "You're all set";
+
+/* --- Phase 7: onboarding finish screen, 3-column recap (Welcome) --- */
+"Here's what you can do next. Revisit permissions and setup anytime from Settings." = "Here's what you can do next. Revisit permissions and setup anytime from Settings.";
+"Dictate" = "Dictate";
+"Tap %@ to type text wherever your cursor is." = "Tap %@ to type text wherever your cursor is.";
+"Import a meeting" = "Import a meeting";
+"Drop in a recording, or paste a transcript." = "Drop in a recording, or paste a transcript.";
+"Record a meeting" = "Record a meeting";
+"Tap %@ — or Start Meeting in the menu bar — to capture a call." = "Tap %@ — or Start Meeting in the menu bar — to capture a call.";
+
+/* --- System Audio Recording (meeting capture) — no live status, deep-link only (Settings) --- */
+"System audio recording" = "System audio recording";
+"macOS asks for this permission automatically the first time you start a meeting recording — there's no live status to show here. If a recording comes out silent, allow it in Settings." = "macOS asks for this permission automatically the first time you start a meeting recording — there's no live status to show here. If a recording comes out silent, allow it in Settings.";
+
+/* --- real backend picker + Your Name / Personal Context / Vocabulary wizard steps (Welcome) --- */
+"Your name" = "Your name";
+"Runs on-device — always available, nothing to set up." = "Runs on-device — always available, nothing to set up.";
+"Personal Context" = "Personal Context";
+"Tell Better Voice what you do — your role, the kinds of meetings you record, your industry. It uses this to write summaries that fit your world." = "Tell Better Voice what you do — your role, the kinds of meetings you record, your industry. It uses this to write summaries that fit your world.";
+"e.g. \"I'm a product manager on the Payments team at Acme, working mostly with engineering and design.\"" = "e.g. \"I'm a product manager on the Payments team at Acme, working mostly with engineering and design.\"";
+"Optional — skip and add this anytime in Settings." = "Optional — skip and add this anytime in Settings.";
+"Vocabulary" = "Vocabulary";
+"Add words Better Voice should get right — industry terms, product and brand names, acronyms, names it might mis-hear." = "Add words Better Voice should get right — industry terms, product and brand names, acronyms, names it might mis-hear.";
+"One term per line, e.g.\nFluidAudio\nAcme Corp\nKubernetes" = "One term per line, e.g.\nFluidAudio\nAcme Corp\nKubernetes";
+
+/* --- Empty/silent meeting recording --- */
+"No audio was captured" = "No audio was captured";
+"Make sure audio was playing and that Better Voice has System Audio Recording permission (System Settings ▸ Privacy & Security)." = "Make sure audio was playing and that Better Voice has System Audio Recording permission (System Settings ▸ Privacy & Security).";

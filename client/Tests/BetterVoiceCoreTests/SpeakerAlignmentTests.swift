@@ -1,0 +1,260 @@
+import XCTest
+@testable import BetterVoiceCore
+
+final class SpeakerAlignmentTests: XCTestCase {
+
+    // MARK: - assignSpeaker
+
+    func testAssignsMaxOverlapSpeaker() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 3),
+                   SpeakerInterval(speakerId: "2", start: 3, end: 6)]
+        let a = assignSpeaker(to: PhraseSpan(start: 2.5, end: 3.2), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")            // 0.5 vs 0.2 overlap
+        XCTAssertGreaterThan(a.confidence, 0.6)
+    }
+
+    func testNoOverlapIsLowConfidenceNotSnap() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 1)]
+        let a = assignSpeaker(to: PhraseSpan(start: 5, end: 6), among: ivs)
+        XCTAssertNil(a.speakerId)
+        XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
+    }
+
+    func testSnapsToNearestWithinTolerance() {
+        // Phrase starts 0.5s after the interval ends (within the 1.0s snap tolerance) → recovers the
+        // label rather than "Unknown"; confidence stays 0 to mark it as a snap.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2)]
+        let a = assignSpeaker(to: PhraseSpan(start: 2.5, end: 3.5), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
+    }
+
+    func testDoesNotSnapBeyondTolerance() {
+        // Gap of 2s exceeds the 1.0s tolerance → stays unattributed.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2)]
+        let a = assignSpeaker(to: PhraseSpan(start: 4, end: 5), among: ivs)
+        XCTAssertNil(a.speakerId)
+    }
+
+    func testFlagsOverlapWhenTwoSpeakersInPhrase() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2),
+                   SpeakerInterval(speakerId: "2", start: 1.5, end: 3)]
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 3), among: ivs)
+        XCTAssertTrue(a.overlapped)
+    }
+
+    func testEmptyIntervalsYieldsNilLowConfidence() {
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 2), among: [])
+        XCTAssertNil(a.speakerId)
+        XCTAssertNil(a.embedding)
+        XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
+        XCTAssertFalse(a.overlapped)
+    }
+
+    func testConfidenceIsFullWhenPhraseWithinSingleSpeaker() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 10)]
+        let a = assignSpeaker(to: PhraseSpan(start: 2, end: 4), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        XCTAssertEqual(a.confidence, 1.0, accuracy: 0.001)
+        XCTAssertFalse(a.overlapped)
+    }
+
+    func testSumsOverlapAcrossMultipleIntervalsOfSameSpeaker() {
+        // Speaker "1" has two short intervals summing to 1.0s; "2" has one 0.6s interval.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 0.5),
+                   SpeakerInterval(speakerId: "2", start: 0.5, end: 1.1),
+                   SpeakerInterval(speakerId: "1", start: 1.1, end: 1.6)]
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 2), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")            // 1.0s total vs 0.6s
+    }
+
+    func testCarriesEmbeddingFromLongestOverlappingIntervalOfBestSpeaker() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 0.3, embedding: [1, 0, 0]),
+                   SpeakerInterval(speakerId: "1", start: 0.3, end: 1.3, embedding: [0, 1, 0])]
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 2), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        XCTAssertEqual(a.embedding, [0, 1, 0])      // second interval overlaps 1.0s > 0.3s
+    }
+
+    func testZeroDurationPhraseIsZeroConfidence() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 10)]
+        let a = assignSpeaker(to: PhraseSpan(start: 5, end: 5), among: ivs)
+        XCTAssertEqual(a.confidence, 0, accuracy: 0.001)
+    }
+
+    func testTieBreaksDeterministicallyBySpeakerId() {
+        // Both speakers overlap the phrase for exactly 1.5s each -> exact tie.
+        // Tie-break is deterministic by speakerId (the lower id wins with the current rule).
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 1.5),
+                   SpeakerInterval(speakerId: "2", start: 1.5, end: 3)]
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 3), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        // Interval order must not change the winner — the tie-break is stable.
+        let b = assignSpeaker(to: PhraseSpan(start: 0, end: 3), among: ivs.reversed())
+        XCTAssertEqual(b.speakerId, "1")
+    }
+
+    func testNotOverlappedWhenSecondSpeakerBelowThreshold() {
+        // Speaker "2" overlaps only 0.05s out of a 3s phrase (< 0.15 * 3 = 0.45).
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2.95),
+                   SpeakerInterval(speakerId: "2", start: 2.95, end: 3.0)]
+        let a = assignSpeaker(to: PhraseSpan(start: 0, end: 3), among: ivs)
+        XCTAssertEqual(a.speakerId, "1")
+        XCTAssertFalse(a.overlapped)
+    }
+
+    // MARK: - groupIntoTurns
+
+    func testGroupsConsecutiveSameSpeakerPhrasesIntoOneTurn() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 10)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "Hello "),
+                       (span: PhraseSpan(start: 1, end: 2), text: "world.")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].speakerId, "1")
+        XCTAssertEqual(turns[0].text, "Hello world.")
+        XCTAssertEqual(turns[0].start, 0)
+        XCTAssertEqual(turns[0].end, 2)
+    }
+
+    func testSpeakerChangeStartsNewTurn() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2),
+                   SpeakerInterval(speakerId: "2", start: 2, end: 4)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "A "),
+                       (span: PhraseSpan(start: 1, end: 2), text: "B "),
+                       (span: PhraseSpan(start: 2, end: 3), text: "C "),
+                       (span: PhraseSpan(start: 3, end: 4), text: "D")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 2)
+        XCTAssertEqual(turns[0].speakerId, "1")
+        XCTAssertEqual(turns[0].text, "A B ")
+        XCTAssertEqual(turns[1].speakerId, "2")
+        XCTAssertEqual(turns[1].text, "C D")
+    }
+
+    func testTurnSpanCoversAllPhrases() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 10)]
+        let phrases = [(span: PhraseSpan(start: 0.5, end: 1.5), text: "a "),
+                       (span: PhraseSpan(start: 1.5, end: 3.75), text: "b")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].start, 0.5, accuracy: 0.001)
+        XCTAssertEqual(turns[0].end, 3.75, accuracy: 0.001)
+    }
+
+    func testContainedOverlapPropagatesToTurn() {
+        // Two speakers both overlap the single phrase -> overlapped -> containedOverlap.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 2),
+                   SpeakerInterval(speakerId: "2", start: 1, end: 3)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 3), text: "crosstalk")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertTrue(turns[0].containedOverlap)
+    }
+
+    func testTurnEmbeddingIsMeanAndMinConfidenceIsMinimum() {
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 10, embedding: [9, 9])]
+        // Second phrase sits fully in speaker 1 (confidence 1); first phrase juts past the
+        // interval so its confidence is lower.
+        let phrases = [(span: PhraseSpan(start: 8, end: 12), text: "a "),
+                       (span: PhraseSpan(start: 5, end: 6), text: "b")]
+        // Both phrases map to speaker "1", so they collapse into one turn. Both carry the same
+        // embedding [9,9], so the mean is [9,9].
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].embedding, [9, 9])
+        XCTAssertEqual(turns[0].minConfidence, 0.5, accuracy: 0.001) // first phrase: 2s overlap / 4s
+    }
+
+    func testTurnEmbeddingIsMeanOfDifferingPhraseEmbeddings() {
+        // Speaker "1" has two intervals with different embeddings. Each phrase overlaps a
+        // different interval most, so they carry different embeddings; the merged turn's
+        // embedding is their element-wise mean.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 5, embedding: [2, 2]),
+                   SpeakerInterval(speakerId: "1", start: 5, end: 10, embedding: [4, 4])]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "a "),   // -> [2,2]
+                       (span: PhraseSpan(start: 6, end: 7), text: "b")]    // -> [4,4]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].speakerId, "1")
+        XCTAssertEqual(turns[0].embedding, [3, 3])
+    }
+
+    func testTurnEmbeddingIsNilWhenNoPhraseEmbeddings() {
+        // No diarization intervals -> nil speaker, nil per-phrase embeddings -> nil turn embedding.
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "hi")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: [])
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertNil(turns[0].embedding)
+    }
+
+    // MARK: - meanEmbedding
+
+    func testMeanEmbeddingAveragesElementWise() {
+        XCTAssertEqual(meanEmbedding([[1, 2], [3, 4]]), [2, 3])
+    }
+
+    func testMeanEmbeddingSingleVectorReturnsItself() {
+        XCTAssertEqual(meanEmbedding([[1, 2, 3]]), [1, 2, 3])
+    }
+
+    func testMeanEmbeddingEmptyReturnsNil() {
+        XCTAssertNil(meanEmbedding([]))
+    }
+
+    func testMeanEmbeddingRaggedReturnsNil() {
+        XCTAssertNil(meanEmbedding([[1, 2], [1]]))
+    }
+
+    func testConsecutiveNilSpeakerPhrasesMergeIntoOneNilTurn() {
+        // No diarization intervals -> every phrase is unattributed (nil). Consecutive nil
+        // phrases collapse into a single nil turn. Locks in nearest-snap removal at turn level.
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "Hello "),
+                       (span: PhraseSpan(start: 1, end: 2), text: "world.")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: [])
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertNil(turns[0].speakerId)
+        XCTAssertEqual(turns[0].text, "Hello world.")
+    }
+
+    func testEmptyPhrasesYieldsNoTurns() {
+        let turns = groupIntoTurns(phrases: [], intervals: [])
+        XCTAssertTrue(turns.isEmpty)
+    }
+
+    func testLongGapSplitsUnattributedPhrasesIntoSeparateTurns() {
+        // No intervals -> both phrases are unattributed (nil). Two phrases 2 minutes apart must
+        // NOT collapse into one turn spanning the silence (which would concatenate "A"+"B" and
+        // span start=0..end=121). A gap beyond maxTurnGapSec starts a new turn.
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "A"),
+                       (span: PhraseSpan(start: 120, end: 121), text: "B")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: [])
+        XCTAssertEqual(turns.count, 2)
+        XCTAssertEqual(turns[0].text, "A")
+        XCTAssertEqual(turns[0].start, 0); XCTAssertEqual(turns[0].end, 1)
+        XCTAssertEqual(turns[1].text, "B")
+        XCTAssertEqual(turns[1].start, 120); XCTAssertEqual(turns[1].end, 121)
+    }
+
+    func testLongGapSplitsSameSpeakerTurns() {
+        // Same speaker on both sides, but a long silence between them -> two turns, not one
+        // turn whose span covers the gap.
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 200)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "before "),
+                       (span: PhraseSpan(start: 90, end: 91), text: "after")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 2)
+        XCTAssertEqual(turns[0].speakerId, "1")
+        XCTAssertEqual(turns[1].speakerId, "1")
+    }
+
+    func testSmallGapDoesNotSplitTurn() {
+        // A short pause below maxTurnGapSec keeps phrases in one turn (regression guard).
+        let ivs = [SpeakerInterval(speakerId: "1", start: 0, end: 30)]
+        let phrases = [(span: PhraseSpan(start: 0, end: 1), text: "one "),
+                       (span: PhraseSpan(start: 4, end: 5), text: "two")]
+        let turns = groupIntoTurns(phrases: phrases, intervals: ivs)
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(turns[0].text, "one two")
+    }
+}
