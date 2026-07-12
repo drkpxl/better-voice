@@ -2,7 +2,7 @@
 
 A macOS menu-bar app with two halves: on-device dictation, and meeting notes that land in Apple Notes. Everything — transcription, speaker recognition, summarization — is processed locally on your Mac; your audio never leaves the machine.
 
-> **1.0 — notarized.** Signed with a Developer ID and notarized by Apple, so it installs by drag-and-drop with no Gatekeeper workaround. In-app updates via Sparkle.
+> **Official builds are notarized.** The `.dmg` from [voice.baselinemakes.com](https://voice.baselinemakes.com/#download) is signed with a Developer ID and notarized by Apple, so it installs by drag-and-drop with no Gatekeeper workaround. In-app updates via Sparkle. Builds you compile yourself are **not** notarized — see [Building from source](#building-from-source).
 
 ## What it does
 
@@ -55,6 +55,17 @@ make run      # build, sign with a local dev cert, launch, tail the log
 swift build   # compile only
 ```
 
+**A note on signing.** Only the official builds distributed from [voice.baselinemakes.com](https://voice.baselinemakes.com/#download) are Developer-ID-signed and Apple-notarized. A build you compile yourself is signed with a local self-signed certificate — fine for running on your own machine via `make run`, but if you copy that app to another Mac, macOS Gatekeeper will flag it as coming from an unidentified developer (right-click → **Open** to bypass, or clear the quarantine flag with `xattr -cr /path/to/BetterVoice2.app`). `make run` (dev channel) also strips the Sparkle feed URL, so dev builds don't self-update.
+
+## Acknowledgements
+
+Better Voice stands on:
+
+- **[FluidAudio](https://github.com/FluidInference/FluidAudio)** — on-device speaker diarization (Apache-2.0).
+- **[Sparkle](https://sparkle-project.org)** — in-app updates for the official builds (MIT).
+
+Transcription and the zero-setup on-device model both use Apple's frameworks (`SpeechAnalyzer` and Foundation Models).
+
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). Dependency licenses (Apache-2.0 for FluidAudio, MIT for Sparkle) apply to their respective code.
