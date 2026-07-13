@@ -51,3 +51,6 @@ planning-notes/
 
 # Wrangler local cache
 .wrangler/
+
+# Git worktrees (local isolated workspaces)
+.worktrees/
