@@ -9,7 +9,9 @@ import BetterVoiceCore
 /// System prompts all pass through `PersonalContext.appended(to:)` so the model can use
 /// personal context to disambiguate names/terms (consistent with PolishClient). Vocabulary terms
 /// (`Vocabulary.shared.promptBlock`) are appended alongside personal context too, so meeting
-/// summaries honor the same preferred spellings as dictation.
+/// summaries honor the same preferred spellings as dictation. Note: unlike personal context, the
+/// vocabulary block is NOT scrubbed from the output by `stripEchoedContext`; it's kept short
+/// precisely because that makes echo risk low (same rationale as PolishClient).
 @MainActor
 final class SummarizationClient {
     static let shared = SummarizationClient()
