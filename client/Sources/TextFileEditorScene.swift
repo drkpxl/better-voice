@@ -178,10 +178,11 @@ struct VocabularyFormView: View {
             termRows = Vocabulary.shared.terms.map { TermRow(text: $0) }
             fixRows = Vocabulary.shared.replacements.map { FixRow(from: $0.from, to: $0.to) }
         }
-        // Belt-and-suspenders alongside `.onSubmit`: catches edits committed by clicking away
-        // or closing the window rather than pressing Return, so nothing typed is ever lost.
-        .onChange(of: termRows.map(\.text)) { save() }
-        .onChange(of: fixRows.map { [$0.from, $0.to] }) { save() }
+        // Save-on-close safety net, mirroring `TextFileEditorRootView`: `@State` already holds
+        // every keystroke, so persisting once on close captures any edit committed by clicking
+        // away or closing the window rather than pressing Return — without churning the file
+        // watcher on every character (each atomic write re-arms it).
+        .onDisappear { save() }
     }
 
     private func removeButton(_ action: @escaping () -> Void) -> some View {
