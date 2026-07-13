@@ -231,17 +231,29 @@ struct VocabularyFormView: View {
         save()
     }
 
+    /// Guard the markdown round-trip: newlines would split one entry into multiple raw lines,
+    /// and an embedded `->`/`→` in a fix field would be mis-split by parseVocabularyMarkdown at
+    /// the first delimiter. Neither belongs in a spoken word/phrase, so strip them and collapse
+    /// whitespace. Keeps the structured form's promise that it can't produce corrupting data.
+    private func sanitize(_ s: String) -> String {
+        s.replacingOccurrences(of: "->", with: " ")
+            .replacingOccurrences(of: "\u{2192}", with: " ")           // → arrow
+            .components(separatedBy: .newlines).joined(separator: " ")
+            .components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
     /// Maps rows to the trimmed/non-empty shapes `Vocabulary.update` expects and persists.
     /// Blank spelling rows and half-filled fixes (either side empty after trimming) are
     /// dropped here rather than validated at input time — the form always shows exactly what
     /// the user typed, including a mid-edit blank row.
     private func save() {
         let terms = termRows
-            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { sanitize($0.text) }
             .filter { !$0.isEmpty }
         let replacements = fixRows.compactMap { row -> VocabularyReplacement? in
-            let from = row.from.trimmingCharacters(in: .whitespacesAndNewlines)
-            let to = row.to.trimmingCharacters(in: .whitespacesAndNewlines)
+            let from = sanitize(row.from)
+            let to = sanitize(row.to)
             guard !from.isEmpty, !to.isEmpty else { return nil }
             return VocabularyReplacement(from: from, to: to)
         }
