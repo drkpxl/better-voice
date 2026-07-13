@@ -134,12 +134,23 @@ struct VocabularyFormView: View {
     @State private var termRows: [TermRow] = []
     @State private var fixRows: [FixRow] = []
 
+    /// Focus identity for blur-saving. Rows are dynamic, so focus is keyed by row `id` +
+    /// which of a fix row's two fields — letting `.onChange(of: focusedField)` fire `save()`
+    /// on every focus transition (tab/click-away), not per keystroke.
+    private enum Field: Hashable {
+        case term(UUID)
+        case fixFrom(UUID)
+        case fixTo(UUID)
+    }
+    @FocusState private var focusedField: Field?
+
     var body: some View {
         Form {
             Section {
                 ForEach($termRows) { $row in
                     HStack {
                         TextField(t("Spelling"), text: $row.text)
+                            .focused($focusedField, equals: .term(row.id))
                             .onSubmit { save() }
                         removeButton { removeTerm(row.id) }
                     }
@@ -155,10 +166,13 @@ struct VocabularyFormView: View {
                 ForEach($fixRows) { $row in
                     HStack {
                         TextField(t("When you hear…"), text: $row.from)
+                            .focused($focusedField, equals: .fixFrom(row.id))
                             .onSubmit { save() }
                         Image(systemName: "arrow.right")
                             .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
                         TextField(t("Write…"), text: $row.to)
+                            .focused($focusedField, equals: .fixTo(row.id))
                             .onSubmit { save() }
                         removeButton { removeFix(row.id) }
                     }
@@ -178,10 +192,13 @@ struct VocabularyFormView: View {
             termRows = Vocabulary.shared.terms.map { TermRow(text: $0) }
             fixRows = Vocabulary.shared.replacements.map { FixRow(from: $0.from, to: $0.to) }
         }
-        // Save-on-close safety net, mirroring `TextFileEditorRootView`: `@State` already holds
-        // every keystroke, so persisting once on close captures any edit committed by clicking
-        // away or closing the window rather than pressing Return — without churning the file
-        // watcher on every character (each atomic write re-arms it).
+        // Blur-save: fires only when focus moves between fields or leaves entirely, flushing
+        // the field the user just left. `save()` reads the live `@State` (bindings updated on
+        // keystroke) so it persists exactly what was typed, without churning the file watcher
+        // on every character (each atomic write re-arms it).
+        .onChange(of: focusedField) { save() }
+        // Save-on-close safety net, mirroring `TextFileEditorRootView`: catches an edit in the
+        // still-focused field when the window closes without a prior focus change or Return.
         .onDisappear { save() }
     }
 
