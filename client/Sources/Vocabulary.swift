@@ -110,6 +110,17 @@ final class Vocabulary {
         Logger.log("Vocabulary", "Added \(addedCount) term(s) from onboarding")
     }
 
+    /// Replace all entries from the structured editor (`VocabularyFormView`) and persist via the
+    /// canonical `renderVocabularyMarkdown` (same path as `importCSV`). No-op when nothing changed,
+    /// so the form can call this on every edit without redundant writes or churning the watcher.
+    func update(terms newTerms: [String], replacements newReplacements: [VocabularyReplacement]) {
+        guard newTerms != terms || newReplacements != replacements else { return }
+        terms = newTerms
+        replacements = newReplacements
+        save()
+        Logger.log("Vocabulary", "Updated from editor: \(terms.count) terms, \(replacements.count) replacements")
+    }
+
     /// Import "from,to" CSV rows into `replacements` (an imported row wins over an existing
     /// one with the same `from`, case-insensitively; within the file, the last row wins).
     /// Returns the number of rows imported (0 for an unreadable/empty file).
