@@ -155,9 +155,9 @@ final class Vocabulary {
     }
 
     /// Persist current entries back into the file as the canonical rendered markdown. Note:
-    /// this regenerates the fixed instructional prose too — only used by `importCSV` (a
-    /// programmatic write); the in-app editor's Save writes the user's raw text directly, so
-    /// hand-added prose is never clobbered by a normal edit.
+    /// this regenerates the fixed instructional prose too — used only by the programmatic writes
+    /// (`addTerms`, `importCSV`, `update`); the in-app editor's Save writes the user's raw text
+    /// directly, so hand-added prose is never clobbered by a normal edit.
     private func save() {
         let text = renderVocabularyMarkdown(terms: terms, replacements: replacements)
         do {
