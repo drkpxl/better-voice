@@ -7,7 +7,9 @@ import BetterVoiceCore
 /// - classifyType: pre-selects the meeting type with one quick call (used by the wrap-up panel).
 /// - summarize: generates a Markdown summary using the prompt for the selected type.
 /// System prompts all pass through `PersonalContext.appended(to:)` so the model can use
-/// personal context to disambiguate names/terms (consistent with PolishClient).
+/// personal context to disambiguate names/terms (consistent with PolishClient). Vocabulary terms
+/// (`Vocabulary.shared.promptBlock`) are appended alongside personal context too, so meeting
+/// summaries honor the same preferred spellings as dictation.
 @MainActor
 final class SummarizationClient {
     static let shared = SummarizationClient()
@@ -111,7 +113,7 @@ final class SummarizationClient {
         let excerpt = String(summaryMarkdown.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2000))
         guard !excerpt.isEmpty else { return nil }
 
-        let system = PersonalContext.appended(to: Prompts.titleOnlyInstructionEN)
+        let system = PersonalContext.appended(to: Prompts.titleOnlyInstructionEN + (Vocabulary.shared.promptBlock ?? ""))
         let opts = ModelServer.GenerateOptions(numCtx: numCtx, numPredict: 32, timeout: timeout)
         guard let raw = await ModelServer.shared.generate(server: server, prompt: excerpt, systemPrompt: system, options: opts) else {
             Logger.log("Summary", "Fallback title call produced nothing; falling back to type display name")
@@ -137,7 +139,7 @@ final class SummarizationClient {
         if includeTitle {
             base += "\n\n" + Prompts.summaryTitleInstructionEN
         }
-        let system = PersonalContext.appended(to: base)
+        let system = PersonalContext.appended(to: base + (Vocabulary.shared.promptBlock ?? ""))
         // Benchmark verdict: think:true is a net loss for local summarization — the reasoning eats the
         // num_predict budget and returns an EMPTY summary at 2048 (or 18× slower at 6144), with no quality
         // gain over think:false. Kept off. Large cloud models handle thinking fine, but even there the
