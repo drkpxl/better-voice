@@ -98,12 +98,24 @@
 /* --- Shared folder picker (Settings / Welcome / Meetings) --- */
 "Choose..." = "Choose...";
 
-/* --- In-app text file editor (Personal Context / Vocabulary windows) --- */
+/* --- In-app text file editor (Personal Context window) --- */
 "Personal Context" = "Personal Context";
 "Vocabulary" = "Vocabulary";
 "Could not read this file." = "Could not read this file.";
 "Edited" = "Edited";
 "Saved" = "Saved";
+
+/* --- Structured vocabulary form (Vocabulary window) --- */
+"Preferred spellings" = "Preferred spellings";
+"Names, products, or acronyms you want spelled a certain way." = "Names, products, or acronyms you want spelled a certain way.";
+"Spelling" = "Spelling";
+"Add spelling" = "Add spelling";
+"Sound-alike fixes" = "Sound-alike fixes";
+"When speech-to-text mishears a word, always swap it." = "When speech-to-text mishears a word, always swap it.";
+"When you hear…" = "When you hear…";
+"Write…" = "Write…";
+"Add fix" = "Add fix";
+"Remove" = "Remove";
 
 /* --- Phase 3b: Notes-only import wizard (completion / blocked / rescue screens) --- */
 "Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing." = "Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing.";

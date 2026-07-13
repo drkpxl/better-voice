@@ -106,10 +106,127 @@ struct PersonalContextRootView: View {
 
 /// Vocabulary editor root, shown by the `Window(id: WindowID.vocabulary)` scene.
 struct VocabularyRootView: View {
+    var body: some View { VocabularyFormView() }
+}
+
+// MARK: - Structured vocabulary form
+
+/// Structured editor for `vocabulary.md`, replacing a raw-markdown `TextFileEditorRootView`
+/// so a non-technical user can't produce an unparseable file. Two plain-language sections
+/// mirror `Vocabulary`'s two entry kinds (`terms` / `replacements`); every add, remove, or
+/// committed edit persists immediately via `Vocabulary.shared.update(terms:replacements:)`,
+/// which itself no-ops (and never rewrites the file) when nothing actually changed.
+struct VocabularyFormView: View {
+    /// `id` lets `ForEach` track a row across edits/deletes even though `TextField` bindings
+    /// mutate the row's text in place — without a stable identity, deleting a middle row would
+    /// let SwiftUI reuse/reshuffle the wrong `TextField`'s editing state.
+    private struct TermRow: Identifiable {
+        let id = UUID()
+        var text: String
+    }
+
+    private struct FixRow: Identifiable {
+        let id = UUID()
+        var from: String
+        var to: String
+    }
+
+    @State private var termRows: [TermRow] = []
+    @State private var fixRows: [FixRow] = []
+
     var body: some View {
-        TextFileEditorRootView(
-            fileURL: { SupportDir.vocabularyURL },
-            ensureCreated: { Vocabulary.shared.ensureCreated() }
-        )
+        Form {
+            Section {
+                ForEach($termRows) { $row in
+                    HStack {
+                        TextField(t("Spelling"), text: $row.text)
+                            .onSubmit { save() }
+                        removeButton { removeTerm(row.id) }
+                    }
+                }
+                Button(t("Add spelling")) { addTerm() }
+            } header: {
+                Text(t("Preferred spellings"))
+            } footer: {
+                Text(t("Names, products, or acronyms you want spelled a certain way."))
+            }
+
+            Section {
+                ForEach($fixRows) { $row in
+                    HStack {
+                        TextField(t("When you hear…"), text: $row.from)
+                            .onSubmit { save() }
+                        Image(systemName: "arrow.right")
+                            .foregroundStyle(.secondary)
+                        TextField(t("Write…"), text: $row.to)
+                            .onSubmit { save() }
+                        removeButton { removeFix(row.id) }
+                    }
+                }
+                Button(t("Add fix")) { addFix() }
+            } header: {
+                Text(t("Sound-alike fixes"))
+            } footer: {
+                Text(t("When speech-to-text mishears a word, always swap it."))
+            }
+        }
+        .formStyle(.grouped)
+        .tint(Color.brandAccent)
+        .frame(width: 640, height: 560)
+        .onAppear {
+            Vocabulary.shared.ensureCreated()
+            termRows = Vocabulary.shared.terms.map { TermRow(text: $0) }
+            fixRows = Vocabulary.shared.replacements.map { FixRow(from: $0.from, to: $0.to) }
+        }
+        // Belt-and-suspenders alongside `.onSubmit`: catches edits committed by clicking away
+        // or closing the window rather than pressing Return, so nothing typed is ever lost.
+        .onChange(of: termRows.map(\.text)) { save() }
+        .onChange(of: fixRows.map { [$0.from, $0.to] }) { save() }
+    }
+
+    private func removeButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "minus.circle.fill")
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(t("Remove"))
+    }
+
+    private func addTerm() {
+        termRows.append(TermRow(text: ""))
+        save()
+    }
+
+    private func removeTerm(_ id: UUID) {
+        termRows.removeAll { $0.id == id }
+        save()
+    }
+
+    private func addFix() {
+        fixRows.append(FixRow(from: "", to: ""))
+        save()
+    }
+
+    private func removeFix(_ id: UUID) {
+        fixRows.removeAll { $0.id == id }
+        save()
+    }
+
+    /// Maps rows to the trimmed/non-empty shapes `Vocabulary.update` expects and persists.
+    /// Blank spelling rows and half-filled fixes (either side empty after trimming) are
+    /// dropped here rather than validated at input time — the form always shows exactly what
+    /// the user typed, including a mid-edit blank row.
+    private func save() {
+        let terms = termRows
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let replacements = fixRows.compactMap { row -> VocabularyReplacement? in
+            let from = row.from.trimmingCharacters(in: .whitespacesAndNewlines)
+            let to = row.to.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !from.isEmpty, !to.isEmpty else { return nil }
+            return VocabularyReplacement(from: from, to: to)
+        }
+        Vocabulary.shared.update(terms: terms, replacements: replacements)
     }
 }
