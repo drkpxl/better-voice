@@ -24,8 +24,9 @@ struct SystemPermissionProbe: PermissionProbing {
 /// means any `refresh()` that actually changes a value re-renders every observer, exactly the way
 /// the already-correct meeting Start/Stop row stays live off `MeetingCoordinator`.
 ///
-/// Only the four *queryable* permissions live here. `.systemAudio` is deliberately excluded: macOS
-/// exposes no API to query it (see `PermissionKind.systemAudio`), so it never gets a live ✓/⚠ row.
+/// Only the *queryable* permissions the app actually surfaces live here. `.systemAudio` is
+/// deliberately excluded: macOS exposes no API to query it (see `PermissionKind.systemAudio`), so
+/// it never gets a live ✓/⚠ row.
 @MainActor
 @Observable
 final class PermissionStore {
@@ -33,7 +34,6 @@ final class PermissionStore {
 
     private let probe: PermissionProbing
 
-    private(set) var inputMonitoring = false
     private(set) var accessibility = false
     private(set) var microphone = false
     private(set) var automation = false
@@ -47,7 +47,6 @@ final class PermissionStore {
     /// rendered as a live status (callers handle it out of band — see `PermissionKind.systemAudio`).
     func isGranted(_ kind: PermissionKind) -> Bool {
         switch kind {
-        case .inputMonitoring: return inputMonitoring
         case .accessibility:   return accessibility
         case .microphone:      return microphone
         case .automation:      return automation
@@ -61,16 +60,14 @@ final class PermissionStore {
     /// grant (onboarding auto-advance, healing the hotkey tap).
     @discardableResult
     func refresh() -> Bool {
-        let newInput  = probe.isGranted(.inputMonitoring)
         let newAccess = probe.isGranted(.accessibility)
         let newMic    = probe.isGranted(.microphone)
         let newAuto   = probe.isGranted(.automation)
 
         var changed = false
-        if newInput  != inputMonitoring { inputMonitoring = newInput;  changed = true }
-        if newAccess != accessibility   { accessibility   = newAccess; changed = true }
-        if newMic    != microphone      { microphone      = newMic;    changed = true }
-        if newAuto   != automation      { automation      = newAuto;   changed = true }
+        if newAccess != accessibility { accessibility = newAccess; changed = true }
+        if newMic    != microphone    { microphone    = newMic;    changed = true }
+        if newAuto   != automation    { automation    = newAuto;   changed = true }
         return changed
     }
 }

@@ -52,10 +52,12 @@ final class WelcomeViewModel {
     /// Vocabulary steps.
     static let currentOnboardingVersion = 4
 
-    /// Live permission state comes from the shared `PermissionStore` (single source of truth shared
-    /// with the menu bar) — not four bools mirrored into this VM. Onboarding reads
-    /// `permissions.accessibility` (hotkey + typing) / `.microphone` / `.automation`.
-    let permissions = PermissionStore.shared
+    /// Live permission state comes from the `PermissionStore` (by default the shared single source
+    /// of truth, same instance as the menu bar) — not bools mirrored into this VM. Onboarding reads
+    /// `permissions.accessibility` (hotkey + typing) and `.microphone`; Automation is just-in-time
+    /// at the meeting/import gates, not an onboarding step. Injectable so a preview/test can drive
+    /// the wizard with a fake-probe store instead of this machine's live TCC state.
+    let permissions: PermissionStore
 
     // Model server — provider is mutable so onboarding can offer the same three backends as
     // Settings' `providerPicker` ("apple" / "ollama" / "openai"), not just whichever the seeded
@@ -105,7 +107,8 @@ final class WelcomeViewModel {
         }
     }
 
-    init() {
+    init(permissions: PermissionStore = .shared) {
+        self.permissions = permissions
         let cfg = RuntimeConfig.shared
         let server = cfg.polishServerConfig
         provider = server.api
@@ -124,34 +127,36 @@ final class WelcomeViewModel {
     /// Re-reads live permission state (granted toggles out-of-process when the user acts in
     /// System Settings, so the view polls this on a timer while open).
     func refreshStatuses() {
-        let wasAccessibility = permissions.accessibility
         permissions.refresh()
 
-        // The hotkey's active CGEventTap is gated by Accessibility (not Input Monitoring) and is
-        // created at launch; if Accessibility wasn't granted then, creation failed and the hotkey is
-        // dead. The instant it's granted here, re-create the tap so dictation works immediately —
-        // no app restart needed.
-        if !wasAccessibility, permissions.accessibility {
-            Logger.log("Permission", "Accessibility granted during onboarding — restarting hotkey tap")
-            GlobalHotKey.shared.restart()
-        }
+        // The hotkey's active CGEventTap is gated by Accessibility and is created at launch; if
+        // Accessibility wasn't granted then, creation failed and the hotkey is dead. Heal it the
+        // instant the grant is visible here so dictation works immediately — no app restart needed.
+        // Level-based (not a was/now edge): the store is shared, so the menu bar or the activation
+        // observer may already have consumed the flip before this poll tick sees it.
+        GlobalHotKey.shared.restartIfNeeded(accessibilityGranted: permissions.accessibility)
     }
 
     func grantAccessibility() {
-        _ = PermissionManager.checkAccessibility()
+        // checkAccessibility() fires the system consent dialog, but ONLY while the app has no
+        // Accessibility decision on record — once unchecked/removed in the pane, it's a silent
+        // no-op, and there is no API to tell the two apart. So also open the pane whenever the
+        // permission isn't granted: an Accessibility grant always ends with the user toggling the
+        // app in System Settings anyway (the dialog itself just routes there), and this way the
+        // prominent "Grant Access" button never appears to do nothing.
+        if !PermissionManager.checkAccessibility() {
+            PermissionManager.openSettings(for: .accessibility)
+        }
         refreshStatuses()
     }
 
     func grantMicrophone() {
         Task {
+            // checkMicrophone() prompts when undetermined and deep-links to the Microphone pane
+            // when previously denied (requestAccess is a silent no-op then).
             _ = await PermissionManager.checkMicrophone()
             refreshStatuses()
         }
-    }
-
-    func grantAutomation() {
-        _ = PermissionManager.requestAutomation()
-        refreshStatuses()
     }
 
     func openSettings(for kind: PermissionKind) { PermissionManager.openSettings(for: kind) }
@@ -653,8 +658,9 @@ struct WelcomeContentView: View {
         } content: {
             VStack(spacing: 14) {
                 // Automation (control Apple Notes) and System Audio Recording are NOT requested
-                // here — they're just-in-time: macOS prompts for Automation the first time a save
-                // to Notes actually happens, and for System Audio the first time a meeting records.
+                // here — they're just-in-time: the meeting/import gates (`MeetingCoordinator.
+                // startMeeting`, `ImportSession.gateNotesReady`) request Automation the first time
+                // it's needed, and macOS prompts for System Audio the first time a meeting records.
                 // Onboarding only lets the user pick a destination up front if they want to.
                 Text(t("Optional — dictation works without this. If you plan to import or record meetings, pick a destination now. Better Voice asks macOS for permission to control Apple Notes (and to capture system audio for recordings) the first time it needs them — not here. You can change this anytime in Settings."))
                     .font(.caption)

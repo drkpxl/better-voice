@@ -173,7 +173,11 @@ final class ImportSession {
             step = .blocked(t("Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing."))
             return false
         }
-        if !PermissionManager.isAutomationGranted() {
+        // Just-in-time request (no onboarding step): when the Automation state is undetermined,
+        // `requestAutomation()` fires the system consent dialog right here at the point of use;
+        // once denied it's a quick no-op and the `.blocked` guidance below (deep link to the pane,
+        // where the row now exists because the app has asked) is the way back.
+        if !PermissionManager.isAutomationGranted(), !PermissionManager.requestAutomation() {
             step = .blocked(t("Better Voice needs permission to control Apple Notes. Grant Automation access in System Settings, then try again."))
             return false
         }

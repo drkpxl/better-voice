@@ -177,16 +177,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Whether first-launch onboarding runs this session (gates the window opened at the end).
         let needsOnboarding = config.onboardingVersion < WelcomeViewModel.currentOnboardingVersion
 
-        // Launch NEVER prompts for permissions — it only QUERIES into the shared PermissionStore.
-        // The old code fired the Accessibility + Input Monitoring + Microphone system dialogs
-        // back-to-back for a returning user (three prompts + Settings panes stacked on launch), and
-        // pre-consumed Input Monitoring's one-shot dialog so onboarding's "Grant" fell through to an
-        // empty ("No Items") pane. Now permissions are granted either in onboarding (sequentially,
-        // one prompt at a time) or just-in-time at the point of use — dictation requests the mic
-        // (VoiceModule), meetings request Automation / System Audio — while the menu bar shows a
-        // live ⚠ for anything missing.
-        permissionStore.refresh()
-        Logger.log("App", "Permissions at launch — inputMonitoring: \(permissionStore.inputMonitoring), accessibility: \(permissionStore.accessibility), microphone: \(permissionStore.microphone), automation: \(permissionStore.automation)")
+        // Launch (almost) never prompts for permissions — the shared PermissionStore QUERIED fresh
+        // at its init. The old code fired the Accessibility + Input Monitoring + Microphone system
+        // dialogs back-to-back for a returning user (three prompts + Settings panes stacked on
+        // launch), and pre-consumed Input Monitoring's one-shot dialog so onboarding's "Grant" fell
+        // through to an empty ("No Items") pane. Now permissions are granted either in onboarding
+        // (sequentially, one prompt at a time) or just-in-time at the point of use — dictation
+        // requests the mic (VoiceModule), meetings request Automation / System Audio — while the
+        // menu bar shows a live ⚠ for anything missing.
+        Logger.log("App", "Permissions at launch — accessibility: \(permissionStore.accessibility), microphone: \(permissionStore.microphone), automation: \(permissionStore.automation)")
+
+        // The ONE launch prompt kept, for returning users only: Accessibility. It's the sole
+        // permission with no just-in-time path — without it the hotkey tap can't even be created,
+        // so nothing at the point of use is alive to ask, and a since-revoked grant (TCC reset,
+        // macOS upgrade, re-signed build) would otherwise dead-end silently until the user happens
+        // to open the menu and notice the ⚠ row. A single dialog; none of the old triple-stack.
+        if !needsOnboarding, !permissionStore.accessibility {
+            _ = PermissionManager.checkAccessibility()
+        }
 
         // menu-bar icon tracks the server connection
         ModelServer.shared.onStatusChange = { [weak self] status in
@@ -239,9 +247,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.shared.start()
 
         // Keep the shared permission store live and self-heal the hotkey tap: when the app
-        // reactivates (e.g. the user just granted Input Monitoring in System Settings), re-query
-        // and, if Input Monitoring is now granted but the tap isn't live, recreate it — no relaunch
-        // needed. This activation refresh is also what keeps the menu bar's permission rows current.
+        // reactivates (e.g. the user just granted Accessibility in System Settings), re-query
+        // and, if Accessibility is now granted but the tap isn't live, recreate it — no relaunch
+        // needed. This activation refresh also keeps the menu bar's permission rows current, though
+        // the menu's own `.onAppear` refresh is the primary path there (a status-item click does
+        // not activate the app, so this observer alone would miss it).
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification,
             object: nil,
@@ -277,17 +287,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Re-query permissions into the shared store and heal the hotkey tap when Input Monitoring is
+    /// Re-query permissions into the shared store and heal the hotkey tap when Accessibility is
     /// granted but the tap isn't live (it was granted in System Settings after launch, so the
-    /// launch-time `GlobalHotKey.start()` returned nil). Called on every app reactivation.
+    /// launch-time `GlobalHotKey.start()` couldn't create it). Called on every app reactivation.
     private func syncPermissions() {
         permissionStore.refresh()
-        // The hotkey's active CGEventTap is gated by Accessibility (not Input Monitoring). If it's
-        // granted but the tap isn't live (granted in System Settings after launch), re-create it.
-        if permissionStore.accessibility, !GlobalHotKey.shared.isHealthy {
-            Logger.log("Permission", "Accessibility granted but hotkey tap not live — restarting tap")
-            GlobalHotKey.shared.restart()
-        }
+        GlobalHotKey.shared.restartIfNeeded(accessibilityGranted: permissionStore.accessibility)
     }
 
     /// Reopen (Dock click / relaunch) with no visible windows: open the main window — the

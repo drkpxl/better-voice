@@ -1,14 +1,17 @@
 import AppKit
 import AVFoundation
 import CoreServices
-import IOKit.hid
 
 /// Permission checks and prompting
-/// - Accessibility: used by TextInjector (AX API)
-/// - **Input Monitoring**: the real permission CGEventTap needs to listen for global keyboard events (required on macOS 10.15+)
-///   ⚠️ Not Accessibility. CGEventTap can "succeed at creation" but still not receive events = Input Monitoring is missing.
+/// - **Accessibility**: gates BOTH the global hotkey and typing at the cursor. The hotkey is an
+///   ACTIVE `CGEventTap` (`.defaultTap` — it swallows matched combo key-downs), and macOS gates
+///   active taps on Accessibility; `TextInjector`'s AX API needs the same grant. (Older comments
+///   here claimed CGEventTap needed Input Monitoring — that was true of the LISTEN-ONLY tap the app
+///   used before combo hotkeys forced `.defaultTap`. The app no longer uses Input Monitoring at
+///   all, which is why its Settings pane read "No Items".)
 /// - Microphone: used for voice recording
-/// - **Automation**: needed to send Apple events to Apple Notes (`NotesScript`) to save meetings
+/// - **Automation**: needed to send Apple events to Apple Notes (`NotesScript`) to save meetings.
+///   Requested just-in-time at the meeting/import gates, not during onboarding.
 /// - **System Audio Recording** (`kTCCServiceAudioCapture`): needed by `SystemAudioCapturer`'s Core
 ///   Audio process tap to record a meeting's system audio. Deliberately has NO check/request
 ///   functions here — see `PermissionKind.systemAudio`'s doc comment for why.
@@ -24,56 +27,10 @@ enum PermissionManager {
         return trusted
     }
 
-    /// Check the Input Monitoring (global keyboard listening) permission.
-    /// This is the permission CGEventTap actually needs — granting Accessibility alone doesn't help, no events are received.
-    /// The first time it's unauthorized, a system dialog will pop up (IOHIDRequestAccess is async).
-    @discardableResult
-    static func checkInputMonitoring() -> Bool {
-        let granted = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
-        if !granted {
-            Logger.log("Permission", "Input Monitoring not granted — CGEventTap will not receive key events. Requesting...")
-            // Async system dialog prompt
-            _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
-        } else {
-            Logger.log("Permission", "Input Monitoring: OK")
-        }
-        return granted
-    }
-
-    /// Outcome of an interactive Input Monitoring request, so the UI knows whether the system
-    /// dialog will actually appear or the user has to be sent to System Settings.
-    enum InputMonitoringOutcome { case granted, prompted, mustOpenSettings }
-
-    /// Interactive "Grant" for Input Monitoring. macOS only shows the consent dialog the *first*
-    /// time the permission is undetermined (`kIOHIDAccessTypeUnknown`); once a decision is on
-    /// record (`kIOHIDAccessTypeDenied`), `IOHIDRequestAccess` is a silent no-op and the only way
-    /// back is the System Settings pane. Distinguish the two so the button never looks dead.
-    static func requestInputMonitoring() -> InputMonitoringOutcome {
-        switch IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) {
-        case kIOHIDAccessTypeGranted:
-            return .granted
-        case kIOHIDAccessTypeDenied:
-            Logger.log("Permission", "Input Monitoring previously denied — system won't re-prompt; opening System Settings")
-            // Force-register so the app actually appears in the Input Monitoring list — an empty
-            // "No Items" pane can't be toggled. When denied this doesn't grant (or re-prompt), but
-            // it ensures the TCC list entry exists before we send the user to the pane.
-            _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
-            return .mustOpenSettings
-        default: // kIOHIDAccessTypeUnknown — not yet determined; the dialog will appear
-            Logger.log("Permission", "Input Monitoring undetermined — showing system prompt")
-            _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
-            return .prompted
-        }
-    }
-
     // MARK: - For status bar polling — pure query, no dialog prompt
 
     static func isAccessibilityGranted() -> Bool {
         AXIsProcessTrusted()
-    }
-
-    static func isInputMonitoringGranted() -> Bool {
-        IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted
     }
 
     static func isMicrophoneGranted() -> Bool {
@@ -87,7 +44,10 @@ enum PermissionManager {
         case .notDetermined:
             return await AVCaptureDevice.requestAccess(for: .audio)
         default:
-            Logger.log("Permission", "Microphone denied, open System Settings")
+            // Once denied, requestAccess is a silent no-op — the pane is the only way back, so
+            // open it, otherwise the caller's "Grant" button looks dead.
+            Logger.log("Permission", "Microphone denied — opening System Settings")
+            openSettings(for: .microphone)
             return false
         }
     }
@@ -127,12 +87,11 @@ enum PermissionManager {
 /// The privacy permissions Better Voice needs for dictation and meeting recording. Provides a
 /// single place for the pure-query status and the System Settings deep link of each.
 enum PermissionKind: CaseIterable {
-    case inputMonitoring
     case accessibility
     case microphone
     case automation
     /// "System Audio Recording" (`kTCCServiceAudioCapture`) — consumed by `SystemAudioCapturer`'s
-    /// Core Audio process tap when a meeting recording starts. Unlike the other four cases, this
+    /// Core Audio process tap when a meeting recording starts. Unlike the other cases, this
     /// one is fundamentally unqueryable/unrequestable — see `isGranted` below.
     case systemAudio
 
@@ -147,10 +106,9 @@ enum PermissionKind: CaseIterable {
     /// returning `true` would hide a real denial behind a fake checkmark. `nil` forces every
     /// caller to render this as "ask again automatically, deep-link to Settings if it's wrong" —
     /// never as a live ✓/⚠ status — which is why `.systemAudio` deliberately does NOT participate
-    /// in the `permissionRow(kind:granted:...)` UI the other four cases use.
+    /// in the `permissionRow(kind:granted:...)` UI the other cases use.
     var isGranted: Bool? {
         switch self {
-        case .inputMonitoring: return PermissionManager.isInputMonitoringGranted()
         case .accessibility: return PermissionManager.isAccessibilityGranted()
         case .microphone: return PermissionManager.isMicrophoneGranted()
         case .automation: return PermissionManager.isAutomationGranted()
@@ -161,8 +119,6 @@ enum PermissionKind: CaseIterable {
     /// Deep link to the matching Privacy pane in System Settings.
     var settingsURL: URL {
         switch self {
-        case .inputMonitoring:
-            return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
         case .accessibility:
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
         case .microphone:

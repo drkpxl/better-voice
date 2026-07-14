@@ -22,6 +22,9 @@ INSTALL_DIR = $(HOME)/Applications
 INSTALL_APP = $(INSTALL_DIR)/$(APP_NAME).app
 LAUNCHD_LABEL = com.baselinemakes.bettervoice2
 LAUNCHD_PLIST = ~/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
+# 旧 label（Baseline Makes 品牌重塑前）。install/uninstall 都要清理它，否则改名前安装过的机器
+# 会残留一个指向已删除 app 的 LaunchAgent(每次登录报错/重装后双重自启)。
+LEGACY_LAUNCHD_PLIST = ~/Library/LaunchAgents/com.drkpxl.bettervoice2.plist
 
 build:
 	swift build
@@ -102,6 +105,9 @@ install: bundle
 		'</plist>' > $(LAUNCHD_PLIST)
 	@launchctl unload $(LAUNCHD_PLIST) 2>/dev/null || true
 	@launchctl load $(LAUNCHD_PLIST)
+	@# 迁移：卸掉改名前的旧 LaunchAgent，避免双重自启
+	@launchctl unload $(LEGACY_LAUNCHD_PLIST) 2>/dev/null || true
+	@rm -f $(LEGACY_LAUNCHD_PLIST)
 	@echo ""
 	@echo "✅ 安装完成！"
 	@echo "   应用位置: $(INSTALL_APP)"
@@ -116,6 +122,8 @@ uninstall:
 	@echo "=== 停止开机自启 ==="
 	@launchctl unload $(LAUNCHD_PLIST) 2>/dev/null || true
 	@rm -f $(LAUNCHD_PLIST)
+	@launchctl unload $(LEGACY_LAUNCHD_PLIST) 2>/dev/null || true
+	@rm -f $(LEGACY_LAUNCHD_PLIST)
 	@echo "=== 停止运行中的 $(APP_NAME) ==="
 	@killall $(APP_NAME) 2>/dev/null || true
 	@echo "=== 移除应用 ==="

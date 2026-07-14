@@ -121,14 +121,27 @@ final class GlobalHotKey: @unchecked Sendable {
         }
     }
 
-    /// Re-create the tap after Input Monitoring is granted post-launch. The tap is created once at
-    /// `start()`; if Input Monitoring wasn't granted then, `CGEvent.tapCreate` returns nil and the
-    /// hotkey is dead until this runs. Onboarding calls it the instant the grant lands, so the
-    /// hotkey works without the user having to quit and relaunch the app.
+    /// Re-create the tap after Accessibility is granted post-launch (the active `.defaultTap` is
+    /// gated on Accessibility — see `PermissionManager`'s header). The tap is created once at
+    /// `start()`; if Accessibility wasn't granted then, `CGEvent.tapCreate` returns nil and the
+    /// hotkey is dead until this runs. Every permission-refresh path calls `restartIfNeeded` the
+    /// instant the grant is visible, so the hotkey works without quitting and relaunching the app.
     @MainActor
     func restart() {
         stop()
         start()
+    }
+
+    /// Level-based self-heal, safe to call from every permission-refresh path (app activation,
+    /// menu open, onboarding poll): if Accessibility is granted but the tap isn't live (it was
+    /// granted in System Settings after `start()` failed at launch), re-create it. Level-based
+    /// rather than edge-based on purpose — the shared `PermissionStore` has several refreshers, and
+    /// whichever one happens to observe the grant first must not be the only one that can heal.
+    @MainActor
+    func restartIfNeeded(accessibilityGranted: Bool) {
+        guard accessibilityGranted, !isHealthy else { return }
+        Logger.log("HotKey", "Accessibility granted but tap not live — restarting tap")
+        restart()
     }
 
     @MainActor

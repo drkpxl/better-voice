@@ -115,7 +115,11 @@ final class MeetingCoordinator {
         guard case .idle = state else { return }
 
         let notesConfigured = RuntimeConfig.shared.notesConfigured
-        let automationGranted = PermissionManager.isAutomationGranted()
+        // Automation is requested HERE, just-in-time (no onboarding step): `requestAutomation()`
+        // fires the system consent dialog when the state is undetermined and is a quick no-op
+        // otherwise — without it, an undetermined user would be sent to an Automation pane that
+        // has no Better Voice row to toggle (the pane only lists apps that have already asked).
+        let automationGranted = PermissionManager.isAutomationGranted() || PermissionManager.requestAutomation()
         guard notesConfigured, automationGranted else {
             Logger.log("Meeting", "Start Meeting blocked — Apple Notes not ready (configured=\(notesConfigured), automation=\(automationGranted))")
             WindowRouter.shared.open(id: WindowID.main)

@@ -96,12 +96,12 @@ final class SettingsViewModel {
         HotKeyConfig.load(from: RuntimeConfig.shared.meetingHotKeyConfig, fallback: .meetingDefault).displayName
     }
 
-    /// Live query, same as `WelcomeViewModel`'s permission rows — recomputed on each access
-    /// rather than cached, so it reflects the current state whenever the view re-renders (e.g.
-    /// after the Apple Notes picker sheet dismisses).
+    /// Reads the shared `PermissionStore` (same source as the menu bar and onboarding) so the row
+    /// re-renders when the permission changes — an imperative `PermissionKind.isGranted` read here
+    /// is untracked by SwiftUI, the exact frozen-status bug the store exists to fix. Refreshed by
+    /// app activation (returning from System Settings) and the Notes picker sheet's dismissal.
     var notesAutomationGranted: Bool {
-        // `.automation` always resolves (never `nil`) — see `PermissionKind.isGranted`.
-        PermissionKind.automation.isGranted ?? false
+        PermissionStore.shared.automation
     }
 
     var serverStatusText: String {
@@ -484,7 +484,10 @@ struct SettingsContentView: View {
             .padding(16)
         }
         .tint(Color.brandAccent)
-        .sheet(isPresented: $showNotesPicker) {
+        // The picker's account scan (osascript) is what fires the Automation consent prompt, so
+        // the grant can land while the sheet is up with no app re-activation to refresh the store
+        // — re-query on dismissal so the "Automation" row above is current.
+        .sheet(isPresented: $showNotesPicker, onDismiss: { PermissionStore.shared.refresh() }) {
             NotesDestinationPickerView()
         }
     }

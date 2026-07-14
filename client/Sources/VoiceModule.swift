@@ -1,5 +1,6 @@
 import Foundation
 import ApplicationServices
+import CoreAudio
 
 /// Voice module
 /// Interaction: press right Command to start recording+transcription -> press right Command again to stop -> auto-inject
@@ -32,8 +33,31 @@ final class VoiceModule {
 
     /// How long to let the start cue play before opening the capture session — see the note in
     /// `startRecording()`. Long enough for the "Pop" to be heard before a Bluetooth mic's SCO route
-    /// switch swallows it, short enough not to read as input lag.
+    /// switch swallows it, short enough not to read as input lag. Applied only when the default
+    /// input is Bluetooth (`defaultInputIsBluetooth()`) — on the built-in or a wired mic there is
+    /// no route switch to outrun, and the lead would just cost the first ~200ms of speech from
+    /// anyone who talks the instant they press the hotkey.
     private static let startCueLeadMs: UInt64 = 200
+
+    /// Whether the system default audio INPUT is a Bluetooth device — the only routes where
+    /// opening capture triggers the SCO switch that swallows the start cue (see `startCueLeadMs`).
+    private static func defaultInputIsBluetooth() -> Bool {
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID) == noErr,
+              deviceID != kAudioObjectUnknown else { return false }
+
+        var transport = UInt32(0)
+        size = UInt32(MemoryLayout<UInt32>.size)
+        address.mSelector = kAudioDevicePropertyTransportType
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &transport) == noErr else { return false }
+        return transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
+    }
 
     func onHotKeyDown() {
         switch state {
@@ -80,8 +104,12 @@ final class VoiceModule {
             // switch swallows whatever is playing at that instant — which is exactly why the start
             // "Pop" was inaudible while the stop cue (played after switching back) came through. A
             // short lead lets the cue land first; it also reads as the "you can talk now" signal, so
-            // capture going live a beat later doesn't cost usable speech.
-            try? await Task.sleep(for: .milliseconds(Self.startCueLeadMs))
+            // capture going live a beat later doesn't cost usable speech. Bluetooth inputs ONLY:
+            // wired/built-in mics have no route switch, so there the lead would just clip the first
+            // word of anyone who speaks the instant they press the hotkey.
+            if Self.defaultInputIsBluetooth() {
+                try? await Task.sleep(for: .milliseconds(Self.startCueLeadMs))
+            }
 
             // A Stop pressed during that lead must not bring capture up behind it (which would leave
             // the mic running with the module already idle) — bail if the state has moved on.
@@ -92,11 +120,24 @@ final class VoiceModule {
 
             do {
                 try await voiceSession.start()
+                // A Stop can also land while start() is awaiting (first use can take seconds:
+                // model download, prepareToAnalyze) — stop() saw isRunning == false and reset the
+                // module to idle, so tear the just-opened capture back down instead of leaving the
+                // mic live behind an idle UI.
+                guard case .recording = self.state, self.session === voiceSession else {
+                    Logger.log("Voice", "Stopped during start — closing orphaned capture session")
+                    _ = await voiceSession.stop()
+                    return
+                }
                 Logger.log("Voice", "Recording... press hotkey again to stop")
             } catch {
                 Logger.log("Voice", "Failed to start: \(error)")
-                session = nil
-                state = .idle
+                // Only reset if this session is still the current one — the user may have already
+                // started a newer session, which this must not clobber mid-recording.
+                if self.session === voiceSession {
+                    session = nil
+                    state = .idle
+                }
             }
         }
     }

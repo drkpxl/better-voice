@@ -102,8 +102,14 @@ struct MenuBarMenu: View {
         Text(t("Better Voice"))
             // Menu-style content is rebuilt each time the menu opens; refresh here so a permission
             // toggled in System Settings while the app was backgrounded is reflected immediately,
-            // not only after the next app activation.
-            .onAppear { permissions.refresh() }
+            // not only after the next app activation. Heal the hotkey tap on the same edge: a
+            // status-item click does NOT activate the app, so without this the row could flip to
+            // "✓ Authorized" while the tap (created before the grant) stayed dead until the user
+            // happened to activate the app some other way.
+            .onAppear {
+                permissions.refresh()
+                GlobalHotKey.shared.restartIfNeeded(accessibilityGranted: permissions.accessibility)
+            }
 
         Divider()
 
