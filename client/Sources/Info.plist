@@ -10,6 +10,8 @@
 	<string>com.drkpxl.bettervoice2</string>
 	<key>CFBundleName</key>
 	<string>BetterVoice2</string>
+	<key>CFBundleDisplayName</key>
+	<string>Better Voice</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

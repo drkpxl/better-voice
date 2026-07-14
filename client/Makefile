@@ -20,7 +20,7 @@ SIGN_IDENTITY ?= Better Voice Development
 # 安装相关变量
 INSTALL_DIR = $(HOME)/Applications
 INSTALL_APP = $(INSTALL_DIR)/$(APP_NAME).app
-LAUNCHD_LABEL = com.drkpxl.bettervoice2
+LAUNCHD_LABEL = com.baselinemakes.bettervoice2
 LAUNCHD_PLIST = ~/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
 
 build:

@@ -153,7 +153,7 @@ final class VoiceSession {
         session.addInput(deviceInput)
 
         let audioOutput = AVCaptureAudioDataOutput()
-        let captureQueue = DispatchQueue(label: "com.drkpxl.bettervoice2.audio-capture")
+        let captureQueue = DispatchQueue(label: "com.baselinemakes.bettervoice2.audio-capture")
 
         // Create the delegate, capturing all needed local variables (avoids accessing @MainActor self)
         let delegate = AudioCaptureDelegate(

@@ -82,6 +82,11 @@ struct MenuBarLabel: View {
 struct MenuBarMenu: View {
     let model: MenuBarModel
     let meetingCoordinator: MeetingCoordinator
+    /// Single source of truth for permission status (see `PermissionStore`). Reading its
+    /// `@Observable` state here is what makes the rows re-render when a permission changes —
+    /// the old code read `PermissionKind.isGranted` imperatively, which SwiftUI couldn't track,
+    /// so the menu stayed frozen at its launch-time (all "Not authorized") snapshot.
+    let permissions: PermissionStore
 
     /// Live hotkey display strings, shown inline in the menu so the shortcuts are discoverable.
     /// Read as plain text (not `.keyboardShortcut`) so they never register a menu-scoped shortcut
@@ -95,11 +100,17 @@ struct MenuBarMenu: View {
 
     var body: some View {
         Text(t("Better Voice"))
+            // Menu-style content is rebuilt each time the menu opens; refresh here so a permission
+            // toggled in System Settings while the app was backgrounded is reflected immediately,
+            // not only after the next app activation.
+            .onAppear { permissions.refresh() }
 
         Divider()
 
-        permissionRow(t("Global hotkey monitoring"), .inputMonitoring)
-        permissionRow(t("Text injection (cursor)"), .accessibility)
+        // One Accessibility row: it gates BOTH the global hotkey (active CGEventTap) and typing at
+        // the cursor. Input Monitoring is intentionally absent — the app never uses that service
+        // (its pane read "No Items"); an active keyboard tap is an Accessibility capability.
+        permissionRow(t("Global hotkey & text injection"), .accessibility)
         permissionRow(t("Microphone"), .microphone)
 
         Divider()
@@ -165,9 +176,9 @@ struct MenuBarMenu: View {
     /// menu-style SwiftUI content; the ⚠ carries the signal.)
     @ViewBuilder
     private func permissionRow(_ label: String, _ kind: PermissionKind) -> some View {
-        // `?? false`: only called with kinds that always resolve (never `nil`) — see
-        // `PermissionKind.isGranted`. `.systemAudio` deliberately has no row here.
-        if kind.isGranted ?? false {
+        // Reads the @Observable `PermissionStore` (never the imperative `PermissionKind.isGranted`)
+        // so the row re-renders when the permission changes. `.systemAudio` deliberately has no row.
+        if permissions.isGranted(kind) {
             Text("✓ \(t("\(label): \(t("Authorized"))"))")
         } else {
             Button("⚠ \(t("\(label): \(t("Not authorized — click to open Settings"))"))") {

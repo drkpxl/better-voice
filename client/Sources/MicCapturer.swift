@@ -92,7 +92,7 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         session.addInput(deviceInput)
 
         let audioOutput = AVCaptureAudioDataOutput()
-        let captureQueue = DispatchQueue(label: "com.drkpxl.bettervoice2.meeting-mic-capture")
+        let captureQueue = DispatchQueue(label: "com.baselinemakes.bettervoice2.meeting-mic-capture")
 
         let delegate = MicCaptureDelegate(
             onPCMBuffer: { [weak self] buffer in self?.wavWriter.write(buffer: buffer) },

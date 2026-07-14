@@ -30,6 +30,11 @@ final class VoiceModule {
     private var pinnedFocus: AXUIElement?   // the exact text field focused when recording started
     private var recordingStartT: CFAbsoluteTime = 0
 
+    /// How long to let the start cue play before opening the capture session — see the note in
+    /// `startRecording()`. Long enough for the "Pop" to be heard before a Bluetooth mic's SCO route
+    /// switch swallows it, short enough not to read as input lag.
+    private static let startCueLeadMs: UInt64 = 200
+
     func onHotKeyDown() {
         switch state {
         case .idle:
@@ -69,6 +74,22 @@ final class VoiceModule {
         }
 
         Task {
+            // Let the start cue (DictationSound.playStart(), fired synchronously on the .recording
+            // transition above) be HEARD before we open the capture session. On a Bluetooth mic
+            // (AirPods) starting capture switches the earbuds into hands-free SCO, and that route
+            // switch swallows whatever is playing at that instant — which is exactly why the start
+            // "Pop" was inaudible while the stop cue (played after switching back) came through. A
+            // short lead lets the cue land first; it also reads as the "you can talk now" signal, so
+            // capture going live a beat later doesn't cost usable speech.
+            try? await Task.sleep(for: .milliseconds(Self.startCueLeadMs))
+
+            // A Stop pressed during that lead must not bring capture up behind it (which would leave
+            // the mic running with the module already idle) — bail if the state has moved on.
+            guard case .recording = self.state, self.session === voiceSession else {
+                Logger.log("Voice", "Start aborted during cue lead (stopped before capture opened)")
+                return
+            }
+
             do {
                 try await voiceSession.start()
                 Logger.log("Voice", "Recording... press hotkey again to stop")

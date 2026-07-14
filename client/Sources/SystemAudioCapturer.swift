@@ -46,7 +46,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     private var ioProcID: AudioDeviceIOProcID?
     private var tapFormat: AVAudioFormat?
 
-    private let sampleQueue = DispatchQueue(label: "com.drkpxl.bettervoice2.system-audio")
+    private let sampleQueue = DispatchQueue(label: "com.baselinemakes.bettervoice2.system-audio")
     private var bufferCount = 0
 
     /// Guards `start()`/`stop()`/`close()` against misordered or re-entrant calls. `start()`

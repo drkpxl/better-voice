@@ -52,10 +52,10 @@ final class WelcomeViewModel {
     /// Vocabulary steps.
     static let currentOnboardingVersion = 4
 
-    var inputMonitoringGranted = false
-    var accessibilityGranted = false
-    var microphoneGranted = false
-    var automationGranted = false
+    /// Live permission state comes from the shared `PermissionStore` (single source of truth shared
+    /// with the menu bar) — not four bools mirrored into this VM. Onboarding reads
+    /// `permissions.accessibility` (hotkey + typing) / `.microphone` / `.automation`.
+    let permissions = PermissionStore.shared
 
     // Model server — provider is mutable so onboarding can offer the same three backends as
     // Settings' `providerPicker` ("apple" / "ollama" / "openai"), not just whichever the seeded
@@ -124,30 +124,17 @@ final class WelcomeViewModel {
     /// Re-reads live permission state (granted toggles out-of-process when the user acts in
     /// System Settings, so the view polls this on a timer while open).
     func refreshStatuses() {
-        // These four kinds always resolve (never `nil`) — see `PermissionKind.isGranted`.
-        // `.systemAudio` is deliberately excluded: it has no live status to poll (see there).
-        let inputMonitoringWasGranted = inputMonitoringGranted
-        inputMonitoringGranted = PermissionKind.inputMonitoring.isGranted ?? false
-        accessibilityGranted = PermissionKind.accessibility.isGranted ?? false
-        microphoneGranted = PermissionKind.microphone.isGranted ?? false
-        automationGranted = PermissionKind.automation.isGranted ?? false
+        let wasAccessibility = permissions.accessibility
+        permissions.refresh()
 
-        // The CGEventTap is created at launch; if Input Monitoring wasn't granted then, creation
-        // failed and the hotkey is dead. The instant the user grants it here, re-create the tap so
-        // dictation works immediately — no app restart needed.
-        if !inputMonitoringWasGranted, inputMonitoringGranted {
-            Logger.log("Permission", "Input Monitoring granted during onboarding — restarting hotkey tap")
+        // The hotkey's active CGEventTap is gated by Accessibility (not Input Monitoring) and is
+        // created at launch; if Accessibility wasn't granted then, creation failed and the hotkey is
+        // dead. The instant it's granted here, re-create the tap so dictation works immediately —
+        // no app restart needed.
+        if !wasAccessibility, permissions.accessibility {
+            Logger.log("Permission", "Accessibility granted during onboarding — restarting hotkey tap")
             GlobalHotKey.shared.restart()
         }
-    }
-
-    func grantInputMonitoring() {
-        // If the system won't show its dialog (already decided once), send the user straight to
-        // the Settings pane so "Grant" never appears to do nothing.
-        if PermissionManager.requestInputMonitoring() == .mustOpenSettings {
-            PermissionManager.openSettings(for: .inputMonitoring)
-        }
-        refreshStatuses()
     }
 
     func grantAccessibility() {
@@ -276,7 +263,8 @@ final class WelcomeViewModel {
 /// safety net regardless of which step last called its own persist method.
 private enum WizardStep: Int, CaseIterable {
     case welcome
-    case dictation
+    case permAccessibility   // Accessibility — powers BOTH the global hotkey (active event tap) AND typing at the cursor
+    case permMic             // Microphone
     case model
     case personalContext
     case vocabulary
@@ -307,7 +295,8 @@ struct WelcomeContentView: View {
             Group {
                 switch step {
                 case .welcome: welcomeStep
-                case .dictation: dictationStep
+                case .permAccessibility: permAccessibilityStep
+                case .permMic: permMicStep
                 case .model: modelStep
                 case .personalContext: personalContextStep
                 case .vocabulary: vocabularyStep
@@ -373,7 +362,7 @@ struct WelcomeContentView: View {
         case .model: viewModel.persistServer()
         case .personalContext: viewModel.persistPersonalContext()
         case .vocabulary: viewModel.persistVocabulary()
-        case .dictation, .notes, .done: break
+        case .permAccessibility, .permMic, .notes, .done: break
         }
     }
 
@@ -417,44 +406,54 @@ struct WelcomeContentView: View {
         }
     }
 
-    private var dictationStep: some View {
+    // MARK: Permission steps — one per screen, granted in sequence, auto-advancing on grant
+
+    /// Dictation permission 1 of 2: Accessibility. It powers BOTH capabilities — the global hotkey
+    /// (an active `CGEventTap`, which macOS gates on Accessibility, NOT Input Monitoring) and typing
+    /// the transcribed text at the cursor (the AX API). One grant, both capabilities — which is why
+    /// there is no separate "Input Monitoring" step: an active keyboard tap never uses that service
+    /// (that's why its pane read "No Items"), and the app does no listen-only input work at all.
+    private var permAccessibilityStep: some View {
         stepScaffold(
             title: t("Dictate Anywhere"),
-            subtitle: t("Hold your hotkey, speak, and release — Better Voice cleans up the text and types it at your cursor in any app.")
+            subtitle: t("Hold your hotkey, speak, and release — Better Voice types cleaned-up text at your cursor in any app. Both the global hotkey and typing at your cursor use a single macOS permission: Accessibility.")
         ) {
             stepIcon("keyboard")
         } content: {
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
                 hotkeyChip
-                VStack(spacing: 0) {
-                    permissionRow(
-                        kind: .inputMonitoring,
-                        granted: viewModel.inputMonitoringGranted,
-                        title: t("Global hotkey monitoring"),
-                        detail: t("Lets your dictation hotkey work in every app."),
-                        grant: { viewModel.grantInputMonitoring() }
-                    )
-                    Divider()
-                    permissionRow(
-                        kind: .accessibility,
-                        granted: viewModel.accessibilityGranted,
-                        title: t("Text injection"),
-                        detail: t("Types transcribed text at your cursor."),
-                        grant: { viewModel.grantAccessibility() }
-                    )
-                    Divider()
-                    permissionRow(
-                        kind: .microphone,
-                        granted: viewModel.microphoneGranted,
-                        title: t("Microphone"),
-                        detail: t("Records your voice for transcription."),
-                        grant: { viewModel.grantMicrophone() }
-                    )
-                }
-                .padding(.horizontal, 12)
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                permissionGate(
+                    kind: .accessibility,
+                    granted: viewModel.permissions.accessibility,
+                    grant: { viewModel.grantAccessibility() },
+                    settingsHint: t("If System Settings opens, switch on Better Voice under Accessibility, then come back — this screen advances on its own.")
+                )
             }
             .frame(maxWidth: 460)
+        }
+        .onChange(of: viewModel.permissions.accessibility) { _, granted in
+            if granted { autoAdvance(from: .permAccessibility) }
+        }
+    }
+
+    /// Dictation permission 2 of 2: Microphone (recorded only while the hotkey is held, transcribed on-device).
+    private var permMicStep: some View {
+        stepScaffold(
+            title: t("Hear Your Voice"),
+            subtitle: t("Better Voice records your microphone only while you hold the hotkey, and transcribes it on-device.")
+        ) {
+            stepIcon("mic")
+        } content: {
+            permissionGate(
+                kind: .microphone,
+                granted: viewModel.permissions.microphone,
+                grant: { viewModel.grantMicrophone() },
+                settingsHint: t("If you previously declined, switch on Better Voice under Microphone in System Settings.")
+            )
+            .frame(maxWidth: 460)
+        }
+        .onChange(of: viewModel.permissions.microphone) { _, granted in
+            if granted { autoAdvance(from: .permMic) }
         }
     }
 
@@ -653,36 +652,26 @@ struct WelcomeContentView: View {
             stepIcon("note.text")
         } content: {
             VStack(spacing: 14) {
-                Text(t("Optional — dictation works without this. Set it up now if you plan to import meetings, or skip and configure it later in Settings."))
+                // Automation (control Apple Notes) and System Audio Recording are NOT requested
+                // here — they're just-in-time: macOS prompts for Automation the first time a save
+                // to Notes actually happens, and for System Audio the first time a meeting records.
+                // Onboarding only lets the user pick a destination up front if they want to.
+                Text(t("Optional — dictation works without this. If you plan to import or record meetings, pick a destination now. Better Voice asks macOS for permission to control Apple Notes (and to capture system audio for recordings) the first time it needs them — not here. You can change this anytime in Settings."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VStack(spacing: 0) {
-                    permissionRow(
-                        kind: .automation,
-                        granted: viewModel.automationGranted,
-                        title: t("Automation access"),
-                        detail: t("Lets Better Voice create notes in Apple Notes."),
-                        grant: { viewModel.grantAutomation() }
-                    )
-                    Divider()
-                    HStack {
-                        Text(notesDestinationSummary())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button(t("Choose...")) { showNotesPicker = true }
-                    }
-                    .padding(.vertical, 10)
+                HStack {
+                    Text(notesDestinationSummary())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button(t("Choose...")) { showNotesPicker = true }
                 }
                 .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-                // System Audio Recording is deliberately not mentioned here — macOS prompts for
-                // it automatically the first time a real meeting starts recording, and the
-                // Settings deep link (see `SettingsWindow`'s "Apple Notes" section) only makes
-                // sense once it's actually been asked for. See `PermissionKind.systemAudio`.
             }
             .frame(maxWidth: 460)
         }
@@ -756,43 +745,50 @@ struct WelcomeContentView: View {
 
     // MARK: Helpers
 
-    private func permissionRow(
+    /// One-permission-per-screen control: a prominent Grant button that fires the system prompt
+    /// (or deep-links to Settings via the secondary button when macOS won't re-prompt), or a
+    /// ✓ once granted. The wizard auto-advances on the grant (each step's `.onChange`), so there's
+    /// no separate confirm step.
+    @ViewBuilder
+    private func permissionGate(
         kind: PermissionKind,
         granted: Bool,
-        title: String,
-        detail: String,
-        grant: @escaping () -> Void
+        grant: @escaping () -> Void,
+        settingsHint: String
     ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.circle")
-                .foregroundStyle(granted ? .green : .orange)
+        if granted {
+            Label(t("Granted"), systemImage: "checkmark.circle.fill")
                 .font(.title3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).fontWeight(.medium)
-                Text(detail)
+                .foregroundStyle(.green)
+                .padding(.vertical, 10)
+        } else {
+            VStack(spacing: 10) {
+                Button(action: grant) {
+                    Text(t("Grant Access")).frame(maxWidth: 260)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button(t("Open System Settings")) { viewModel.openSettings(for: kind) }
+                    .buttonStyle(.link)
+                    .font(.callout)
+
+                Text(settingsHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 12)
-            if granted {
-                Text(t("Granted"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                HStack(spacing: 6) {
-                    Button(t("Grant")) { grant() }
-                    Button {
-                        viewModel.openSettings(for: kind)
-                    } label: {
-                        Image(systemName: "arrow.up.forward.square")
-                    }
-                    .buttonStyle(.borderless)
-                    .help(t("Open System Settings"))
-                }
-            }
         }
-        .padding(.vertical, 10)
+    }
+
+    /// Advance off a permission step shortly after its grant lands, so the ✓ is visible first.
+    /// Guarded on `step` so a manual Back/Continue in the delay window isn't overridden.
+    private func autoAdvance(from expected: WizardStep) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(650))
+            if step == expected { advance() }
+        }
     }
 
     /// Shared layout for every step: a large SF Symbol (or brand mark) visual, a title, a short
