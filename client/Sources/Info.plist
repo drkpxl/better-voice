@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>Better Voice</string>
 	<key>CFBundleExecutable</key>
 	<string>BetterVoice2</string>
 	<key>CFBundleIconFile</key>
@@ -10,14 +12,12 @@
 	<string>com.drkpxl.bettervoice2</string>
 	<key>CFBundleName</key>
 	<string>BetterVoice2</string>
-	<key>CFBundleDisplayName</key>
-	<string>Better Voice</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.3</string>
+	<string>1.0.4</string>
 	<key>CFBundleVersion</key>
-	<string>5</string>
+	<string>6</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
