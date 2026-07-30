@@ -155,7 +155,10 @@ final class SummarizationClient {
         // summary despite being told not to. Strip that first — which also re-floats the requested
         // TITLE: line to the top so `parseSummaryTitle` can consume it — then clear any stray
         // TITLE: lines the model scattered into the body.
-        let deleaked = stripEchoedContext(raw, personalContext: PersonalContext.load())
+        // `promptContext()`, not `load()`: the stripper removes output lines that verbatim match the
+        // context that was *injected*, and `appended(to:)` injects the authored content only. Passing
+        // the raw file would hunt for template boilerplate the model was never shown.
+        let deleaked = stripEchoedContext(raw, personalContext: PersonalContext.promptContext())
         if includeTitle {
             let parsed = parseSummaryTitle(from: deleaked)
             return (parsed.title, stripStrayTitleLines(parsed.markdown))
