@@ -14,8 +14,8 @@
 				<span class="brand-name">Better Voice</span>
 			</a>
 			<nav class="nav" aria-label="Main navigation">
-				<a href="{base}/#features">Features</a>
-				<a href="{base}/#research">Research</a>
+				<a href="{base}/#jobs">What it does</a>
+				<a href="{base}/#setup">Setup</a>
 				<a class="nav-cta" href="{base}/#download">Download</a>
 			</nav>
 		</div>

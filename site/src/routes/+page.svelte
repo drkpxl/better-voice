@@ -5,7 +5,7 @@
 	import SettingsScreen from "$lib/components/SettingsScreen.svelte";
 	import MenuBarScene from "$lib/components/MenuBarScene.svelte";
 
-	const version = "1.0.4";
+	const version = "1.1.1";
 	const minMacOS = "15 Sequoia";
 	// Stable alias maintained by client/scripts/release.sh (copies the newest DMG over it).
 	const releaseUrl = `${base}/downloads/BetterVoice2-latest.dmg`;
@@ -54,92 +54,74 @@
 		document.getElementById(`tab-${active}`)?.focus();
 	}
 
-	// Bake-off numbers, measured 2026-07-30 on one 116-second dictation recording (197 words)
-	// and one 57.5-minute four-speaker recording. Full methodology and findings:
-	// 2026-07-30-asr-bakeoff-findings.md.
-	const researchStats = [
+	// The two jobs every other setup splits across two products. This is the page's spine: the
+	// argument is not "cheaper" or "more accurate", it is "one app, and the output lands somewhere
+	// you already are".
+	const jobs = [
 		{
-			value: "35",
-			label: "pipelines measured",
-			note: "Seven on-device speech engines × five cleanup options, every combination scored on the same audio.",
+			kicker: "Job one",
+			title: "Dictation, in every app you use",
+			body: "Hold your hotkey, talk, let go. The text appears at your cursor — email, Slack, your editor, a form in the browser. There's no window to switch to and nothing to paste. Filler words come out by a fixed word list and your own spellings go in by exact word-match, so nothing rewrites what you actually said.",
+			replaces: "Instead of a dictation subscription",
 		},
 		{
-			value: "19.1",
-			unit: "pts",
-			label: "moved by the engine",
-			note: "The spread in word error rate between the best and worst speech engine tested.",
-		},
-		{
-			value: "1.0–3.6",
-			unit: "pts",
-			label: "moved by the cleanup model",
-			note: "Swapping the cleanup LLM inside any one engine barely shifts accuracy at all.",
-		},
-		{
-			value: "9 of 28",
-			label: "cleanup runs changed nothing",
-			note: "Identical text after normalization — the model had only re-punctuated it.",
+			kicker: "Job two",
+			title: "Meeting notes, written and filed",
+			body: "Record the call straight off your Mac, drop in a recording you already have, or paste a transcript. Better Voice transcribes it, works out who spoke when, has you name the voices once, and writes a summary with a real title. Name someone once and it recognises them in later meetings.",
+			replaces: "Instead of an AI notetaker",
 		},
 	];
 
-	const trustNotes = [
+	// Setup, told plainly. Both asks are real, and burying either one just moves the surprise to
+	// first launch — where it stops being an informed choice and becomes a support problem.
+	const setup = [
 		{
-			lead: "One recording of each kind.",
-			body: "116 seconds of dictation, 197 words, one speaker, one mic — plus one 57.5-minute meeting. Enough to see a 14-point gap. Not enough to rank two pipelines half a point apart. Directional, not definitive.",
+			note: "Required · automatic · once",
+			title: "A one-time 470 MB download",
+			body: "On first launch Better Voice downloads NVIDIA's Parakeet speech model — about 470 MB, a few minutes, once. That download is exactly why your audio never has to leave your Mac afterwards. The menu bar shows progress, and dictation switches on the moment it lands.",
 		},
 		{
-			lead: "Deliberately hard audio.",
-			body: "Unscripted, disfluent, jargon-heavy, and scored against a reference I hand-wrote of what I meant to say. That is why these absolute numbers look high: the same models score in the low single digits on clean read-aloud benchmarks. Different test, not a contradiction.",
-		},
-		{
-			lead: "No other apps were tested.",
-			body: "This compares speech engines inside my own pipeline. It says nothing about how any other dictation or meeting app performs.",
-		},
-		{
-			lead: "Nothing here measures streaming latency.",
-			body: "Time-to-first-word is what actually governs how dictation feels, and every timing above is batch processing of a finished file.",
+			note: "Optional · Ollama for long meetings",
+			title: "Summaries need a model — you choose which",
+			body: "Transcription needs no setup at all. Writing the summary does need a language model. Apple's on-device one is zero setup but has a short context window, so a long meeting gets chunked. For hour-long calls, point Better Voice at Ollama or any OpenAI-compatible server you run. Either way it stays on your machine.",
 		},
 	];
 
 	const features = [
 		{
-			title: "Dictation in any app",
-			body: "Hold your hotkey, speak, and release. Parakeet TDT v3 transcribes on-device, filler words are removed deterministically, and your vocabulary's spellings are applied by exact word-boundary replacement — no model runs on your dictated text. The text lands at your cursor in under 300 ms.",
+			title: "It lands in Apple Notes",
+			body: "Not a library inside another app you have to remember to open. Every meeting becomes a titled note — summary and transcript — in folders you pick once. Searchable in Spotlight, editable on your phone, and already synced to your iPad by the time you shut your laptop.",
 		},
 		{
-			title: "Meetings become Apple Notes",
-			body: "Three ways to capture a meeting: start a recording from the menu bar and Better Voice records the call straight off your Mac, no bot to invite or drop in a recording you already have or paste a transcript. All three end the same way: transcribed, speakers named, summarized, and added straight to Apple Notes, transcript included.",
+			title: "Works on a plane",
+			body: "Once the speech model is down, dictation and transcription need no connection at all — they're running on your Mac, not on someone's API. Only the Apple Notes sync at the end wants the internet, and it waits.",
 		},
 		{
-			title: "Bring your own model for summaries",
-			body: "Meeting summarization can use Apple on-device (zero setup) or a local model server you run yourself — Ollama or any OpenAI-compatible endpoint. Dictation has no model choice: Parakeet is the only engine, and it needs no configuration.",
+			title: "No bot joins your call",
+			body: "Better Voice records the audio on your machine instead of attending as a guest. Nobody else in the meeting has to accept a third-party notetaker, and there's no participant list entry explaining what you're using.",
 		},
 		{
-			title: "Private by default",
-			body: "Transcription and speaker recognition happen entirely on your Mac. Your audio never leaves the machine and the notes it produces sync the same way any other Apple Note does, through your own iCloud account.",
+			title: "Learns the people you meet with",
+			body: "Name a voice once and Better Voice suggests that name next time it hears them. Naming gets faster every meeting instead of starting over.",
 		},
 		{
-			title: "Learns your speakers",
-			body: "Name a voice once and Better Voice remembers it, later meetings suggest the same name automatically, so naming gets faster over time.",
+			title: "Free, and MIT-licensed",
+			body: "No subscription, no account, and no tier that holds back the useful half. The source is on GitHub.",
 		},
 		{
-			title: "Updates in-app",
-			body: "Signed with a Developer ID and notarized by Apple, so it installs by drag-and-drop. New versions arrive in-app via Sparkle, and your permissions carry across updates.",
-		},
-		{
-			title: "Measured, then changed",
-			body: "Before deciding what to build I benchmarked 35 on-device dictation pipelines on my own voice and published the result — including the part where the pipeline I was shipping landed near the bottom. The engine work that followed from it is what ships today.",
+			title: "Installs and updates cleanly",
+			body: "Signed with a Developer ID and notarized by Apple, so it installs by drag-and-drop with no Gatekeeper workaround. Updates arrive in-app, and your permissions carry across them.",
 		},
 	];
 </script>
 
 <svelte:head>
 	<title
-		>Better Voice — dictation & AI meeting notes for macOS, saved to Apple Notes</title
+		>Better Voice — dictation and AI meeting notes in one Mac app, saved to Apple Notes</title
 	>
 	<meta
 		name="description"
-		content="Better Voice is one free local Mac app that replaces a dictation subscription and an AI meeting notetaker. Dictate into any app with a hotkey. Record a meeting — or drop in a recording — and get a speaker-labeled summary delivered to Apple Notes. On-device, private, no subscription — and backed by a published benchmark of 35 on-device speech pipelines."
+		content="Dictation and AI meeting notes are normally two separate subscriptions. Better Voice is one free Mac app that does both — hold a key to dictate into any app, record or import a meeting and get a speaker-labeled summary — and files everything in Apple Notes. Runs entirely on your Mac; your audio never leaves it."
 	/>
 	<link rel="canonical" href={siteUrl} />
 
@@ -149,11 +131,11 @@
 	<meta property="og:site_name" content="Better Voice" />
 	<meta
 		property="og:title"
-		content="Better Voice — dictation & AI meeting notes for macOS, saved to Apple Notes"
+		content="Better Voice — dictation and AI meeting notes in one Mac app, saved to Apple Notes"
 	/>
 	<meta
 		property="og:description"
-		content="One local Mac app that replaces a dictation subscription and an AI meeting notetaker. Dictate anywhere; record or import a meeting; get a speaker-labeled summary in Apple Notes. On-device and free — no subscription. Built on a published benchmark of 35 on-device speech pipelines."
+		content="Dictation and AI meeting notes are normally two apps. Better Voice is one — dictate anywhere with a hotkey, record or import a meeting, get a speaker-labeled summary in Apple Notes. On-device, free, no subscription."
 	/>
 	<meta property="og:url" content={siteUrl} />
 	<meta property="og:image" content={`${siteUrl}og.png`} />
@@ -162,11 +144,11 @@
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta
 		name="twitter:title"
-		content="Better Voice — dictation & AI meeting notes for macOS, saved to Apple Notes"
+		content="Better Voice — dictation and AI meeting notes in one Mac app, saved to Apple Notes"
 	/>
 	<meta
 		name="twitter:description"
-		content="One local Mac app that replaces a dictation subscription and an AI meeting notetaker. Dictate anywhere; record or import a meeting; get a speaker-labeled summary in Apple Notes. On-device and free — no subscription. Built on a published benchmark of 35 on-device speech pipelines."
+		content="Dictation and AI meeting notes are normally two apps. Better Voice is one — dictate anywhere with a hotkey, record or import a meeting, get a speaker-labeled summary in Apple Notes. On-device, free, no subscription."
 	/>
 	<meta name="twitter:image" content={`${siteUrl}og.png`} />
 </svelte:head>
@@ -185,18 +167,14 @@
 		<div class="hero-content">
 			<p class="eyebrow">Free · On-device · macOS</p>
 			<h1>
-				Talk, and Better Voice types. Record, and it’s <span class="acc"
-					>in Apple Notes.</span
-				>
+				Everyone else sells you two apps. <span class="acc">This is one.</span>
 			</h1>
 			<p class="lead">
-				Better Voice replaces your dictation app and your AI meeting notetaker
-				with one app that runs entirely on your Mac. Hold a single key to
-				dictate into anything — Parakeet TDT v3 transcribes on-device in under
-				300 ms. Record a meeting or drop in a recording and get a clean,
-				speaker-labeled summary delivered straight to Apple Notes, where it’s
-				already waiting on your iPhone, iPad, and Mac. No subscription.
-				Your privacy intact.
+				Dictation lives in one subscription. Meeting notes live in another. Better
+				Voice does both jobs in a single Mac app — hold a key to dictate anywhere,
+				record a meeting and get a speaker-labeled summary — then files the result
+				in Apple Notes, where you already keep everything. It all runs on your Mac,
+				so your audio never leaves it.
 			</p>
 			<div class="hero-cta">
 				{#if available}
@@ -237,10 +215,8 @@
 				{/if}
 			</div>
 			<p class="hero-note">
-				Free, MIT-licensed, and used by about two people so far — one of them me. So
-				instead of a testimonial, here’s
-				<a href="#research">the benchmark I ran on 35 speech pipelines</a> to work out
-				what this app should actually be doing.
+				Free and MIT-licensed. One first-run download puts the speech model on your
+				Mac — <a href="#setup">here’s what setup actually involves</a>.
 			</p>
 		</div>
 	</section>
@@ -288,154 +264,58 @@
 		</p>
 	</section>
 
-	<!-- Research: the honest credibility argument — measurements, not popularity.
-	     The bake-off was the reason for the migration; Parakeet now ships. -->
-	<section class="research" id="research">
-		<p class="eyebrow">Research · measured 30 July 2026</p>
-		<h2>I measured 35 dictation pipelines instead of guessing</h2>
-		<p class="research-intro">
-			Dictation here is two stages: a speech engine turns audio into words, then a
-			small local model cleans the words up. I had spent months tuning the second
-			stage. So I built a harness and measured the whole grid — seven on-device speech
-			engines against five cleanup options, 35 pipelines, all scored on the same
-			116-second recording of me talking the way I actually talk: unscripted,
-			disfluent, full of work jargon. Accuracy is word error rate against a reference
-			I hand-wrote of what I <em>meant</em> to say, so a cleanup model isn't punished
-			for deleting an "um".
+	<!-- The spine of the page: the two jobs a normal setup splits across two products, and the
+	     one place their output lands. -->
+	<section class="jobs" id="jobs">
+		<h2>Two jobs. One app. One place they land.</h2>
+		<p class="jobs-intro">
+			These are normally two separate purchases from two separate companies — each with its own
+			app to open, its own bill, and its own silo your words end up in. Better Voice does both,
+			and hands the result to Apple Notes.
 		</p>
-		<p class="research-intro">
-			It reorganised the roadmap. Nearly all of the available accuracy sits in the
-			engine. Almost none of it is in the prompt I'd been fiddling with.
-		</p>
-
-		<div class="stat-grid">
-			{#each researchStats as s (s.label)}
-				<div class="stat">
-					<p class="stat-value">
-						{s.value}{#if s.unit}<span class="stat-unit">{s.unit}</span>{/if}
-					</p>
-					<p class="stat-label">{s.label}</p>
-					<p class="stat-note">{s.note}</p>
-				</div>
+		<div class="jobs-grid">
+			{#each jobs as j (j.title)}
+				<article class="job-card">
+					<p class="job-kicker">{j.kicker}</p>
+					<h3>{j.title}</h3>
+					<p class="job-body">{j.body}</p>
+					<p class="job-replaces">{j.replaces}</p>
+				</article>
 			{/each}
-		</div>
-
-		<div class="ledger">
-			<div class="ledger-col ledger-before">
-				<h3>What the bake-off found</h3>
-				<p class="ledger-value">38.1%</p>
-				<p class="ledger-unit">word error rate — the pipeline I was shipping</p>
-				<p>
-					Apple's <code>SpeechTranscriber</code> plus Apple's on-device cleanup. It
-					recovered 1 of 5 jargon terms, and the cleanup pass was a no-op on 4 of 7
-					transcripts. Cleanup cost 4–9 seconds and bought about a point.
-				</p>
-			</div>
-			<div class="ledger-col ledger-after">
-				<h3>What ships now</h3>
-				<p class="ledger-value">24.2%</p>
-				<p class="ledger-unit">word error rate — Parakeet TDT v3, no cleanup</p>
-				<p>
-					Parakeet TDT v3 — 13.9 points better than the old pipeline on identical
-					audio, and faster at the same time: 263× real time against Apple's 101×.
-					It handled names and proper nouns better too. The cleanup stage is gone
-					entirely — the engine is the whole game, and the app ships the engine
-					the benchmark pointed at.
-				</p>
-			</div>
-		</div>
-
-		<div class="research-long">
-			<h3>What happened on an hour of meeting audio</h3>
-			<p>
-				Short clips are the easy case, so I ran the same engines over a 57.5-minute
-				recording with four speakers. Parakeet produced the whole transcript in 11.7
-				seconds — 295× real time — with no drop in quality across the hour, and local
-				diarization found exactly four speakers across 179 turns, attributing 97% of
-				the audio. Whisper large-v3-turbo needed 84 seconds for the same file; Apple's
-				engine with diarization needed 109. The most accurate engine on short audio,
-				Qwen3-ASR 1.7B at 18.6%, fell apart here: about 38 minutes to process 57, which
-				rules it out for meetings no matter how well it scores on a two-minute clip.
-			</p>
-		</div>
-
-		<div class="trust">
-			<h3>How much to trust this</h3>
-			<ul>
-				{#each trustNotes as n (n.lead)}
-					<li><strong>{n.lead}</strong> {n.body}</li>
-				{/each}
-			</ul>
-			<p class="trust-more">
-				The full method, all 35 cells, and the charts are being written up on
-				<a href="https://drkpxl.com" target="_blank" rel="noopener noreferrer"
-					>drkpxl.com</a
-				>. The harness itself lives in the
-				<a
-					href="https://github.com/drkpxl/better-voice"
-					target="_blank"
-					rel="noopener noreferrer">Better Voice repo</a
-				>, so you can disagree with my scoring.
-			</p>
 		</div>
 	</section>
 
-	<!-- Compare: the honest pitch — one app instead of three subscriptions -->
+	<!-- Compare: the side-by-side that makes the one-app claim concrete. -->
 	<section class="compare">
-		<h2>One app instead of three subscriptions</h2>
+		<h2>What you’d otherwise be running</h2>
 		<p class="compare-intro">
-			The usual setup: pay for a dictation app, pay for an AI notetaker, and
-			keep your meetings in yet another company's cloud. Better Voice does both
-			jobs on your Mac and hands the results to the notes app you already use.
+			Two products, two bills, and your words split across both of them — plus
+			whichever cloud each vendor keeps your recordings in.
 		</p>
 		<div class="compare-grid">
 			<div class="compare-col compare-before">
-				<h3>The usual way</h3>
+				<h3>The usual setup</h3>
 				<ul>
-					<li>A dictation subscription</li>
-					<li>An AI notetaker like Granola or Otter</li>
-					<li>Your meetings in their app, on their servers</li>
-					<li>A monthly bill for each</li>
+					<li>A dictation app, on subscription</li>
+					<li>An AI notetaker like Granola or Otter, on another subscription</li>
+					<li>A bot that joins the call to record it</li>
+					<li>Your meetings on their servers, in their app</li>
+					<li>Two places to look for something you said</li>
 				</ul>
 			</div>
 			<div class="compare-col compare-after">
 				<h3>With Better Voice</h3>
 				<ul>
 					<li>Hold-to-talk dictation in every app</li>
-					<li>Records and summarizes your meetings</li>
-					<li>Everything in Apple Notes, on every device you own</li>
-					<li>Free, and nothing leaves your Mac</li>
+					<li>Records and summarizes meetings — same app</li>
+					<li>No bot; the audio is captured on your Mac</li>
+					<li>Notes in Apple Notes, on every device you own</li>
+					<li>Free, MIT-licensed, and nothing leaves your Mac</li>
 				</ul>
 			</div>
 		</div>
 	</section>
 
-	<!-- Why -->
-	<section class="why">
-		<h2>Two things, done locally</h2>
-		<div class="why-grid">
-			<div>
-				<h3>Dictation</h3>
-				<p>
-					Press your hotkey and talk. Parakeet TDT v3 transcribes on-device,
-					filler words are removed deterministically, and the text lands at
-					your cursor — email, chat, code, notes. No window to switch to,
-					nothing uploaded.
-				</p>
-			</div>
-			<div>
-				<h3>Meeting notes</h3>
-				<p>
-					Start a recording from the menu bar, drop in a file, or paste a
-					transcript — Better Voice transcribes it, figures out who said what,
-					names the voices, and writes a clean summary. It lands in Apple Notes
-					as a titled note, transcript included. No new app to check: your
-					summary is a normal Apple Note, already in the workflow you have. Mac-native,
-					just like you are.
-				</p>
-			</div>
-		</div>
-	</section>
 
 	<!-- Features -->
 	<section class="features" id="features">
@@ -450,18 +330,22 @@
 		</div>
 	</section>
 
-	<!-- Maker: the anti-social-proof section. Two users is the real number; say it. -->
-	<section class="maker">
-		<div class="maker-card">
-			<h2>Two users, and one of them is me</h2>
-			<p>
-				That's the honest count. Better Voice is a one-person project — mine, built
-				under the name Baseline Makes — so there are no logos to put in a row here and
-				no reviews to quote. What I can offer instead is the work above: I measure
-				before I ship, I publish the numbers including the ones that make my own
-				choices look bad, and the app is free and MIT-licensed either way. If that
-				seems like a reasonable trade, the download is right below.
-			</p>
+	<!-- Setup: the two real asks, stated plainly. Hiding either only moves the surprise to first
+	     launch, where it stops being an informed choice and becomes a support problem. -->
+	<section class="setup" id="setup">
+		<h2>What setup actually involves</h2>
+		<p class="setup-intro">
+			Two things are worth knowing before you download. Both are real, and neither is buried in
+			a settings pane.
+		</p>
+		<div class="setup-grid">
+			{#each setup as s (s.title)}
+				<article class="setup-card">
+					<p class="setup-note">{s.note}</p>
+					<h3>{s.title}</h3>
+					<p>{s.body}</p>
+				</article>
+			{/each}
 		</div>
 	</section>
 
@@ -729,276 +613,136 @@
 	}
 
 	/* Section spacing */
-	.research,
+	.jobs,
 	.compare,
-	.why,
 	.features,
-	.maker,
+	.setup,
 	.privacy,
 	.download {
 		padding-block: var(--space-xl);
 	}
 
+	.jobs h2,
 	.compare h2,
-	.why h2,
 	.features h2,
+	.setup h2,
 	.download h2 {
 		margin-bottom: var(--space-lg);
 	}
 
 	/* Anchored sections sit under the sticky header, so give the jump targets clearance. */
-	.research,
+	.jobs,
 	.features,
+	.setup,
 	.download {
 		scroll-margin-top: 5rem;
 	}
 
-	/* Research — the evidence section. Numbers are mono and tabular so the columns line
-	   up the way they do on the chart page this data came from. */
-	.research h2 {
+	/* Jobs — the two halves of the pitch, side by side so "one app, two jobs" is legible
+	   at a glance rather than asserted in prose. */
+	.jobs h2 {
 		margin-bottom: var(--space-md);
-		max-width: 34ch;
+		max-width: 24ch;
 	}
 
-	.research .eyebrow {
-		margin-bottom: var(--space-sm);
-	}
-
-	.research-intro {
+	.jobs-intro {
 		color: var(--color-text-muted);
 		line-height: 1.7;
 		max-width: 70ch;
-		margin-bottom: var(--space-md);
+		margin-bottom: var(--space-lg);
 	}
 
-	/* Explicit breakpoints rather than auto-fit: there are exactly four stats, and auto-fit
-	   lands on 3 + 1 at tablet width, which leaves a visible empty cell in the hairline grid. */
-	.stat-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1px;
-		background-color: var(--color-border-light);
-		border: 1px solid var(--color-border-light);
-		border-radius: var(--border-radius);
-		overflow: hidden;
-		margin-top: var(--space-lg);
-	}
-
-	@media (min-width: 520px) {
-		.stat-grid {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
-
-	@media (min-width: 900px) {
-		.stat-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
-	}
-
-	.stat {
-		background-color: var(--color-bg-card);
-		padding: var(--space-md) var(--space-md) var(--space-lg);
-	}
-
-	.stat-value {
-		font-family: var(--font-mono);
-		font-size: 1.75rem;
-		font-weight: 600;
-		letter-spacing: -0.02em;
-		font-variant-numeric: tabular-nums;
-		color: var(--color-accent);
-		line-height: 1.1;
-		margin: 0;
-	}
-
-	.stat-unit {
-		font-size: 0.9375rem;
-		font-weight: 400;
-		color: var(--color-text-muted);
-		margin-left: 0.3em;
-	}
-
-	.stat-label {
-		font-family: var(--font-mono);
-		font-size: 0.6875rem;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: var(--color-text-muted);
-		margin: var(--space-sm) 0 var(--space-sm);
-	}
-
-	.stat-note {
-		font-size: 0.875rem;
-		line-height: 1.55;
-		color: var(--color-text-muted);
-		margin: 0;
-	}
-
-	/* Ledger: what the bake-off found vs. what ships now. Deliberately shaped
-	   like the compare grid so "before" reading worse than "after" is unmissable. */
-	.ledger {
+	/* Exactly two cards: one column on phones, two side by side from tablet up. */
+	.jobs-grid {
 		display: grid;
 		grid-template-columns: 1fr;
 		gap: var(--space-lg);
-		margin-top: var(--space-lg);
 	}
 
 	@media (min-width: 768px) {
-		.ledger {
+		.jobs-grid {
 			grid-template-columns: 1fr 1fr;
-			gap: var(--space-xl);
 		}
 	}
 
-	.ledger-col {
+	.job-card {
 		background-color: var(--color-bg-card);
 		border: 1px solid var(--color-border-light);
 		border-radius: var(--border-radius);
 		padding: var(--space-lg);
-	}
-
-	.ledger-after {
-		border-left: 4px solid var(--color-accent);
-	}
-
-	.ledger-col h3 {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
-		color: var(--color-text-muted);
-		margin-bottom: var(--space-md);
 		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		flex-wrap: wrap;
+		flex-direction: column;
 	}
 
-	.ledger-after h3 {
-		color: var(--color-accent);
-	}
-
-	.tag {
-		font-family: var(--font-mono);
-		font-size: 0.625rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		padding: 0.1rem 0.4rem;
-		border: 1px solid currentColor;
-		border-radius: 4px;
-		color: var(--color-text-muted);
-	}
-
-	.ledger-value {
-		font-family: var(--font-mono);
-		font-size: 2.5rem;
-		font-weight: 600;
-		letter-spacing: -0.03em;
-		font-variant-numeric: tabular-nums;
-		line-height: 1;
-		margin: 0;
-	}
-
-	.ledger-before .ledger-value {
-		color: var(--color-text-muted);
-	}
-
-	.ledger-after .ledger-value {
-		color: var(--color-accent);
-	}
-
-	.ledger-unit {
-		font-family: var(--font-mono);
+	.job-kicker {
 		font-size: 0.75rem;
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
-		color: var(--color-text-muted);
-		margin: var(--space-sm) 0 var(--space-md);
-	}
-
-	.ledger-col p:last-child {
-		color: var(--color-text-muted);
-		font-size: 0.9375rem;
-		line-height: 1.65;
-		margin: 0;
-	}
-
-	.ledger-col code {
-		font-family: var(--font-mono);
-		font-size: 0.85em;
-		background-color: var(--color-bg-alt);
-		padding: 0.05rem 0.35rem;
-		border-radius: 4px;
-	}
-
-	/* Long-audio result + the caveat list */
-	.research-long,
-	.trust {
-		margin-top: var(--space-lg);
-	}
-
-	.research-long h3,
-	.trust h3 {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
 		color: var(--color-accent);
 		margin-bottom: var(--space-sm);
 	}
 
-	.research-long p {
+	.job-card h3 {
+		font-size: 1.25rem;
+		margin-bottom: var(--space-sm);
+	}
+
+	.job-body {
 		color: var(--color-text-muted);
 		line-height: 1.7;
-		max-width: 72ch;
 		margin: 0;
 	}
 
-	.trust ul {
-		list-style: none;
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-md);
-		margin: 0;
-	}
-
-	.trust li {
-		padding-left: var(--space-md);
-		border-left: 2px solid var(--color-border);
-		color: var(--color-text-muted);
-		font-size: 0.9375rem;
-		line-height: 1.65;
-		max-width: 76ch;
-	}
-
-	.trust li strong {
-		color: var(--color-text);
-		font-weight: var(--weight-bold);
-	}
-
-	.trust-more {
+	/* Pushed to the card's foot so both cards' "instead of" lines sit on one baseline
+	   regardless of body length. */
+	.job-replaces {
+		margin-top: auto;
+		padding-top: var(--space-md);
 		font-size: 0.875rem;
-		line-height: 1.65;
-		color: var(--color-text-muted);
-		margin-top: var(--space-lg);
-		max-width: 72ch;
+		font-weight: 600;
 	}
 
-	/* Maker callout — mirrors the privacy card so the two honesty statements match */
-	.maker-card {
-		background-color: var(--color-bg-card);
+	/* Setup — the two real asks. Styled as plainly as the copy reads: no badges, no
+	   warning colors, because neither of these is a problem to be softened. */
+	.setup-intro {
+		color: var(--color-text-muted);
+		line-height: 1.7;
+		max-width: 70ch;
+		margin-bottom: var(--space-lg);
+	}
+
+	.setup-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--space-lg);
+	}
+
+	@media (min-width: 768px) {
+		.setup-grid {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	.setup-card {
 		border: 1px solid var(--color-border-light);
 		border-radius: var(--border-radius);
 		padding: var(--space-lg);
-		border-left: 4px solid var(--color-accent);
 	}
 
-	.maker-card h2 {
-		margin-bottom: var(--space-md);
+	.setup-note {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-muted);
+		margin-bottom: var(--space-sm);
 	}
 
-	.maker-card p {
+	.setup-card h3 {
+		font-size: 1.125rem;
+		margin-bottom: var(--space-sm);
+	}
+
+	.setup-card p:last-child {
 		color: var(--color-text-muted);
 		line-height: 1.7;
 		margin: 0;
@@ -1080,34 +824,6 @@
 		content: "✓ ";
 		color: var(--color-accent);
 		font-weight: 700;
-	}
-
-	/* Why grid */
-	.why-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: var(--space-lg);
-	}
-
-	@media (min-width: 768px) {
-		.why-grid {
-			grid-template-columns: 1fr 1fr;
-			gap: var(--space-xl);
-		}
-	}
-
-	.why h3 {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
-		color: var(--color-accent);
-		margin-bottom: var(--space-sm);
-	}
-
-	.why p {
-		color: var(--color-text-muted);
-		line-height: 1.7;
 	}
 
 	/* Feature cards */
