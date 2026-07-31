@@ -9,12 +9,13 @@ import Foundation
 /// The content describes the user's semantic background -- common meeting participants,
 /// company, job title, recurring terms/topics, etc. At inference time it is appended
 /// after the system prompt to help the model disambiguate names, terms, and references
-/// during meeting summarization. It is deliberately NOT used for dictation polish, where a
-/// short input caused local models to echo the whole block into the user's text.
+/// during meeting summarization -- the only consumer, now that dictation cleanup is gone. It was
+/// never used for dictation anyway: a short input caused local models to echo the whole block into
+/// the user's text.
 ///
 /// This replaces the earlier "fine-tune a small model" personalization approach:
-/// the context can be edited anytime, carries semantics (not just misspelling
-/// mappings), and the same text can serve both polishing and summarization.
+/// the context can be edited anytime and carries semantics, not just misspelling
+/// mappings (those live in `Vocabulary`).
 enum PersonalContext {
 
     /// Path to the personal context file.
@@ -80,13 +81,12 @@ enum PersonalContext {
 
     /// Appends the personal context after the given system prompt.
     ///
-    /// When `polish.personal_context_enabled` (default true) is true and the user has written
+    /// When `personal_context_enabled` (default true) is true and the user has written
     /// something into the file, appends a "Personal context" block with explicit instructions;
     /// otherwise returns `base` unchanged. An untouched starter template counts as nothing written.
     @MainActor
     static func appended(to base: String) -> String {
-        let enabled = RuntimeConfig.shared.polishConfig["personal_context_enabled"] as? Bool ?? true
-        guard enabled, let context = promptContext() else { return base }
+        guard RuntimeConfig.shared.personalContextEnabled, let context = promptContext() else { return base }
 
         return base + """
 

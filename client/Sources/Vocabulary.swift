@@ -10,12 +10,12 @@ import Foundation
 /// about), the vocabulary carries *spellings*. Two kinds of entries:
 ///
 ///   - `terms`: correct spellings ("FluidAudio", "GitHub"). Injected as a terse list into the
-///     polish system prompt, and applied as case-normalization replacements (any case-variant
-///     at a word boundary becomes the canonical spelling).
+///     summarization system prompt, and applied as case-normalization replacements (any
+///     case-variant at a word boundary becomes the canonical spelling).
 ///   - `replacements`: explicit misheard→correct fixes ({"from": "fluid audio", "to":
-///     "FluidAudio"}). Applied deterministically AFTER the model, so exact terms are
-///     guaranteed even when the model misses — or when polish is disabled. Deliberately NOT
-///     injected into the prompt: that would teach the model the misspellings.
+///     "FluidAudio"}). Applied deterministically to transcript text, so exact terms are guaranteed
+///     on the dictation path too, where no model runs at all any more. Deliberately NOT injected
+///     into the prompt: that would teach the model the misspellings.
 ///
 /// Matching semantics live in `BetterVoiceCore/VocabularyRules.swift` (tested):
 /// case-insensitive, word-boundary, longest-then-leftmost on overlap, no chaining.
@@ -47,9 +47,9 @@ final class Vocabulary {
         return result
     }
 
-    /// Terse vocabulary block appended to the polish system prompt; nil when there are no
+    /// Terse vocabulary block appended to the summarization system prompt; nil when there are no
     /// terms. Kept short and inline (capped at ~600 chars of terms) — the PersonalContext
-    /// lesson: large injected blocks get echoed into short dictations by local models.
+    /// lesson: large injected blocks get echoed back out by local models.
     var promptBlock: String? {
         guard !terms.isEmpty else { return nil }
         var included: [String] = []

@@ -229,7 +229,9 @@ public func groupIntoTurns(phrases: [(span: PhraseSpan, text: String)],
     // 3. Fold each group into a turn.
     return groups.compactMap { group in
         guard let first = group.first, let last = group.last else { return nil }
-        let text = group.map(\.text).joined()
+        // Convention-agnostic join: Apple's phrases carry their own leading space, Parakeet's
+        // are trimmed. A bare .joined() ran the trimmed ones together; see joinPhraseTexts.
+        let text = PhraseSegmentation.joinPhraseTexts(group.map(\.text))
         let embedding = meanEmbedding(group.compactMap(\.assignment.embedding))
         let minConfidence = group.map(\.assignment.confidence).min() ?? 0
         let containedOverlap = group.contains { $0.assignment.overlapped }

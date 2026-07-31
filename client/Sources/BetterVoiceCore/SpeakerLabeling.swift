@@ -41,11 +41,9 @@ public func applySpeakerNames(_ names: [String: String], to segments: [MeetingSe
         }
         return MeetingSegment(
             text: seg.text,
-            rawText: seg.rawText,
             startTime: seg.startTime,
             endTime: seg.endTime,
             speakerId: seg.speakerId,
-            l2Kind: seg.l2Kind,
             isFinal: seg.isFinal,
             speakerName: name,
             speakerEmbedding: seg.speakerEmbedding,
@@ -152,11 +150,9 @@ public func mergeSpeakerTimelines(
     let labeledLocal = localSegments.map { seg -> MeetingSegment in
         MeetingSegment(
             text: seg.text,
-            rawText: seg.rawText,
             startTime: seg.startTime,
             endTime: seg.endTime,
             speakerId: SpeakerIds.local,
-            l2Kind: seg.l2Kind,
             isFinal: seg.isFinal,
             speakerName: seg.speakerName,
             speakerEmbedding: seg.speakerEmbedding,

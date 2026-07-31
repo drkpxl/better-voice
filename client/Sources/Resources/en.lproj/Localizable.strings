@@ -71,7 +71,7 @@
 /* --- Model server presets + de-Ollama'd copy (Settings / Welcome) --- */
 "Preset..." = "Preset...";
 "Local model server" = "Local model server";
-"Better Voice polishes dictation and summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac." = "Better Voice polishes dictation and summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac.";
+"Better Voice summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac. Dictation itself needs no model." = "Better Voice summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac. Dictation itself needs no model.";
 "New to local models? Setup guide" = "New to local models? Setup guide";
 
 /* --- Field cleanup (Settings) --- */

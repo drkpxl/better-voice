@@ -79,6 +79,15 @@ private func fetchJSON(urlString: String, apiKey: String) async -> [String: Any]
 final class OllamaBackend: LLMBackend {
     let apiType = "ollama"
 
+    /// The recommended summarization model, mirroring `FoundationModelsBackend.modelName`.
+    ///
+    /// One constant because three places name it — the first-run seed, onboarding's prefill, and
+    /// onboarding's placeholder — and they had already drifted apart across two model changes:
+    /// the seed said `qwen3.5:9b-mlx` while the placeholder still advertised `qwen3.5:4b-mlx`, so
+    /// onboarding recommended a model the app had stopped defaulting to. See decision row 12 in
+    /// `specs/2026-07-30-parakeet-migration-plan.md` for why this one.
+    static let defaultModel = "ornith:9b"
+
     /// 256K — the recommended model's max context; we never request more than this.
     private static let maxNumCtx = 262_144
     /// Below 128K a model can't hold a long meeting's transcript. When content overflows a model

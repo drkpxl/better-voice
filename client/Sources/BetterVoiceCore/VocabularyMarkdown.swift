@@ -77,8 +77,8 @@ public func renderVocabularyMarkdown(terms: [String], replacements: [VocabularyR
 
     ## Replacements
     Deterministic fixes for misheard text: "as heard -> correct text", one per line. Applied
-    even when dictation polish is off; never shown to the model (so it can't learn the
-    misspelling).
+    to dictation and transcripts directly, with no model involved; never shown to the model
+    (so it can't learn the misspelling).
 
     """
     for replacement in replacements {

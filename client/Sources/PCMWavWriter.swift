@@ -20,6 +20,12 @@ final class PCMWavWriter {
     private var format: AVAudioFormat?
     private var dataSize: UInt32 = 0
     private var pending = Data()
+
+    /// Set once a buffer arrived in a different format than the header describes — see `write`.
+    private var loggedFormatChange = false
+    /// How many buffers were dropped for that reason. Reported by `finalize()` so a short recording
+    /// has a stated cause in the log rather than looking like the capture simply ended early.
+    private var droppedFormatChangeBuffers = 0
     private var flushThreshold = 0   // bytes ≈ 1s of audio; set when the format is known
 
     init(url: URL, logLabel: String) {
@@ -39,6 +45,28 @@ final class PCMWavWriter {
             fileHandle = try? FileHandle(forWritingTo: url)
             fileHandle?.write(Data(count: 44))  // header placeholder, patched in finalize()
             dataSize = 0
+        }
+
+        // The header describes the FIRST buffer's format and is patched in once, at `finalize()`.
+        // Appending bytes in a different format under that header does not fail — it produces a file
+        // that plays at the wrong speed and pitch from the switch onwards, which is the failure mode
+        // `makeWavHeader` warns about and the same one `DictationRecorder.concatenate` refuses to
+        // create. A Bluetooth route change is the realistic trigger: opening mic capture switches
+        // AirPods into hands-free SCO, which can move the sample rate mid-recording.
+        //
+        // Dropped rather than converted: a truthful short file beats a corrupt long one, and
+        // resampling on the capture callback is not something to add untested. Logged once, not per
+        // buffer, so a sustained mismatch cannot flood the log.
+        if let format, buffer.format != format {
+            if !loggedFormatChange {
+                loggedFormatChange = true
+                Logger.log(logLabel, "Capture format changed mid-recording "
+                    + "(\(format.sampleRate)Hz/\(format.channelCount)ch -> "
+                    + "\(buffer.format.sampleRate)Hz/\(buffer.format.channelCount)ch); "
+                    + "dropping subsequent buffers to keep the WAV header truthful")
+            }
+            droppedFormatChangeBuffers += 1
+            return
         }
 
         let abl = buffer.audioBufferList.pointee
@@ -65,6 +93,11 @@ final class PCMWavWriter {
             return
         }
         flushPending()
+
+        if droppedFormatChangeBuffers > 0 {
+            Logger.log(logLabel, "Recording ends early: dropped \(droppedFormatChangeBuffers) "
+                + "buffer(s) after a mid-recording capture-format change")
+        }
 
         let asbd = fmt.streamDescription.pointee
         // Core Audio process taps (SystemAudioCapturer) deliver Float32 samples; AVCaptureSession

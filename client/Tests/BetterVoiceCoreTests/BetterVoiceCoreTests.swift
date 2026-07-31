@@ -15,11 +15,9 @@ final class BetterVoiceCoreTests: XCTestCase {
     ) -> MeetingSegment {
         MeetingSegment(
             text: text,
-            rawText: text,
             startTime: start,
             endTime: start + 1,
             speakerId: speaker,
-            l2Kind: .changed,
             isFinal: true,
             speakerName: name,
             speakerEmbedding: embedding,

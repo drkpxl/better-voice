@@ -9,6 +9,7 @@
 	--color-text-muted: #5a5a70;
 	--color-accent: #5847d6;
 	--color-accent-hover: #4334b8;
+	--color-on-accent: #ffffff;
 	--color-border: #d3d5e6;
 	--color-border-light: #e5e7f1;
 
@@ -38,6 +39,56 @@
 	/* Transitions */
 	--transition-fast: 150ms ease;
 	--transition-base: 250ms ease;
+
+	color-scheme: light dark;
+}
+
+/* Dark theme — the same hues, re-anchored on a dark surface. The brand purple shifts to
+   the app's own dark-mode accent (#8b7cff, see AppWindow.svelte), which is light enough
+   that solid accent fills need dark ink: that's what --color-on-accent is for.
+   Follows the system by default; an explicit data-theme on <html> wins either direction.
+   The app-screen mockups carry their own scoped --bv-* tokens and are unaffected. */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-bg: #14141b;
+		--color-bg-alt: #1b1b25;
+		--color-bg-card: #1d1d28;
+		--color-text: #ececf4;
+		--color-text-muted: #a3a3ba;
+		--color-accent: #8b7cff;
+		--color-accent-hover: #a598ff;
+		--color-on-accent: #16142a;
+		--color-border: #363648;
+		--color-border-light: #2a2a37;
+	}
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--color-bg: #14141b;
+	--color-bg-alt: #1b1b25;
+	--color-bg-card: #1d1d28;
+	--color-text: #ececf4;
+	--color-text-muted: #a3a3ba;
+	--color-accent: #8b7cff;
+	--color-accent-hover: #a598ff;
+	--color-on-accent: #16142a;
+	--color-border: #363648;
+	--color-border-light: #2a2a37;
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
+	--color-bg: #eef0f7;
+	--color-bg-alt: #e4e6f1;
+	--color-bg-card: #ffffff;
+	--color-text: #1d1d29;
+	--color-text-muted: #5a5a70;
+	--color-accent: #5847d6;
+	--color-accent-hover: #4334b8;
+	--color-on-accent: #ffffff;
+	--color-border: #d3d5e6;
+	--color-border-light: #e5e7f1;
 }
 
 *,
@@ -135,5 +186,5 @@ a:hover {
 
 ::selection {
 	background-color: var(--color-accent);
-	color: #fff;
+	color: var(--color-on-accent);
 }

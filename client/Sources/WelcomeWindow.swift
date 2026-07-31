@@ -59,9 +59,8 @@ final class WelcomeViewModel {
     /// the wizard with a fake-probe store instead of this machine's live TCC state.
     let permissions: PermissionStore
 
-    // Model server — provider is mutable so onboarding can offer the same three backends as
-    // Settings' `providerPicker` ("apple" / "ollama" / "openai"), not just whichever the seeded
-    // default happened to be.
+    // Model server — provider is mutable so onboarding can offer the same backends as Settings.
+    // Both screens render `LLMProviderPicker`, so the list cannot diverge between them.
     var provider: String
     var endpoint: String
     var model: String
@@ -110,13 +109,12 @@ final class WelcomeViewModel {
     init(permissions: PermissionStore = .shared) {
         self.permissions = permissions
         let cfg = RuntimeConfig.shared
-        let server = cfg.polishServerConfig
+        let server = cfg.summarizationServerConfig
         provider = server.api
         // Only Ollama gets the localhost default when blank; OpenAI-compatible and Apple leave it
-        // empty (mirrors the provider picker's `defaultEndpoint(for:)`), so reopening onboarding on
-        // a saved OpenAI config doesn't wrongly prefill Ollama's endpoint.
-        endpoint = server.endpoint.isEmpty ? (server.api == "ollama" ? "http://localhost:11434" : "") : server.endpoint
-        model = server.model.isEmpty ? "qwen3.5:4b-mlx" : server.model
+        // empty, so reopening onboarding on a saved OpenAI config doesn't wrongly prefill Ollama's.
+        endpoint = server.endpoint.isEmpty ? LLMProvider.defaultEndpoint(forTag: server.api) : server.endpoint
+        model = server.model.isEmpty ? OllamaBackend.defaultModel : server.model
         apiKey = server.apiKey
         userName = cfg.userName ?? NSFullUserName()
         personalContextText = PersonalContext.load() ?? ""
@@ -161,39 +159,22 @@ final class WelcomeViewModel {
 
     func openSettings(for kind: PermissionKind) { PermissionManager.openSettings(for: kind) }
 
-    /// Writes the chosen provider/endpoint/model/API key into Dictation Polish's connection
-    /// config (preserving its other keys).
+    /// Writes the chosen provider/endpoint/model/API key into Summarization's connection config
+    /// (preserving its other keys).
     ///
-    /// Also mirrors the same values into Summarization's connection config, but ONLY on
-    /// someone's first-ever onboarding completion (`onboardingVersion == 0`): a fresh install
-    /// seeds both sections identically, so this lets a first-run user correct the shared
-    /// provider/endpoint/model/key once for both. Reopening onboarding later (from the menu's
-    /// "Setup Guide", potentially after Settings has deliberately split the two providers) must
-    /// never silently clobber a Summarization-specific choice, so after the first completion
-    /// this only ever touches Polish.
+    /// Used to write Dictation Polish's connection instead, mirroring into Summarization only on a
+    /// first-ever completion so that reopening onboarding couldn't clobber a deliberately-split
+    /// second provider. With cleanup gone there is one provider left, so there is nothing to split
+    /// and nothing to mirror -- this is now the same config Settings edits.
     func persistServer() {
         let cfg = RuntimeConfig.shared
-        let trimmedEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        var polish = cfg.polishConfig
-        var polishServer = polish["server"] as? [String: Any] ?? [:]
-        polishServer["api"] = provider
-        polishServer["endpoint"] = trimmedEndpoint
-        polishServer["model"] = trimmedModel
-        polishServer["api_key"] = trimmedApiKey
-        polish["server"] = polishServer
-        cfg.updateSection("polish", polish)
-
-        guard cfg.onboardingVersion == 0 else { return }
         var meeting = cfg.meetingConfig
         var summ = meeting["summarization"] as? [String: Any] ?? [:]
         var summServer = summ["server"] as? [String: Any] ?? [:]
         summServer["api"] = provider
-        summServer["endpoint"] = trimmedEndpoint
-        summServer["model"] = trimmedModel
-        summServer["api_key"] = trimmedApiKey
+        summServer["endpoint"] = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        summServer["model"] = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        summServer["api_key"] = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         summ["server"] = summServer
         meeting["summarization"] = summ
         cfg.updateSection("meeting", meeting)
@@ -479,7 +460,7 @@ struct WelcomeContentView: View {
     private var modelStep: some View {
         stepScaffold(
             title: t("Local model server"),
-            subtitle: t("Better Voice polishes dictation and summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac.")
+            subtitle: t("Better Voice summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac. Dictation itself needs no model.")
         ) {
             stepIcon("cpu")
         } content: {
@@ -488,28 +469,10 @@ struct WelcomeContentView: View {
         }
     }
 
-    /// Mirrors Settings' `providerPicker` tags exactly ("apple" / "ollama" / "openai") so a
-    /// choice made here reads back identically in Settings.
-    private func providerPicker(_ selection: Binding<String>) -> some View {
-        Picker(selection: selection) {
-            Text(t("Apple on-device")).tag("apple")
-            Text("Ollama").tag("ollama")
-            Text(t("OpenAI-compatible")).tag("openai")
-        } label: {
-            Text(t("Provider"))
-        }
-    }
-
-    /// Ollama's well-known local default; no such universal default exists for arbitrary
-    /// OpenAI-compatible servers, so those are left blank for the user to fill in.
-    private func defaultEndpoint(for provider: String) -> String {
-        provider == "ollama" ? "http://localhost:11434" : ""
-    }
-
     @ViewBuilder
     private var modelServerContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            providerPicker($viewModel.provider)
+            LLMProviderPicker(selection: $viewModel.provider)
                 .onChange(of: viewModel.provider) { _, newValue in
                     if newValue == "apple" {
                         viewModel.model = FoundationModelsBackend.modelName
@@ -521,7 +484,7 @@ struct WelcomeContentView: View {
                         // clear it rather than leave a stale value.
                         viewModel.model = ""
                         if viewModel.endpoint.isEmpty {
-                            viewModel.endpoint = defaultEndpoint(for: newValue)
+                            viewModel.endpoint = LLMProvider.defaultEndpoint(forTag: newValue)
                         }
                     }
                 }
@@ -550,7 +513,7 @@ struct WelcomeContentView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(t("Model")).font(.caption).foregroundStyle(.secondary)
-                    TextField("qwen3.5:4b-mlx", text: $viewModel.model)
+                    TextField(OllamaBackend.defaultModel, text: $viewModel.model)
                         .textFieldStyle(.roundedBorder)
                         .focused($focusedServerField, equals: .model)
                         .onSubmit {

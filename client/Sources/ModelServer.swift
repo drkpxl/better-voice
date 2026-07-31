@@ -2,9 +2,8 @@ import Foundation
 import BetterVoiceCore
 
 /// One resolved provider connection — which backend, where, which model, credentials. Built by
-/// `RuntimeConfig`'s per-section accessors (`polishServerConfig`, `summarizationServerConfig`) so
-/// Polish and Summarization can each point at an independent provider instead of sharing one
-/// ambient config.
+/// `RuntimeConfig.summarizationServerConfig` and passed explicitly on every call, rather than read
+/// from an ambient config at the point of use.
 struct ServerConnectionConfig {
     var api: String
     var endpoint: String
@@ -87,35 +86,22 @@ final class ModelServer {
         healthTask = nil
     }
 
-    /// Combined status across both sections: checks whichever of Polish/Summarization is
-    /// currently enabled and reduces to worst-case — `.disconnected` if any enabled section's
-    /// provider is unreachable, `.connected` if every enabled section is reachable, `.unknown` if
-    /// both are disabled (nothing to check).
+    /// App-wide status, driving the menu-bar glyph and the Settings indicator. Summarization is the
+    /// only LLM consumer left (dictation cleanup is gone), so this is just its provider's
+    /// reachability -- it used to reduce to worst-case across two independently-configured sections.
+    /// `.unknown` when summarization is switched off, because then nothing is meant to be reachable
+    /// and a red badge would be reporting a problem the user does not have.
     @discardableResult
     func checkHealth() async -> Bool {
         let cfg = RuntimeConfig.shared
-        var checked = false
-        var allOK = true
-
-        if cfg.polishConfig["enabled"] as? Bool == true {
-            checked = true
-            let server = cfg.polishServerConfig
-            let ok = await backend(for: server.api).checkHealth(endpoint: server.endpoint, apiKey: server.apiKey)
-            allOK = allOK && ok
-        }
-        if cfg.meetingSummarizationConfig["enabled"] as? Bool ?? true {
-            checked = true
-            let server = cfg.summarizationServerConfig
-            let ok = await backend(for: server.api).checkHealth(endpoint: server.endpoint, apiKey: server.apiKey)
-            allOK = allOK && ok
-        }
-
-        guard checked else {
+        guard cfg.meetingSummarizationConfig["enabled"] as? Bool ?? true else {
             updateStatus(.unknown)
             return false
         }
-        updateStatus(allOK ? .connected : .disconnected)
-        return allOK
+        let server = cfg.summarizationServerConfig
+        let ok = await backend(for: server.api).checkHealth(endpoint: server.endpoint, apiKey: server.apiKey)
+        updateStatus(ok ? .connected : .disconnected)
+        return ok
     }
 
     // MARK: - Model discovery
@@ -130,15 +116,14 @@ final class ModelServer {
 
     // MARK: - Inference
 
-    /// Runs one inference call against `server`'s own provider — independent of whatever the
-    /// other section (Polish vs. Summarization) is configured to use. Returns nil on any
-    /// content/parse failure; on a transport error, logs it and nudges the combined `status` to
-    /// `.disconnected` (corrected by the next periodic `checkHealth()` tick if only this one
-    /// section was actually affected).
+    /// Runs one inference call against `server`'s own provider — whatever the caller passed, not an
+    /// ambient config read. Returns nil on any content/parse failure; on a transport error, logs it
+    /// and nudges `status` to `.disconnected` (corrected by the next periodic `checkHealth()` tick
+    /// if the call was aimed at some provider other than the app's own).
     func generate(
         server: ServerConnectionConfig,
         prompt: String,
-        systemPrompt: String = Prompts.defaultPolish,
+        systemPrompt: String,
         options: GenerateOptions = .init(),
         onToken: ((String) -> Void)? = nil
     ) async -> String? {
