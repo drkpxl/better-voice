@@ -25,7 +25,7 @@
 		},
 		{
 			label: 'Speaker 3',
-			quote: 'Sounds good — I’ll take the migration.',
+			quote: "Sounds good. I'll take the migration.",
 			value: '',
 			recognized: false
 		}
@@ -92,7 +92,7 @@
 				<div class="header">
 					<span class="eyebrow">Step 2 of 4</span>
 					<h1 class="title">Listening back to your recording</h1>
-					<p class="subtitle">This all happens on your Mac — nothing leaves the machine.</p>
+					<p class="subtitle">This all happens on your Mac. Nothing leaves the machine.</p>
 				</div>
 
 				<div class="progress-list">
@@ -118,7 +118,7 @@
 						<span class="eyebrow">Step 3 of 4</span>
 						<h1 class="title">Name the speakers</h1>
 						<p class="subtitle">
-							Match each voice to a name. You can leave any blank — a summary is
+							Match each voice to a name. You can leave any blank. A summary is
 							generated either way.
 						</p>
 					</div>
@@ -151,7 +151,7 @@
 						</div>
 						{#if sp.recognized}
 							<p class="hint">
-								Recognized from a previous meeting — edit if this is wrong.
+								Recognized from a previous meeting. Edit if this is wrong.
 							</p>
 						{/if}
 					</div>
@@ -181,7 +181,7 @@
 				</span>
 				<h1 class="done-title">Added to Notes</h1>
 				<p class="done-subtitle">
-					Opened the summary — <strong>“Jun 18th - Q3 Roadmap Sync”</strong> is in your
+Opened the summary. <strong>"Jun 18th - Q3 Roadmap Sync"</strong> is in your
 					Meetings folder, transcript included.
 				</p>
 			</div>

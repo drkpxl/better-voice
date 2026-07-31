@@ -97,15 +97,15 @@
 
 				<p class="note-heading">Key points</p>
 				<ul class="note-bullets">
-					<li>Auth refactor is done — Priya's API migration is unblocked</li>
+					<li>Auth refactor is done. Priya's API migration is unblocked.</li>
 					<li>Beta ships Friday</li>
 					<li>Error-rate dashboard needs a look before launch</li>
 				</ul>
 
 				<p class="note-heading">Action items</p>
 				<ul class="note-checklist">
-					<li><span class="checkbox" aria-hidden="true"></span> Sam — send the updated spec</li>
-					<li><span class="checkbox" aria-hidden="true"></span> Priya — review the error-rate dashboard</li>
+					<li><span class="checkbox" aria-hidden="true"></span> Sam: send the updated spec</li>
+					<li><span class="checkbox" aria-hidden="true"></span> Priya: review the error-rate dashboard</li>
 				</ul>
 			</div>
 		</section>

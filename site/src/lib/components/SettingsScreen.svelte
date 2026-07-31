@@ -19,7 +19,7 @@
 					</div>
 				</div>
 				<p class="caption">
-					Reflects whichever of Dictation Polish / Summarization below are enabled — red if
+					Reflects whichever of Dictation Polish / Summarization below are enabled. Red if
 					either is unreachable.
 				</p>
 			</section>
@@ -91,7 +91,7 @@
 					<div class="divider"></div>
 					<div class="row inset-caption-row">
 						<p class="inset-caption">
-							Uses Apple Intelligence on this Mac — nothing to install. Requires Apple
+							Uses Apple Intelligence on this Mac. Nothing to install. Requires Apple
 							Intelligence to be enabled in System Settings.
 						</p>
 					</div>
@@ -158,7 +158,7 @@
 					<div class="divider"></div>
 					<div class="row inset-caption-row">
 						<p class="inset-caption">
-							Better Voice creates a note in each folder and opens the summary — it never
+							Better Voice creates a note in each folder and opens the summary. It never
 							reads your existing notes.
 						</p>
 					</div>

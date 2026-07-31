@@ -26,7 +26,7 @@
 			id: "import",
 			label: "Record or import",
 			caption:
-				"Start a recording from the menu bar, or drop in a file you already have — Better Voice transcribes it, has you name the speakers, and adds the summary to Apple Notes.",
+				"Start a recording from the menu bar, or drop in a file you already have. Better Voice transcribes it, has you name the speakers, and adds the summary to Apple Notes.",
 		},
 		{
 			id: "dictation",
@@ -61,7 +61,7 @@
 		{
 			kicker: "Job one",
 			title: "Dictation, in every app you use",
-			body: "Hold your hotkey, talk, let go. The text appears at your cursor — email, Slack, your editor, a form in the browser. There's no window to switch to and nothing to paste. Filler words come out by a fixed word list and your own spellings go in by exact word-match, so nothing rewrites what you actually said.",
+			body: "Hold your hotkey, talk, let go. The text appears at your cursor: email, Slack, your editor, a form in the browser. There's no window to switch to and nothing to paste. Filler words come out by a fixed word list and your own spellings go in by exact word-match, so nothing rewrites what you actually said.",
 			replaces: "Instead of a dictation subscription",
 		},
 		{
@@ -78,11 +78,11 @@
 		{
 			note: "Required · automatic · once",
 			title: "A one-time 470 MB download",
-			body: "On first launch Better Voice downloads NVIDIA's Parakeet speech model — about 470 MB, a few minutes, once. That download is exactly why your audio never has to leave your Mac afterwards. The menu bar shows progress, and dictation switches on the moment it lands.",
+			body: "On first launch Better Voice downloads NVIDIA's Parakeet speech model: about 470 MB, a few minutes, once. That download is exactly why your audio never has to leave your Mac afterwards. The menu bar shows progress, and dictation switches on the moment it lands.",
 		},
 		{
 			note: "Optional · Ollama for long meetings",
-			title: "Summaries need a model — you choose which",
+			title: "Summaries need a model. You choose which.",
 			body: "Transcription needs no setup at all. Writing the summary does need a language model. Apple's on-device one is zero setup but has a short context window, so a long meeting gets chunked. For hour-long calls, point Better Voice at Ollama or any OpenAI-compatible server you run. Either way it stays on your machine.",
 		},
 	];
@@ -90,11 +90,11 @@
 	const features = [
 		{
 			title: "It lands in Apple Notes",
-			body: "Not a library inside another app you have to remember to open. Every meeting becomes a titled note — summary and transcript — in folders you pick once. Searchable in Spotlight, editable on your phone, and already synced to your iPad by the time you shut your laptop.",
+			body: "Not a library inside another app you have to remember to open. Every meeting becomes a titled note with summary and transcript, in folders you pick once. Searchable in Spotlight, editable on your phone, and already synced to your iPad by the time you shut your laptop.",
 		},
 		{
 			title: "Works on a plane",
-			body: "Once the speech model is down, dictation and transcription need no connection at all — they're running on your Mac, not on someone's API. Only the Apple Notes sync at the end wants the internet, and it waits.",
+			body: "Once the speech model is down, dictation and transcription need no connection at all. They're running on your Mac, not on someone's API. Only the Apple Notes sync at the end wants the internet, and it waits.",
 		},
 		{
 			title: "No bot joins your call",
@@ -117,11 +117,11 @@
 
 <svelte:head>
 	<title
-		>Better Voice — dictation and AI meeting notes in one Mac app, saved to Apple Notes</title
+		>Better Voice: dictation and AI meeting notes in one Mac app, saved to Apple Notes</title
 	>
 	<meta
 		name="description"
-		content="Dictation and AI meeting notes are normally two separate subscriptions. Better Voice is one free Mac app that does both — hold a key to dictate into any app, record or import a meeting and get a speaker-labeled summary — and files everything in Apple Notes. Runs entirely on your Mac; your audio never leaves it."
+		content="Dictation and AI meeting notes are normally two separate subscriptions. Better Voice is one free Mac app that does both. Hold a key to dictate into any app, record or import a meeting and get a speaker-labeled summary. It files everything in Apple Notes. Runs entirely on your Mac. Your audio never leaves it."
 	/>
 	<link rel="canonical" href={siteUrl} />
 
@@ -131,11 +131,11 @@
 	<meta property="og:site_name" content="Better Voice" />
 	<meta
 		property="og:title"
-		content="Better Voice — dictation and AI meeting notes in one Mac app, saved to Apple Notes"
+		content="Better Voice: dictation and AI meeting notes in one Mac app, saved to Apple Notes"
 	/>
 	<meta
 		property="og:description"
-		content="Dictation and AI meeting notes are normally two apps. Better Voice is one — dictate anywhere with a hotkey, record or import a meeting, get a speaker-labeled summary in Apple Notes. On-device, free, no subscription."
+		content="Dictation and AI meeting notes are normally two apps. Better Voice is one. Dictate anywhere with a hotkey, record or import a meeting, get a speaker-labeled summary in Apple Notes. On-device, free, no subscription."
 	/>
 	<meta property="og:url" content={siteUrl} />
 	<meta property="og:image" content={`${siteUrl}og.png`} />
@@ -144,11 +144,11 @@
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta
 		name="twitter:title"
-		content="Better Voice — dictation and AI meeting notes in one Mac app, saved to Apple Notes"
+		content="Better Voice: dictation and AI meeting notes in one Mac app, saved to Apple Notes"
 	/>
 	<meta
 		name="twitter:description"
-		content="Dictation and AI meeting notes are normally two apps. Better Voice is one — dictate anywhere with a hotkey, record or import a meeting, get a speaker-labeled summary in Apple Notes. On-device, free, no subscription."
+		content="Dictation and AI meeting notes are normally two apps. Better Voice is one. Dictate anywhere with a hotkey, record or import a meeting, get a speaker-labeled summary in Apple Notes. On-device, free, no subscription."
 	/>
 	<meta name="twitter:image" content={`${siteUrl}og.png`} />
 </svelte:head>
@@ -171,8 +171,8 @@
 			</h1>
 			<p class="lead">
 				Dictation lives in one subscription. Meeting notes live in another. Better
-				Voice does both jobs in a single Mac app — hold a key to dictate anywhere,
-				record a meeting and get a speaker-labeled summary — then files the result
+				Voice does both jobs in a single Mac app. Hold a key to dictate anywhere,
+				record a meeting and get a speaker-labeled summary. Then it files the result
 				in Apple Notes, where you already keep everything. It all runs on your Mac,
 				so your audio never leaves it.
 			</p>
@@ -215,9 +215,30 @@
 				{/if}
 			</div>
 			<p class="hero-note">
-				Free and MIT-licensed. One first-run download puts the speech model on your
-				Mac — <a href="#setup">here’s what setup actually involves</a>.
+Free and MIT-licensed. One first-run download puts the speech model on your
+				Mac. <a href="#setup">Here's what setup actually involves</a>.
 			</p>
+		</div>
+	</section>
+
+	<!-- The spine of the page: the two jobs a normal setup splits across two products, and the
+	     one place their output lands. -->
+	<section class="jobs" id="jobs">
+		<h2>Two jobs. One app. One place they land.</h2>
+		<p class="jobs-intro">
+			These are normally two separate purchases from two separate companies, each with its own
+			app to open, its own bill, and its own silo your words end up in. Better Voice does both,
+			and hands the result to Apple Notes.
+		</p>
+		<div class="jobs-grid">
+			{#each jobs as j (j.title)}
+				<article class="job-card">
+					<p class="job-kicker">{j.kicker}</p>
+					<h3>{j.title}</h3>
+					<p class="job-body">{j.body}</p>
+					<p class="job-replaces">{j.replaces}</p>
+				</article>
+			{/each}
 		</div>
 	</section>
 
@@ -264,32 +285,11 @@
 		</p>
 	</section>
 
-	<!-- The spine of the page: the two jobs a normal setup splits across two products, and the
-	     one place their output lands. -->
-	<section class="jobs" id="jobs">
-		<h2>Two jobs. One app. One place they land.</h2>
-		<p class="jobs-intro">
-			These are normally two separate purchases from two separate companies — each with its own
-			app to open, its own bill, and its own silo your words end up in. Better Voice does both,
-			and hands the result to Apple Notes.
-		</p>
-		<div class="jobs-grid">
-			{#each jobs as j (j.title)}
-				<article class="job-card">
-					<p class="job-kicker">{j.kicker}</p>
-					<h3>{j.title}</h3>
-					<p class="job-body">{j.body}</p>
-					<p class="job-replaces">{j.replaces}</p>
-				</article>
-			{/each}
-		</div>
-	</section>
-
 	<!-- Compare: the side-by-side that makes the one-app claim concrete. -->
 	<section class="compare">
 		<h2>What you’d otherwise be running</h2>
 		<p class="compare-intro">
-			Two products, two bills, and your words split across both of them — plus
+			Two products, two bills, and your words split across both of them, plus
 			whichever cloud each vendor keeps your recordings in.
 		</p>
 		<div class="compare-grid">
@@ -307,7 +307,7 @@
 				<h3>With Better Voice</h3>
 				<ul>
 					<li>Hold-to-talk dictation in every app</li>
-					<li>Records and summarizes meetings — same app</li>
+					<li>Records and summarizes meetings in the same app</li>
 					<li>No bot; the audio is captured on your Mac</li>
 					<li>Notes in Apple Notes, on every device you own</li>
 					<li>Free, MIT-licensed, and nothing leaves your Mac</li>
@@ -386,8 +386,8 @@
 						>Coming soon</span
 					>
 					<p class="download-note">
-						Better Voice 1.0 is in final testing — the download lands here
-						shortly.
+Better Voice 1.0 is in final testing. The download lands here
+					shortly.
 					</p>
 				{/if}
 			</div>
@@ -401,10 +401,10 @@
 					</li>
 
 					<li>
-						<strong>Grant permissions when asked</strong> — Microphone, Input Monitoring
+						<strong>Grant permissions when asked</strong>: Microphone, Input Monitoring
 						(for the hotkey), Accessibility (to type at your cursor), and Automation
-						for Notes (so Better Voice can add meeting notes and open them for you)
-						— then quit and reopen once so macOS applies them.
+						for Notes (so Better Voice can add meeting notes and open them for you).
+						Then quit and reopen once so macOS applies them.
 					</li>
 					<li>
 						<strong>Pick your Apple Notes folders</strong> this is where your notes
@@ -560,7 +560,9 @@
 
 	/* Showcase */
 	.showcase {
-		padding-block: var(--space-md) var(--space-2xl);
+		padding-block: var(--space-xl);
+		background-color: var(--color-bg-alt);
+		border-block: 1px solid var(--color-border-light);
 	}
 
 	.tabs {
@@ -603,16 +605,16 @@
 	}
 
 	.stage-caption {
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
+		font-size: 0.9375rem;
 		color: var(--color-text-muted);
 		line-height: 1.6;
 		text-align: center;
 		max-width: 60ch;
-		margin: var(--space-md) auto 0;
+		margin: var(--space-lg) auto 0;
 	}
 
 	/* Section spacing */
+	.showcase,
 	.jobs,
 	.compare,
 	.features,
@@ -632,6 +634,7 @@
 
 	/* Anchored sections sit under the sticky header, so give the jump targets clearance. */
 	.jobs,
+	.compare,
 	.features,
 	.setup,
 	.download {
@@ -641,7 +644,7 @@
 	/* Jobs — the two halves of the pitch, side by side so "one app, two jobs" is legible
 	   at a glance rather than asserted in prose. */
 	.jobs h2 {
-		margin-bottom: var(--space-md);
+		margin-bottom: var(--space-lg);
 		max-width: 24ch;
 	}
 
@@ -698,8 +701,10 @@
 	.job-replaces {
 		margin-top: auto;
 		padding-top: var(--space-md);
-		font-size: 0.875rem;
-		font-weight: 600;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--color-accent);
+		font-family: var(--font-mono);
 	}
 
 	/* Setup — the two real asks. Styled as plainly as the copy reads: no badges, no
@@ -886,7 +891,7 @@
 		.download-card {
 			grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
 			gap: var(--space-xl);
-			padding: var(--space-xl);
+			padding: var(--space-lg);
 		}
 	}
 
@@ -917,7 +922,6 @@
 		margin-bottom: var(--space-sm);
 	}
 
-	.download-card-aside p,
 	.download-card-aside li {
 		color: var(--color-text-muted);
 		font-size: 0.9375rem;
