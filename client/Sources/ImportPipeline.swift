@@ -2,7 +2,6 @@
 import CoreMedia
 import FluidAudio
 import BetterVoiceCore
-import Speech
 
 // MARK: - Import phase / mode
 
@@ -10,12 +9,20 @@ import Speech
 /// transcription → speaker diarization → LLM summary. (Summarization is driven by
 /// `ImportSession`, not this file, but shares the enum so the UI has one progress vocabulary.)
 enum ImportPhase {
+    /// First-run model download and CoreML compile. Its own phase because it is the longest single
+    /// wait in the whole product and it happens exactly once: measured on this hardware, a cold
+    /// 470 MB fetch plus compile added **132s** before transcription could begin (174.4s cold against
+    /// 42.4s warm on the 57-minute fixture). Without a phase of its own it was reported as nothing at
+    /// all — the bar sat at zero for over two minutes, which is precisely the first-run abandonment
+    /// risk the migration plan flags.
+    case preparingModels
     case transcribing
     case identifyingSpeakers
     case summarizing
 
     var label: String {
         switch self {
+        case .preparingModels:     return t("Downloading speech model…")
         case .transcribing:        return t("Transcribing…")
         case .identifyingSpeakers: return t("Identifying speakers…")
         case .summarizing:         return t("Summarizing…")
@@ -33,6 +40,11 @@ enum SpeakerMode {
 enum ImportError: LocalizedError {
     case unreadableAudio(String)
     case transcriptionFailed(String)
+    /// The file decoded fine but carries no audible signal. Its own case because the fix is "record
+    /// again / check the source", not "try another format" — and because without it a silent file
+    /// produced a zero-segment `MeetingResult` with no error at all, the exact "empty successful
+    /// transcript" this type exists to prevent.
+    case silentAudio(String)
 
     var errorDescription: String? {
         switch self {
@@ -40,16 +52,23 @@ enum ImportError: LocalizedError {
             return t("Couldn't read that audio file. It may be an unsupported or protected format.") + " (\(detail))"
         case .transcriptionFailed(let detail):
             return t("Transcription failed.") + " (\(detail))"
+        case .silentAudio(let detail):
+            return t("That recording has no audible speech in it.") + " (\(detail))"
         }
     }
 }
 
 // MARK: - Import Pipeline
 
-/// The engine: turn an imported audio file into a diarized, L2-polished `MeetingResult`.
+/// The engine: turn an imported audio file into a diarized `MeetingResult`.
 ///
-/// Extracted from v1's `MeetingSession.runFromFile` (transcribe → per-turn L2 polish → offline
-/// FluidAudio diarization → phrase→speaker alignment). All live-capture code (AVCaptureSession,
+/// Stage 1 of two, and the whole of it: transcribe → offline FluidAudio diarization → phrase→speaker
+/// alignment → deterministic vocabulary replacement. No model runs on the text. What crosses into
+/// stage 2 is one speaker-labeled `String`, built by `buildSummarizationTranscript` and handed to
+/// `SummarizationClient` in `ImportSession`.
+///
+/// Extracted from v1's `MeetingSession.runFromFile`, which also ran a per-turn LLM cleanup pass
+/// between transcription and diarization. All live-capture code (AVCaptureSession,
 /// the system-audio process tap, mic VAD, both-mode) is intentionally left behind — the input is
 /// a decoded file URL that `AVAudioFile`/FluidAudio read directly, no transcode stage needed.
 @MainActor
@@ -57,8 +76,13 @@ final class ImportPipeline {
 
     // MARK: State (reset per run)
 
+    /// The ASR engine. The shared instance, not an injected one: see `ParakeetTranscriber`.
+    private let transcriber = ParakeetTranscriber.shared
+
     private var segmentBuffer: SegmentBuffer?
-    private var polishedSegments: [MeetingSegment] = []
+    /// Batched segments, used only for the flat (single-speaker) transcript. On the labeled
+    /// multi-speaker path these are discarded and turns are rebuilt from `allPhraseEntries`.
+    private var batchedSegments: [MeetingSegment] = []
     /// Phrase-level transcript entries (with timestamps), used for fine-grained per-speaker grouping.
     private var allPhraseEntries: [SegmentBuffer.Entry] = []
     private(set) var duration: TimeInterval = 0
@@ -69,23 +93,24 @@ final class ImportPipeline {
     private var audioFileURL: URL?
     private var meetingId: String = ""
 
-    /// Streamed to disk (one line per L2 segment) for crash durability while a long import runs.
+    /// Streamed to disk (one line per segment) for crash durability while a long import runs.
     private let meetingHistory = MeetingHistory()
 
     /// Held as a property (not captured in the @Sendable result Task) so progress updates don't
     /// require the callback itself to be Sendable — the Task touches `self.progressHandler` on the
-    /// main actor instead.
+    /// main actor instead. Never call it directly; go through `report(_:_:)`.
     private var progressHandler: ((ImportPhase, Double) -> Void)?
 
-    // L2 stats (summary logged at end)
-    private var l2Changed = 0
-    private var l2Identity = 0
-    private var l2Failed = 0
-    private var l2Skipped = 0
-    private var l2TotalElapsedMs = 0
-    private var l2CallCount = 0
+    /// Incremented on every `run`. Progress arrives from detached tasks that can outlive the run that
+    /// started them — the live-meeting path calls `run` twice on the *same* instance
+    /// (`ImportSession.swift:263-286`), so a late tick from the first pass could otherwise land on the
+    /// second pass's handler and rewind its bar. A task captures the token it was created under and
+    /// reports nothing once it no longer matches.
+    private var runToken = 0
 
-    init() {}
+    /// Highest fraction reported for the current phase, so progress can never go backwards.
+    private var reportedPhase: ImportPhase?
+    private var reportedFraction: Double = 0
 
     // MARK: - Run
 
@@ -101,28 +126,32 @@ final class ImportPipeline {
         onProgress: (@MainActor (ImportPhase, Double) -> Void)? = nil
     ) async throws -> MeetingResult {
         // Reset state
-        polishedSegments = []
+        batchedSegments = []
         allPhraseEntries = []
         duration = 0
-        resetL2Stats()
         setupSegmentBuffer()
         audioFileURL = fileURL
         meetingId = "import-" + fileURL.deletingPathExtension().lastPathComponent
         progressHandler = onProgress
+        runToken += 1
+        reportedPhase = nil
+        reportedFraction = 0
+        let token = runToken
 
         // Single-speaker → no diarization source → FluidAudio never runs (flat transcript).
         systemAudioFileURL = (speakerMode == .multi) ? fileURL : nil
 
-        // Resolve locale (config/system best, or explicit override).
-        let bestLocale: Locale
-        if let locale {
-            bestLocale = Locale(identifier: locale)
-        } else {
-            bestLocale = await SpeechUtils.bestLocale() ?? Locale(identifier: "en-US")
-        }
-        Logger.log("Import", "Locale: \(bestLocale.identifier(.bcp47)), mode: \(speakerMode == .multi ? "multi" : "single")")
+        // Locale is carried through but no longer resolved against a system speech catalogue: the only
+        // engine left is English-only and ignores it (see `ParakeetTranscriber.transcribe`). The
+        // parameter stays because the bench's `--locale` flag still passes one, and dropping it would
+        // silently change that flag's meaning rather than remove it.
+        let bestLocale: Locale? = locale.map { Locale(identifier: $0) }
+        Logger.log("Import", "Locale: \(bestLocale?.identifier(.bcp47) ?? "(engine default)"), mode: \(speakerMode == .multi ? "multi" : "single")")
 
         // Read audio (decodes AAC/MP3/WAV/AIFF/CAF). A read failure is a real, user-facing error.
+        // The transcriber probes the file itself for its own duration; this probe stays because
+        // `duration` must be known before the first progress tick, and because an unreadable file is an
+        // `ImportError` here rather than a `TranscriptionError`.
         let probeFile: AVAudioFile
         do {
             probeFile = try AVAudioFile(forReading: fileURL)
@@ -133,82 +162,127 @@ final class ImportPipeline {
         duration = Double(probeFile.length) / probeFile.processingFormat.sampleRate
         Logger.log("Import", "Audio: \(String(format: "%.1f", duration))s, \(Int(probeFile.processingFormat.sampleRate))Hz, \(probeFile.processingFormat.channelCount)ch")
 
-        // Configure SpeechTranscriber + SpeechAnalyzer.
-        let transcriber = SpeechTranscriber(
-            locale: bestLocale,
-            transcriptionOptions: [],
-            reportingOptions: [.volatileResults],
-            attributeOptions: [.audioTimeRange]
-        )
-        try await SpeechUtils.ensureModelInstalled(transcriber: transcriber, locale: bestLocale)
-        let options = SpeechAnalyzer.Options(priority: .userInitiated, modelRetention: .processLifetime)
-        let analyzer = SpeechAnalyzer(modules: [transcriber], options: options)
+        // Silence gate. `MeetingCoordinator.stopMeeting` already ran this for live recordings
+        // (`MeetingCoordinator.swift:250-256`) but nothing covered a user-chosen *file*, so a silent
+        // import ran the full pipeline and came back with zero segments and no error. Detached because
+        // the check does bounded-chunk blocking reads and must not block the main actor.
+        let silent = await Task.detached(priority: .utility) {
+            isRecordingEffectivelyEmpty(at: fileURL)
+        }.value
+        if silent {
+            Logger.log("Import", "Silent audio \(fileURL.lastPathComponent); refusing to transcribe")
+            throw ImportError.silentAudio(fileURL.lastPathComponent)
+        }
 
-        // Result handling: only final segments feed the buffer; volatile partials ignored.
-        // Returns the stream error (if any) instead of swallowing it, so we can surface it.
-        let resultTask = Task { [weak self] () -> Error? in
+        // Prepare the engine BEFORE transcribing, and report it as its own phase.
+        //
+        // `transcribe` would prepare lazily anyway -- `prepare` is idempotent, so this is not
+        // duplicated work -- but doing it implicitly meant a first-run 470 MB download happened inside
+        // the transcription call with no progress reported at all. Measured: 132s of silence with the
+        // bar at zero. Hoisting it here is the whole point of `.preparingModels`.
+        if await !transcriber.isReady {
+            Logger.log("Import", "Engine not ready; preparing (first run downloads ~470 MB)")
+            report(.preparingModels, 0)
             do {
-                for try await result in transcriber.results {
-                    guard let self else { return nil }
-                    guard result.isFinal else { continue }
-                    let text = String(result.text.characters)
-                    let timeRange = self.extractTimeRange(from: result.text)
-                    let entry = SegmentBuffer.Entry(
-                        text: text,
-                        startTime: timeRange.start,
-                        endTime: timeRange.start + timeRange.duration
-                    )
-                    self.allPhraseEntries.append(entry)
-                    if self.duration > 0 {
-                        self.progressHandler?(.transcribing, min(entry.endTime / self.duration, 1))
-                    }
-                    await self.segmentBuffer?.feed(entry)
-                }
-                return nil
+                try await transcriber.prepare(progress: { [weak self] fraction in
+                    Task { @MainActor in self?.reportIfCurrent(token, .preparingModels, fraction) }
+                })
             } catch {
-                return error
+                Logger.log("Import", "Model preparation failed: \(error)")
+                throw ImportError.transcriptionFailed("\(error)")
             }
+            report(.preparingModels, 1)
         }
 
-        // A fresh AVAudioFile for the analyzer (the probe advanced no read cursor, but keep them separate).
-        let inputFile = try AVAudioFile(forReading: fileURL)
-        try await analyzer.start(inputAudioFile: inputFile, finishAfterFile: true)
+        // Transcribe through the seam. Progress arrives on an arbitrary executor per the protocol, so
+        // it hops to the main actor, and drops if a later `run` has superseded this one.
+        let transcript: Transcript
+        do {
+            transcript = try await transcriber.transcribe(
+                fileURL: fileURL,
+                locale: bestLocale,
+                progress: { [weak self] fraction in
+                    Task { @MainActor in self?.reportIfCurrent(token, .transcribing, fraction) }
+                }
+            )
+        } catch {
+            Logger.log("Import", "Transcription failed: \(error)")
+            throw ImportError.transcriptionFailed("\(error)")
+        }
+        Logger.log("Import", "Transcribed: \(transcript.phrases.count) phrases via \(transcript.engineID)")
 
-        // start() returns immediately; the results loop ends once the analyzer finalizes.
-        let streamError = await resultTask.value
-        if let streamError {
-            Logger.log("Import", "Result stream error: \(streamError)")
-            throw ImportError.transcriptionFailed("\(streamError)")
+        // Replay phrases in emission order. `SegmentBuffer`'s thresholds are all measured in audio
+        // timestamps and buffered characters, with no wall clock or timer, so feeding the same entries
+        // in the same order after transcription yields bit-identical batches and trigger reasons.
+        for phrase in transcript.phrases {
+            let entry = SegmentBuffer.Entry(
+                text: phrase.text,
+                startTime: phrase.start,
+                endTime: phrase.end
+            )
+            allPhraseEntries.append(entry)
+            await segmentBuffer?.feed(entry)
         }
 
-        // Flush the tail batch → L2.
+        // Flush the tail batch.
         await segmentBuffer?.flushFinal()
-        logL2Summary()
-        progressHandler?(.transcribing, 1)
+        report(.transcribing, 1)
 
         // Diarization (multi only) + phrase→speaker alignment.
-        let diarized = await performDiarization()
-        progressHandler?(.identifyingSpeakers, 1)
+        let diarized = await performDiarization(token: token)
+        report(.identifyingSpeakers, 1)
 
         Logger.log("Import", "Complete: \(diarized.count) segments")
         return MeetingResult(segments: diarized, duration: duration, audioPath: fileURL.path)
     }
 
+    // MARK: - Progress
+
+    /// The only way progress reaches the caller. Clamps to `0...1` and ratchets within a phase.
+    ///
+    /// Both guards fix real defects. The fraction was previously `min(entry.endTime / duration, 1)`
+    /// with no lower bound, so a phrase carrying no time range drove it to 0 and visibly rewound the
+    /// wizard's bar mid-import. And nothing stopped a late or out-of-order tick from moving it
+    /// backwards. Advancing to a new phase resets the ratchet, since each phase reports its own 0...1.
+    private func report(_ phase: ImportPhase, _ fraction: Double) {
+        let clamped = min(max(fraction, 0), 1)
+        if reportedPhase != phase {
+            reportedPhase = phase
+            reportedFraction = clamped
+        } else if clamped <= reportedFraction {
+            return
+        } else {
+            reportedFraction = clamped
+        }
+        progressHandler?(phase, clamped)
+    }
+
+    /// Report from a detached context, dropping the tick if `run` has moved on since it was scheduled.
+    private func reportIfCurrent(_ token: Int, _ phase: ImportPhase, _ fraction: Double) {
+        guard token == runToken else { return }
+        report(phase, fraction)
+    }
+
     // MARK: - Diarization
 
     /// Cluster the imported track's remote speakers (`.multi`) and align each phrase to a speaker.
-    /// For `.single` (or when clustering yields nothing) the L2 segments are returned unlabeled —
+    /// For `.single` (or when clustering yields nothing) the batched segments are returned unlabeled —
     /// exactly the flat transcript we want.
-    private func performDiarization() async -> [MeetingSegment] {
-        let segments = polishedSegments
-        guard !segments.isEmpty else {
-            Logger.log("Import", "No polished segments to diarize")
+    private func performDiarization(token: Int) async -> [MeetingSegment] {
+        // Gate on the phrases, not on the batched segments. The old code tested
+        // `polishedSegments.isEmpty`, which was equivalent only by accident: `flushFinal` flushes any
+        // non-empty buffer, so a batch existed iff a phrase had been fed. That made the gate silently
+        // wrong the moment the batch path was reordered -- which this phase does. `allPhraseEntries` is
+        // the condition actually meant, and it is what the turn path consumes.
+        guard !allPhraseEntries.isEmpty else {
+            Logger.log("Import", "No phrases to diarize")
             return []
         }
+        let segments = batchedSegments
 
         var intervals: [SpeakerInterval] = []
         if let sysURL = systemAudioFileURL {
-            let sysSegments = await offlineDiarizeSystem(url: sysURL)
+            let sysSegments = await offlineDiarizeSystem(url: sysURL, token: token)
             Logger.log("Import", "Diarization: \(sysSegments.count) speaker segments")
             intervals.append(contentsOf: speakerIntervals(from: sysSegments))
         }
@@ -229,7 +303,7 @@ final class ImportPipeline {
     /// Post-hoc offline diarization via FluidAudio's VBx pipeline on `OfflineDiarizerHost` (the
     /// actor confining the non-Sendable manager). Any failure returns [] → flat transcript.
     /// Segmentation progress (chunks done/total) is forwarded to `.identifyingSpeakers`.
-    private func offlineDiarizeSystem(url: URL) async -> [TimedSpeakerSegment] {
+    private func offlineDiarizeSystem(url: URL, token: Int) async -> [TimedSpeakerSegment] {
         guard FileManager.default.fileExists(atPath: url.path) else {
             Logger.log("Import", "[Offline] audio missing at \(url.lastPathComponent); skipping diarization")
             return []
@@ -239,7 +313,7 @@ final class ImportPipeline {
                 guard total > 0 else { return }
                 let fraction = Double(done) / Double(total)
                 Task { @MainActor in
-                    self.progressHandler?(.identifyingSpeakers, fraction)
+                    self.reportIfCurrent(token, .identifyingSpeakers, fraction)
                 }
             }
             Logger.log("Import", "[Offline] \(segments.count) speaker segments (VBx)")
@@ -263,8 +337,8 @@ final class ImportPipeline {
         }
     }
 
-    /// Assign each phrase to the max-overlap speaker, group consecutive same-speaker phrases into
-    /// turns (pure Core), and L2-polish each turn → one `MeetingSegment` per turn.
+    /// Assign each phrase to the max-overlap speaker, then group consecutive same-speaker phrases
+    /// into turns (pure Core) → one `MeetingSegment` per turn.
     private func buildSpeakerTurns(
         entries: [SegmentBuffer.Entry],
         intervals: [SpeakerInterval]
@@ -274,15 +348,15 @@ final class ImportPipeline {
 
         var result: [MeetingSegment] = []
         for turn in turns {
-            let raw = turn.text
-            let polished = await polishTurnText(raw)
+            // Deterministic vocabulary replacement only. This used to be an awaited LLM call per turn
+            // -- ~168 of them on the 57-minute fixture, which is where the bulk of import wall clock
+            // went. The vocabulary channel does exact word-boundary replacement, so it carries none of
+            // the false-substitution risk that made acoustic and LLM correction unattractive.
             result.append(MeetingSegment(
-                text: polished.text,
-                rawText: raw,
+                text: Vocabulary.shared.apply(to: turn.text),
                 startTime: turn.start,
                 endTime: turn.end,
                 speakerId: turn.speakerId,
-                l2Kind: polished.kind,
                 isFinal: true,
                 speakerEmbedding: turn.embedding,
                 speakerConfidence: turn.minConfidence
@@ -293,144 +367,52 @@ final class ImportPipeline {
         return result
     }
 
-    /// Single L2 polish pass on a turn's text (reusing PolishClient); vocabulary replacements
-    /// apply on every path. Falls back to raw text when polish is disabled or fails.
-    private func polishTurnText(_ raw: String) async -> (text: String, kind: L2Kind) {
-        let polishEnabled = (RuntimeConfig.shared.polishConfig["enabled"] as? Bool) == true
-        guard polishEnabled, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return (Vocabulary.shared.apply(to: raw), .skipped)
-        }
-        if let p = await PolishClient.shared.polish(text: raw, words: [], app: nil) {
-            let final = Vocabulary.shared.apply(to: p)
-            return (final, final == raw ? .identity : .changed)
-        }
-        return (Vocabulary.shared.apply(to: raw), .failed)
-    }
-
-    // MARK: - Segmentation / L2
+    // MARK: - Segmentation
 
     private func setupSegmentBuffer() {
         let cfg = RuntimeConfig.shared.meetingConfig
-        let pauseSec = (cfg["l2_flush_on_pause_sec"] as? Double) ?? 1.5
-        let maxChars = (cfg["l2_flush_on_chars"] as? Int) ?? 200
-        let minChars = (cfg["l2_min_chars"] as? Int) ?? 30
+        let pauseSec = (cfg["segment_pause_sec"] as? Double) ?? 1.5
+        let maxChars = (cfg["segment_max_chars"] as? Int) ?? 200
+        let minChars = (cfg["segment_min_chars"] as? Int) ?? 30
 
         let buf = SegmentBuffer(pauseThresholdSec: pauseSec, maxChars: maxChars, minChars: minChars)
         buf.onFlush = { [weak self] batch in
             guard let self else { return }
-            let seg = await self.polishBatch(batch)
-            self.polishedSegments.append(seg)
+            self.batchedSegments.append(self.makeSegment(from: batch))
         }
         self.segmentBuffer = buf
     }
 
-    /// Run L2 correction on one flush batch and return the final MeetingSegment. On L2 failure,
-    /// text = rawText; each call's result is appended to meeting-history.jsonl immediately.
-    private func polishBatch(_ batch: SegmentBuffer.FlushBatch) async -> MeetingSegment {
-        let segNum = segmentBuffer?.flushCount ?? 0
-        let polishCfg = RuntimeConfig.shared.polishConfig
-        let polishEnabled = (polishCfg["enabled"] as? Bool) == true
+    /// Turn one flush batch into a `MeetingSegment`, applying deterministic vocabulary replacements.
+    ///
+    /// This used to run an LLM polish pass per batch, deleted for two reasons — the larger one first:
+    /// on the labeled multi-speaker path the result was **discarded**, because `performDiarization`
+    /// rebuilds turns from `allPhraseEntries` and re-ran the pass per turn, so every batch's awaited
+    /// LLM call was paid for, persisted, and thrown away. And the bake-off measured the stage as worth
+    /// ~1 WER point on top of a good ASR engine while costing 90% of the wall clock
+    /// (`bench/results/2026-07-30-results.json`).
+    ///
+    /// `SegmentBuffer` survives it for the *grouping* alone; see its own note.
+    private func makeSegment(from batch: SegmentBuffer.FlushBatch) -> MeetingSegment {
+        let segmentText = Vocabulary.shared.apply(to: batch.text)
 
-        let rawText = batch.rawText
-
-        let finalText: String
-        let polishedText: String?
-        let l2Kind: L2Kind
-        let elapsedMs: Int
-
-        if !polishEnabled {
-            l2Skipped += 1
-            finalText = rawText
-            polishedText = nil
-            l2Kind = .skipped
-            elapsedMs = 0
-        } else {
-            let t0 = CFAbsoluteTimeGetCurrent()
-            let polished = await PolishClient.shared.polish(text: rawText, words: [], app: nil)
-            elapsedMs = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
-            l2CallCount += 1
-            l2TotalElapsedMs += elapsedMs
-
-            if let p = polished {
-                polishedText = p
-                if p == rawText {
-                    l2Identity += 1
-                    l2Kind = .identity
-                    finalText = p
-                } else {
-                    l2Changed += 1
-                    l2Kind = .changed
-                    finalText = p
-                }
-            } else {
-                polishedText = nil
-                l2Failed += 1
-                l2Kind = .failed
-                finalText = rawText
-            }
-        }
-
-        // Deterministic vocabulary replacements, applied whatever the L2 outcome.
-        let segmentText = Vocabulary.shared.apply(to: finalText)
-
-        let record = MeetingSegmentRecord(
+        meetingHistory.append(MeetingSegmentRecord(
             timestamp: Date(),
             meetingId: meetingId,
             audioPath: audioFileURL?.path ?? "",
-            segIndex: segNum,
+            segIndex: segmentBuffer?.flushCount ?? 0,
             startTime: batch.startTime,
             endTime: batch.endTime,
             triggerReason: batch.triggerReason,
-            rawText: rawText,
-            polishedText: polishedText,
-            finalText: segmentText,
-            l2Kind: l2Kind.rawValue,
-            l2ElapsedMs: elapsedMs
-        )
-        meetingHistory.append(record)
+            text: segmentText
+        ))
 
         return MeetingSegment(
             text: segmentText,
-            rawText: rawText,
             startTime: batch.startTime,
             endTime: batch.endTime,
             speakerId: nil,
-            l2Kind: l2Kind,
             isFinal: true
         )
-    }
-
-    private func resetL2Stats() {
-        l2Changed = 0
-        l2Identity = 0
-        l2Failed = 0
-        l2Skipped = 0
-        l2TotalElapsedMs = 0
-        l2CallCount = 0
-    }
-
-    private func logL2Summary() {
-        let total = l2Changed + l2Identity + l2Failed + l2Skipped
-        let avgMs = l2CallCount > 0 ? l2TotalElapsedMs / l2CallCount : 0
-        let fallback = l2Failed + l2Skipped
-        Logger.log("Import", "L2 summary: total=\(total) changed=\(l2Changed) identity=\(l2Identity) failed=\(l2Failed) skipped=\(l2Skipped) avgMs=\(avgMs) fallback_used=\(fallback)")
-    }
-
-    // MARK: - audioTimeRange extraction
-
-    private func extractTimeRange(from attrText: AttributedString) -> (start: TimeInterval, duration: TimeInterval) {
-        typealias TimeKey = AttributeScopes.SpeechAttributes.TimeRangeAttribute
-
-        var earliest: TimeInterval = .infinity
-        var latest: TimeInterval = 0
-        for (timeRange, _) in attrText.runs[TimeKey.self] {
-            guard let range = timeRange else { continue }
-            let start = range.start.seconds
-            let end = start + range.duration.seconds
-            if start < earliest { earliest = start }
-            if end > latest { latest = end }
-        }
-        if earliest == .infinity { return (start: 0, duration: 0) }
-        return (start: earliest, duration: latest - earliest)
     }
 }

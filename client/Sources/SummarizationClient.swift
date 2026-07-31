@@ -2,16 +2,16 @@ import Foundation
 import BetterVoiceCore
 
 /// Meeting summarization client: routes through ModelServer to whichever provider
-/// `meeting.summarization.server` configures — independent of Polish's own provider (see
-/// `ServerConnectionConfig`).
+/// `meeting.summarization.server` configures (see `ServerConnectionConfig`) — the app's only LLM
+/// consumer since dictation cleanup was retired.
 /// - classifyType: pre-selects the meeting type with one quick call (used by the wrap-up panel).
 /// - summarize: generates a Markdown summary using the prompt for the selected type.
 /// System prompts all pass through `PersonalContext.appended(to:)` so the model can use
-/// personal context to disambiguate names/terms (consistent with PolishClient). Vocabulary terms
+/// personal context to disambiguate names/terms. Vocabulary terms
 /// (`Vocabulary.shared.promptBlock`) are appended alongside personal context too, so meeting
 /// summaries honor the same preferred spellings as dictation. Note: unlike personal context, the
 /// vocabulary block is NOT scrubbed from the output by `stripEchoedContext`; it's kept short
-/// precisely because that makes echo risk low (same rationale as PolishClient).
+/// precisely because that makes echo risk low.
 @MainActor
 final class SummarizationClient {
     static let shared = SummarizationClient()

@@ -404,7 +404,10 @@ final class NotesDestinationPickerViewModel {
     // MARK: - Error mapping
 
     private func errorPhase(for error: Error) -> LoadPhase {
-        let denied = !PermissionManager.isAutomationGranted()
+        // Only a definitive denial earns the "go grant Automation" message. `!isAutomationGranted()`
+        // was also true when Notes simply was not running, which pointed the user at a pane where
+        // nothing needed changing while hiding the actual error.
+        let denied = PermissionManager.isAutomationDenied()
         let message = denied
             ? t("Better Voice needs permission to control Apple Notes. Grant Automation access in System Settings, then try again.")
             : friendlyMessage(for: error)

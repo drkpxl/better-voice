@@ -11,9 +11,9 @@ import Foundation
 /// `~/Library/Application Support/BetterVoice2/`, auto-created, and never shown to the user.
 ///
 /// Static accessors (mirroring the members `Workspace` used to expose, so dependents barely
-/// changed when this replaced it) resolve against `url`. Tests and the `--bench-meeting` /
-/// `--bench-polish` CLIs call `configure(root:)` up front to redirect `url` at an isolated
-/// scratch directory instead of the real Application Support path.
+/// changed when this replaced it) resolve against `url`. Tests and the `--bench-meeting` CLI call
+/// `configure(root:)` up front to redirect `url` at an isolated scratch directory instead of the
+/// real Application Support path.
 enum SupportDir {
 
     // MARK: - Root

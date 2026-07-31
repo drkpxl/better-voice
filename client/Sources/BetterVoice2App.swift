@@ -3,54 +3,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 import BetterVoiceCore
 
-/// Entry point. Not the SwiftUI `App` itself, so the BENCH-mode CLI dispatch below can run
-/// before any scene machinery spins up; the GUI path hands off to `BetterVoice2App.main()`
-/// (SwiftUI's synthesized entry).
+/// Entry point. Not the SwiftUI `App` itself, so a debug-only bench harness can take over the process
+/// before any scene machinery spins up; the GUI path hands off to `BetterVoice2App.main()` (SwiftUI's
+/// synthesized entry). Bench dispatch lives in `Sources/Bench/`, which is not compiled at all in
+/// release — see `BenchEntry`.
 @main
 enum BetterVoice2Main {
     static func main() {
         #if BENCH
-        // Offline import-pipeline evaluation:
-        //   BetterVoice2 --bench-meeting <audio> [--locale zh-CN] [--single] [--output result.json]
-        if CommandLine.arguments.contains("--bench-meeting") {
-            let app = NSApplication.shared
-            app.setActivationPolicy(.accessory)
-            Task {
-                await ImportBenchmark.run()
-                app.terminate(nil)
-            }
-            app.run()
-            return
-        }
-
-        // Dictation-polish sanity check (verifies the model cleans, not answers):
-        //   BetterVoice2 --bench-polish "some dictated text"
-        if let idx = CommandLine.arguments.firstIndex(of: "--bench-polish"), idx + 1 < CommandLine.arguments.count {
-            let text = CommandLine.arguments[idx + 1]
-            let app = NSApplication.shared
-            app.setActivationPolicy(.accessory)
-            Task {
-                // PolishClient touches Vocabulary.shared, which resolves SupportDir paths — configure a scratch root.
-                SupportDir.configure(root: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("bettervoice2-bench"))
-                await ModelServer.shared.checkHealth()
-                let out = await PolishClient.shared.polish(text: text, words: [], app: nil)
-                print("INPUT:  \(text)")
-                print("OUTPUT: \(out ?? "<nil>")")
-                app.terminate(nil)
-            }
-            app.run()
-            return
-        }
-        // Editor edit/dirty/save chain sanity check (no GUI interaction needed):
-        //   BetterVoice2 --bench-editor
-        if CommandLine.arguments.contains("--bench-editor") {
-            let app = NSApplication.shared
-            app.setActivationPolicy(.accessory)
-            let harness = EditorBenchHarness()
-            harness.run { app.terminate(nil) }
-            app.run()
-            return
-        }
+        if BenchEntry.runIfRequested() { return }
         #endif
 
         BetterVoice2App.main()
@@ -196,6 +157,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = PermissionManager.checkAccessibility()
         }
 
+        // Warm the ASR models at launch so the first hotkey press or import never pays for loading
+        // them. Measured on the 57-minute fixture: 174.4s cold against 42.4s warm, so the cold path is
+        // ~132s of first-run download plus CoreML compile — far too long to sit behind a hotkey.
+        //
+        // Fire-and-forget, and deliberately NOT gated on `needsOnboarding`: a returning user whose
+        // cache was cleared (or who is upgrading into Parakeet for the first time) needs it just as
+        // much, and `prepare` is idempotent and single-flighted, so racing onboarding's own download
+        // yields one fetch rather than two. Failures are logged and swallowed — the import path
+        // re-prepares and reports a real error there, where a user is actually watching.
+        Task {
+            do {
+                try await ParakeetTranscriber.shared.prepare()
+                Logger.log("App", "ASR models warm")
+            } catch {
+                Logger.log("App", "ASR warm-up failed (will retry at point of use): \(error)")
+            }
+        }
+
         // menu-bar icon tracks the server connection
         ModelServer.shared.onStatusChange = { [weak self] status in
             self?.menuModel.serverStatus = status
@@ -206,17 +185,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceModule.onStateChange = { [weak self] state in
             guard let self else { return }
             self.menuModel.isRecording = (state == .recording)
-            self.menuModel.isProcessing = (state == .processing)
+            self.menuModel.isProcessing = (state == .transcribing)
             switch state {
             case .recording:
+                self.recordingIndicator.setTranscribing(false)
                 self.recordingIndicator.show(owner: .dictation)
                 DictationSound.playStart()
-            case .processing:
-                // First non-recording state after a real recording — play the
-                // stop cue here (not on .idle) so it fires exactly once.
-                self.recordingIndicator.hide(owner: .dictation)
+            case .transcribing:
+                // First non-recording state after a real recording — play the stop cue here (not on
+                // .idle) so it fires exactly once.
+                //
+                // The HUD deliberately STAYS UP (decision 4). It used to be hidden here, which was
+                // fine while transcription finished as the hotkey was released; batch transcription
+                // puts a real gap here, and an empty screen across it is indistinguishable from the
+                // dictation having been silently dropped.
+                self.recordingIndicator.setTranscribing(true)
                 DictationSound.playStop()
             case .idle:
+                self.recordingIndicator.setTranscribing(false)
                 self.recordingIndicator.hide(owner: .dictation)
             }
         }
@@ -228,7 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.shared.onPress = { [weak self] in
             guard let self else { return }
             // Dictation-vs-dictation is gated inside VoiceModule by its .processing state; guard
-            // here as well so a stray press can't stack on an in-flight transcription/polish.
+            // here as well so a stray press can't stack on an in-flight transcription.
             if self.menuModel.isProcessing {
                 Logger.log("Hotkey", "Ignored: processing in progress")
                 return
@@ -273,7 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         Logger.log("App", "App launched")
-        Logger.log("App", "Polish provider: \(config.polishServerConfig.api), Summarization provider: \(config.summarizationServerConfig.api)")
+        Logger.log("App", "Summarization provider: \(config.summarizationServerConfig.api)")
 
         // Gate the main window on onboarding: show Welcome (and NOT the main window) when
         // onboarding_version is stale relative to the current onboarding. Otherwise open the

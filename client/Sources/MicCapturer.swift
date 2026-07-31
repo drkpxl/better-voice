@@ -40,8 +40,17 @@ final class MicCapturer: NSObject, @unchecked Sendable {
     /// contract as `SystemAudioCapturer.onAudioLevel`.
     var onAudioLevel: (@Sendable (Float) -> Void)?
 
-    private let audioFileURL: URL
-    private lazy var wavWriter = PCMWavWriter(url: audioFileURL, logLabel: "Meeting mic WAV saved")
+    /// Destination WAV, or nil to capture without writing anything to disk. Dictation passes nil:
+    /// it transcribes from memory, so a file would be pure overhead and would put speech on disk that
+    /// is deleted seconds later. Meetings pass a URL -- they need the audio for diarization.
+    private let audioFileURL: URL?
+    private lazy var wavWriter: PCMWavWriter? = audioFileURL.map {
+        PCMWavWriter(url: $0, logLabel: "Meeting mic WAV saved")
+    }
+
+    /// Raw capture buffers, delivered on the capture queue (NOT the main actor). Set by callers that
+    /// want the audio in memory rather than on disk.
+    var onPCMBuffer: (@Sendable (AVAudioPCMBuffer) -> Void)?
 
     private var captureSession: AVCaptureSession?
     private var captureDelegate: MicCaptureDelegate?
@@ -56,10 +65,11 @@ final class MicCapturer: NSObject, @unchecked Sendable {
     private let stateLock = NSLock()
     private var isCapturing = false
 
-    /// - Parameter audioFileURL: destination for the captured audio; the `.wav` extension is
-    ///   enforced regardless of what's passed (matches `SystemAudioCapturer`'s init contract).
-    init(audioFileURL: URL) {
-        self.audioFileURL = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
+    /// - Parameter audioFileURL: destination for the captured audio, or nil to capture to memory
+    ///   only. When non-nil the `.wav` extension is enforced regardless of what's passed (matches
+    ///   `SystemAudioCapturer`'s init contract).
+    init(audioFileURL: URL?) {
+        self.audioFileURL = audioFileURL?.deletingPathExtension().appendingPathExtension("wav")
         super.init()
     }
 
@@ -80,7 +90,7 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         var started = false
         defer { if !started { stateLock.withLock { isCapturing = false } } }
 
-        guard VoiceSession.isAuthorized else {
+        guard AudioCapture.isAuthorized else {
             throw CaptureError.notAuthorized
         }
         guard let audioDevice = AVCaptureDevice.default(for: .audio) else {
@@ -95,7 +105,10 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         let captureQueue = DispatchQueue(label: "com.baselinemakes.bettervoice2.meeting-mic-capture")
 
         let delegate = MicCaptureDelegate(
-            onPCMBuffer: { [weak self] buffer in self?.wavWriter.write(buffer: buffer) },
+            onPCMBuffer: { [weak self] buffer in
+                self?.wavWriter?.write(buffer: buffer)
+                self?.onPCMBuffer?(buffer)
+            },
             onAudioLevel: { [weak self] level in
                 guard let onAudioLevel = self?.onAudioLevel else { return }
                 DispatchQueue.main.async { onAudioLevel(level) }
@@ -110,7 +123,7 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         session.startRunning()
 
         started = true
-        Logger.log("Meeting", "MicCapturer started (\(audioDevice.localizedName)) → \(audioFileURL.lastPathComponent)")
+        Logger.log("Meeting", "MicCapturer started (\(audioDevice.localizedName)) → \(audioFileURL?.lastPathComponent ?? "memory")")
     }
 
     /// Stops capture + finalizes the WAV. No-op if not currently capturing.
@@ -127,9 +140,9 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         // may still be executing — `stopRunning()` doesn't guarantee an in-flight callback
         // returned first.
         if let captureQueue {
-            captureQueue.sync { wavWriter.finalize() }
+            captureQueue.sync { wavWriter?.finalize() }
         } else {
-            wavWriter.finalize()
+            wavWriter?.finalize()
         }
         self.captureQueue = nil
         Logger.log("Meeting", "MicCapturer stopped")
@@ -143,16 +156,16 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         captureSession = nil
         captureDelegate = nil
         if let captureQueue {
-            captureQueue.sync { wavWriter.finalize() }
+            captureQueue.sync { wavWriter?.finalize() }
         } else {
-            wavWriter.finalize()
+            wavWriter?.finalize()
         }
         self.captureQueue = nil
     }
 }
 
 /// Receives `CMSampleBuffer`s from `AVCaptureSession`, converts to `AVAudioPCMBuffer` (reusing
-/// `CMSampleBuffer.toPCMBuffer()` from VoiceSession.swift), and forwards each buffer — no
+/// `CMSampleBuffer.toPCMBuffer()` from AudioCapture.swift), and forwards each buffer — no
 /// `SpeechAnalyzer` involved here, unlike `VoiceSession`'s own `AudioCaptureDelegate`.
 private final class MicCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let onPCMBuffer: (@Sendable (AVAudioPCMBuffer) -> Void)?

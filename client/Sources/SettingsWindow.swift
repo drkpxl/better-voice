@@ -5,9 +5,9 @@ import BetterVoiceCore
 
 /// Settings, shown by the `Settings` scene.
 ///
-/// Exposes independent Dictation Polish / Meeting Summarization provider configs, meeting
-/// defaults, the dictation hotkey, and the data editors. Saves by reading-modifying-writing
-/// each config section, avoiding overwriting keys not managed by this window.
+/// Exposes the Meeting Summarization provider config, meeting defaults, the dictation hotkey, and
+/// the data editors. Saves by reading-modifying-writing each config section, avoiding overwriting
+/// keys not managed by this window.
 ///
 /// A fresh view model is built on every window appearance, so reopening always reflects the
 /// on-disk (UserDefaults) config. Save/Cancel dismiss the window.
@@ -56,13 +56,6 @@ struct SettingsRootView: View {
 @Observable
 @MainActor
 final class SettingsViewModel {
-    // Dictation Polish provider
-    var polishProvider: String
-    var polishEndpoint: String
-    var polishApiKey: String
-    var polishModel: String
-    var polishAvailableModels: [String] = []
-
     // Summarization provider
     var summarizationProvider: String
     var summarizationEndpoint: String
@@ -81,7 +74,7 @@ final class SettingsViewModel {
     // Language ("" = follow system)
     var language: String
 
-    // Read-only state — combined across both sections (see ModelServer.checkHealth())
+    // Read-only state (see ModelServer.checkHealth())
     var serverStatus: ModelServer.Status = ModelServer.shared.status
     var isCheckingConnection = false
 
@@ -114,15 +107,9 @@ final class SettingsViewModel {
 
     init() {
         let cfg = RuntimeConfig.shared
-        let polish = cfg.polishServerConfig
         let summ = cfg.summarizationServerConfig
         let meeting = cfg.meetingConfig
         let summCfg = cfg.meetingSummarizationConfig
-
-        polishProvider = polish.api
-        polishEndpoint = polish.endpoint
-        polishApiKey = polish.apiKey
-        polishModel = polish.model
 
         summarizationProvider = summ.api
         summarizationEndpoint = summ.endpoint
@@ -141,15 +128,6 @@ final class SettingsViewModel {
     /// Reads-modifies-writes each config section, preserving unmanaged keys.
     func persist() {
         let cfg = RuntimeConfig.shared
-
-        var polish = cfg.polishConfig
-        polish["server"] = [
-            "api": polishProvider,
-            "endpoint": polishEndpoint.trimmingCharacters(in: .whitespacesAndNewlines),
-            "model": polishModel.trimmingCharacters(in: .whitespacesAndNewlines),
-            "api_key": polishApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        ]
-        cfg.updateSection("polish", polish)
 
         var meeting = cfg.meetingConfig
         meeting["default_type"] = defaultType.configKey
@@ -172,7 +150,7 @@ final class SettingsViewModel {
         cfg.updateTopLevel("user_name", name.isEmpty ? nil : name)
     }
 
-    /// Combined health check (both sections) — refreshes the one shared status indicator.
+    /// Refreshes the status indicator against the summarization provider.
     func checkConnection() {
         isCheckingConnection = true
         Task {
@@ -182,18 +160,8 @@ final class SettingsViewModel {
         }
     }
 
-    /// Fetches Polish's own provider's model list, using the form's (possibly unsaved)
+    /// Fetches the summarization provider's model list, using the form's (possibly unsaved)
     /// endpoint/provider/key so the list matches what the user just typed.
-    func loadPolishModels() async {
-        let requestedProvider = polishProvider
-        let server = ServerConnectionConfig(api: polishProvider, endpoint: polishEndpoint, model: polishModel, apiKey: polishApiKey)
-        let models = await ModelServer.shared.availableModels(server: server)
-        guard polishProvider == requestedProvider else { return }   // provider changed mid-fetch; discard stale result
-        polishAvailableModels = models
-        Logger.log("Settings", "loadPolishModels: \(models.count) models from \(polishEndpoint) (api=\(polishProvider))")
-    }
-
-    /// Fetches Summarization's own provider's model list — independent of Polish's.
     func loadSummarizationModels() async {
         let requestedProvider = summarizationProvider
         let server = ServerConnectionConfig(api: summarizationProvider, endpoint: summarizationEndpoint, model: summarizationModel, apiKey: summarizationApiKey)
@@ -270,23 +238,6 @@ struct SettingsContentView: View {
         }
     }
 
-    @ViewBuilder
-    private func providerPicker(_ selection: Binding<String>) -> some View {
-        Picker(selection: selection) {
-            Text(t("Apple on-device")).tag("apple")
-            Text("Ollama").tag("ollama")
-            Text(t("OpenAI-compatible")).tag("openai")
-        } label: {
-            Text(t("Provider"))
-        }
-    }
-
-    /// Ollama's well-known local default; no such universal default exists for arbitrary
-    /// OpenAI-compatible servers, so those are left blank for the user to fill in.
-    private func defaultEndpoint(for provider: String) -> String {
-        provider == "ollama" ? "http://localhost:11434" : ""
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             Form {
@@ -302,49 +253,14 @@ struct SettingsContentView: View {
                         Button(t("Check")) { viewModel.checkConnection() }
                             .disabled(viewModel.isCheckingConnection)
                     }
-                    Text(t("Reflects whichever of Dictation Polish / Summarization below are enabled — red if either is unreachable."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section(t("Dictation Polish")) {
-                    providerPicker($viewModel.polishProvider)
-                        .onChange(of: viewModel.polishProvider) { _, newValue in
-                            viewModel.polishAvailableModels = []
-                            if newValue == "apple" {
-                                viewModel.polishModel = FoundationModelsBackend.modelName
-                                viewModel.polishEndpoint = ""
-                                viewModel.polishApiKey = ""
-                            } else {
-                                // Leaving Apple (or switching between Ollama/OpenAI-compatible):
-                                // the old model name belongs to a different provider, so it's
-                                // never valid here — clear it rather than leave a stale value.
-                                viewModel.polishModel = ""
-                                if viewModel.polishEndpoint.isEmpty {
-                                    viewModel.polishEndpoint = defaultEndpoint(for: newValue)
-                                }
-                            }
-                        }
-                    if viewModel.polishProvider == "apple" {
-                        Text(t("Uses Apple Intelligence on this Mac — nothing to install. Requires Apple Intelligence to be enabled in System Settings."))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        TextField(t("Endpoint"), text: $viewModel.polishEndpoint)
-                        if viewModel.polishProvider == "openai" {
-                            SecureField(t("API key (optional)"), text: $viewModel.polishApiKey)
-                        }
-                        modelField(label: t("Model"), selection: $viewModel.polishModel, available: viewModel.polishAvailableModels, idPrefix: "polish")
-                        Button(t("Load Models")) { Task { await viewModel.loadPolishModels() } }
-                    }
-                    Text(t("Cleans up what you dictate before it's inserted. A small model here makes dictation inject faster."))
+                    Text(t("Reflects the summarization provider below — red if it is unreachable."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Section(t("Summarization")) {
                     Toggle(t("Summarize meetings"), isOn: $viewModel.summarizationEnabled)
-                    providerPicker($viewModel.summarizationProvider)
+                    LLMProviderPicker(selection: $viewModel.summarizationProvider)
                         .onChange(of: viewModel.summarizationProvider) { _, newValue in
                             viewModel.summarizationAvailableModels = []
                             if newValue == "apple" {
@@ -352,9 +268,12 @@ struct SettingsContentView: View {
                                 viewModel.summarizationEndpoint = ""
                                 viewModel.summarizationApiKey = ""
                             } else {
+                                // Leaving Apple (or switching between Ollama/OpenAI-compatible):
+                                // the old model name belongs to a different provider, so it's
+                                // never valid here — clear it rather than leave a stale value.
                                 viewModel.summarizationModel = ""
                                 if viewModel.summarizationEndpoint.isEmpty {
-                                    viewModel.summarizationEndpoint = defaultEndpoint(for: newValue)
+                                    viewModel.summarizationEndpoint = LLMProvider.defaultEndpoint(forTag: newValue)
                                 }
                             }
                         }
@@ -466,11 +385,7 @@ struct SettingsContentView: View {
                 }
             }
             .formStyle(.grouped)
-            .task {
-                async let polish: Void = viewModel.loadPolishModels()
-                async let summarization: Void = viewModel.loadSummarizationModels()
-                _ = await (polish, summarization)
-            }
+            .task { await viewModel.loadSummarizationModels() }
 
             Divider()
 

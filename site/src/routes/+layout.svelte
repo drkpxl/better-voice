@@ -15,6 +15,7 @@
 			</a>
 			<nav class="nav" aria-label="Main navigation">
 				<a href="{base}/#features">Features</a>
+				<a href="{base}/#research">Research</a>
 				<a class="nav-cta" href="{base}/#download">Download</a>
 			</nav>
 		</div>
@@ -106,7 +107,7 @@
 		padding: 0.4rem 0.9rem;
 		border-radius: var(--border-radius);
 		background-color: var(--color-accent);
-		color: #fff !important;
+		color: var(--color-on-accent) !important;
 		font-weight: 500;
 	}
 

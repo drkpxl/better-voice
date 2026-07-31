@@ -1,14 +1,18 @@
 import Foundation
 import BetterVoiceCore
 
-/// Segment buffer for meeting mode.
-/// Accumulates SA final segments and flushes whenever any of the following triggers fires:
-///   1. The gap between this segment's audioTimeRange and the previous one is >= pauseThresholdSec, and the buffer's char count >= minChars
-///   2. The buffer's char count >= maxChars (circuit breaker, ensures L2 doesn't exceed the model's training window)
+/// Segment buffer for meeting mode: groups transcribed phrases into readable segments.
+///
+/// Accumulates phrases and flushes whenever any of the following fires:
+///   1. The gap from the previous phrase is >= pauseThresholdSec, and the buffer's char count >= minChars
+///   2. The buffer's char count >= maxChars
 ///   3. Manual flush (meeting ended)
 ///
-/// Flush output: a FlushBatch containing this batch's rawText (all segment texts concatenated) + time range + trigger reason
-/// Downstream (MeetingSession) takes the batch, runs L2 polishing, and assembles a MeetingSegment
+/// Grouping is the entire purpose now. It existed to bound the input to an LLM cleanup pass -- hence
+/// the char ceiling, originally a guard against that model's training window -- and when the pass was
+/// deleted the buffer stayed, because without it a transcript is one segment per phrase and reads as
+/// choppy. `ImportPipeline.makeSegment` turns each batch into a `MeetingSegment`; no model is
+/// involved on the way.
 @MainActor
 final class SegmentBuffer {
     struct Entry {
@@ -19,7 +23,7 @@ final class SegmentBuffer {
 
     struct FlushBatch {
         let entries: [Entry]
-        let rawText: String           // All entry.text concatenated
+        let text: String              // All entry.text joined
         let startTime: TimeInterval
         let endTime: TimeInterval
         let triggerReason: String     // "pause" / "maxChars" / "final"
@@ -81,16 +85,18 @@ final class SegmentBuffer {
         buffer.removeAll(keepingCapacity: true)
         flushCounter += 1
 
-        let rawText = entries.map(\.text).joined()
+        // See PhraseSegmentation.joinPhraseTexts: engines disagree on whether phrase text
+        // carries its own leading space, and a bare .joined() silently ran trimmed ones together.
+        let text = PhraseSegmentation.joinPhraseTexts(entries.map(\.text))
         let start = entries.first?.startTime ?? 0
         let end = entries.last?.endTime ?? start
 
         let gapStr = pauseGap.map { String(format: "%.2f", $0) } ?? "-"
-        Logger.log("SegBuf", "flush seg=\(flushCounter) trigger=\(trigger) entries=\(entries.count) chars=\(rawText.count) gap=\(gapStr)s range=[\(String(format: "%.1f", start))-\(String(format: "%.1f", end))s]")
+        Logger.log("SegBuf", "flush seg=\(flushCounter) trigger=\(trigger) entries=\(entries.count) chars=\(text.count) gap=\(gapStr)s range=[\(String(format: "%.1f", start))-\(String(format: "%.1f", end))s]")
 
         let batch = FlushBatch(
             entries: entries,
-            rawText: rawText,
+            text: text,
             startTime: start,
             endTime: end,
             triggerReason: trigger,

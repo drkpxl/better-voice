@@ -111,6 +111,18 @@ final class RecordingIndicator {
         guard window != nil else { return }
         state.audioLevel = normalizer.normalizedLevel(forRMS: rawRMS)
     }
+
+    /// Switch the HUD to its post-capture appearance while the engine runs (decision 4).
+    ///
+    /// The HUD used to be torn down at this point, which was fine when transcription had already
+    /// finished streaming by the time the hotkey was released. With batch transcription there is a real
+    /// gap between "stop talking" and "text appears", and hiding the HUD across it left nothing on
+    /// screen -- indistinguishable from the dictation having been dropped.
+    func setTranscribing(_ transcribing: Bool) {
+        guard window != nil else { return }
+        state.isTranscribing = transcribing
+        if transcribing { state.audioLevel = 0 }
+    }
 }
 
 // MARK: - Geometry (notch/menu bar)
@@ -164,6 +176,10 @@ struct Geometry {
 
 private final class RecordingIndicatorState: ObservableObject {
     @Published var audioLevel: Float = 0
+    /// True once capture has stopped and the engine is running. The waveform has nothing to show at
+    /// that point -- no audio is arriving -- so the view animates instead of sitting frozen, which is
+    /// what "stopped updating" would otherwise look like.
+    @Published var isTranscribing = false
 }
 
 // MARK: - Content

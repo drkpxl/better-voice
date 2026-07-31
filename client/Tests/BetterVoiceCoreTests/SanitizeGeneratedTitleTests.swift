@@ -99,7 +99,7 @@ final class SanitizeGeneratedTitleTests: XCTestCase {
     // MARK: - stripEchoedContext / stripStrayTitleLines
 
     func test_stripEchoedContext_removesHeadingAndVerbatimContextLine() {
-        let context = "Steven is the Senior Director of Digital Experience at Alterra."
+        let context = "Alex is the Senior Director of Digital Experience at Vertex."
         let raw = """
         Personal context
         \(context)
@@ -135,7 +135,7 @@ final class SanitizeGeneratedTitleTests: XCTestCase {
     // End-to-end: the exact leak shape reported in UAT (context echo + non-leading TITLE) →
     // parse extracts the model's title, body has neither the context nor the TITLE line.
     func test_deleakThenParse_producesTitleAndCleanBody() {
-        let context = "Steven is the Senior Director of Digital Experience at Alterra."
+        let context = "Alex is the Senior Director of Digital Experience at Vertex."
         let raw = """
         Personal context
         \(context)

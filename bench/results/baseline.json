@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "fixtures": {
+    "dictation": {
+      "run": "current",
+      "audio_s": 116.136,
+      "verbatim_words": 207,
+      "intended_words": 194,
+      "note": "single speaker, spontaneous disfluent dictation; full ground truth, WER valid"
+    },
+    "meeting": {
+      "run": "pod",
+      "audio_s": 3450.217313,
+      "speakers": 4,
+      "expected_words": 10521,
+      "expected_words_from": 4,
+      "note": "multi-speaker meeting; NO reference transcript \u2014 throughput, long-form stability and diarization only, never WER"
+    }
+  },
+  "engines": {
+    "apple": {
+      "dictation": {
+        "wer_verbatim": 0.2947,
+        "wer_intended": 0.3814,
+        "wer_nofiller": 0.4021,
+        "jargon_found": 1,
+        "jargon_total": 5,
+        "asr_warm_s": 1.15,
+        "rtfx": 101.0,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.3763,
+        "best_cleanup": "qwen3.5-4b"
+      },
+      "meeting": {
+        "warm_s": 109.25,
+        "rtfx": 31.6,
+        "words": 10493,
+        "measured_on": "full",
+        "n_speakers": 4,
+        "n_segments": 179,
+        "speaker_coverage": 0.969,
+        "stability": {
+          "ok": true,
+          "words": 10493,
+          "word_ratio": 0.9973,
+          "truncated": false,
+          "overrun": false,
+          "looped": false,
+          "loop_period": 1,
+          "loop_repeats": 3.0,
+          "distinct_ngram_ratio": 0.9983,
+          "timeline_source": "segments",
+          "coverage": 0.9999,
+          "late_density": 0.999,
+          "late_collapse": false,
+          "findings": []
+        }
+      }
+    },
+    "parakeet-tdt-ctc-110m": {
+      "dictation": {
+        "wer_verbatim": 0.3092,
+        "wer_intended": 0.3608,
+        "wer_nofiller": 0.3862,
+        "jargon_found": 1,
+        "jargon_total": 5,
+        "asr_warm_s": 0.433,
+        "rtfx": 268.2,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.3608,
+        "best_cleanup": "none"
+      }
+    },
+    "parakeet-tdt-v2": {
+      "dictation": {
+        "wer_verbatim": 0.2319,
+        "wer_intended": 0.2784,
+        "wer_nofiller": 0.3069,
+        "jargon_found": 1,
+        "jargon_total": 5,
+        "asr_warm_s": 0.42,
+        "rtfx": 276.5,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.2732,
+        "best_cleanup": "apple-on-device"
+      }
+    },
+    "parakeet-tdt-v3": {
+      "dictation": {
+        "wer_verbatim": 0.1932,
+        "wer_intended": 0.2526,
+        "wer_nofiller": 0.2804,
+        "jargon_found": 2,
+        "jargon_total": 5,
+        "asr_warm_s": 0.441,
+        "rtfx": 263.3,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.2423,
+        "best_cleanup": "qwen3.5-4b"
+      },
+      "meeting": {
+        "warm_s": 11.71,
+        "rtfx": 294.6,
+        "words": 10511,
+        "measured_on": "full",
+        "stability": {
+          "ok": true,
+          "words": 10511,
+          "word_ratio": 0.999,
+          "truncated": false,
+          "overrun": false,
+          "looped": false,
+          "loop_period": 1,
+          "loop_repeats": 3.0,
+          "distinct_ngram_ratio": 0.9976,
+          "timeline_source": "wordTimings",
+          "coverage": 0.9998,
+          "late_density": 0.962,
+          "late_collapse": false,
+          "findings": []
+        }
+      }
+    },
+    "qwen3-asr-0.6b": {
+      "dictation": {
+        "wer_verbatim": 0.2899,
+        "wer_intended": 0.3557,
+        "wer_nofiller": 0.3915,
+        "jargon_found": 1,
+        "jargon_total": 5,
+        "asr_warm_s": 8.625,
+        "rtfx": 13.5,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.3454,
+        "best_cleanup": "gemma4-12b"
+      }
+    },
+    "qwen3-asr-1.7b": {
+      "dictation": {
+        "wer_verbatim": 0.1208,
+        "wer_intended": 0.1856,
+        "wer_nofiller": 0.2063,
+        "jargon_found": 2,
+        "jargon_total": 5,
+        "asr_warm_s": 23.056,
+        "rtfx": 5.0,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.1856,
+        "best_cleanup": "none"
+      },
+      "meeting": {
+        "warm_s": 1183.509,
+        "rtfx": 2.9,
+        "words": 10595,
+        "measured_on": "full",
+        "stability": {
+          "ok": true,
+          "words": 10595,
+          "word_ratio": 1.007,
+          "truncated": false,
+          "overrun": false,
+          "looped": false,
+          "loop_period": 1,
+          "loop_repeats": 3.0,
+          "distinct_ngram_ratio": 0.9978,
+          "timeline_source": null,
+          "coverage": null,
+          "late_density": null,
+          "late_collapse": false,
+          "findings": [
+            "no-timeline"
+          ]
+        }
+      }
+    },
+    "whisper-large-v3-turbo": {
+      "dictation": {
+        "wer_verbatim": 0.2174,
+        "wer_intended": 0.268,
+        "wer_nofiller": 0.291,
+        "jargon_found": 3,
+        "jargon_total": 5,
+        "asr_warm_s": 2.715,
+        "rtfx": 42.8,
+        "cleanup_cells": 4,
+        "wer_intended_best": 0.2474,
+        "best_cleanup": "qwen3.5-4b"
+      },
+      "meeting": {
+        "warm_s": 84.388,
+        "rtfx": 40.9,
+        "words": 10485,
+        "measured_on": "full",
+        "stability": {
+          "ok": true,
+          "words": 10485,
+          "word_ratio": 0.9966,
+          "truncated": false,
+          "overrun": false,
+          "looped": false,
+          "loop_period": 2,
+          "loop_repeats": 4.0,
+          "distinct_ngram_ratio": 0.9974,
+          "timeline_source": null,
+          "coverage": null,
+          "late_density": null,
+          "late_collapse": false,
+          "findings": [
+            "no-timeline"
+          ]
+        }
+      }
+    }
+  },
+  "generated": "2026-07-30"
+}

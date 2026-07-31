@@ -52,27 +52,58 @@ enum PermissionManager {
         }
     }
 
-    /// Pure query: can we send Apple events to Apple Notes without prompting the user?
-    /// Maps `noErr` → granted; `errAEEventNotPermitted` (-1743) and anything else → not granted.
-    static func isAutomationGranted() -> Bool {
+    /// Probe the Apple-events-to-Notes permission, optionally firing the consent prompt.
+    ///
+    /// Always logs the raw `OSStatus`. The previous version collapsed every non-`noErr` code to
+    /// "not granted" and logged only on the prompting path, which made the states that matter
+    /// indistinguishable in a log: a real denial, an undetermined state that a prompt would resolve,
+    /// and Notes simply not running all read as the same failure.
+    static func automationStatus(promptIfNeeded: Bool) -> AutomationStatus {
         let target = NSAppleEventDescriptor(bundleIdentifier: "com.apple.Notes")
-        let status = AEDeterminePermissionToAutomateTarget(
-            target.aeDesc, typeWildCard, typeWildCard, false
+        let raw = AEDeterminePermissionToAutomateTarget(
+            target.aeDesc, typeWildCard, typeWildCard, promptIfNeeded
         )
-        return status == noErr
+        let status = AutomationStatus(raw)
+        if status != .granted {
+            Logger.log("Permission", "Automation (Apple Notes): \(status.diagnosis) [status \(raw)]")
+        }
+        return status
     }
 
-    /// Triggers the Automation TCC prompt (if not already determined) and returns the result.
+    /// Pure query for display: is automation definitely available right now?
+    ///
+    /// `.granted` only. Used for ✓/⚠ rows and the "denied" banner, where claiming a grant we do not
+    /// have would be worse than under-reporting.
+    static func isAutomationGranted() -> Bool {
+        automationStatus(promptIfNeeded: false) == .granted
+    }
+
+    /// Is automation *definitively* denied — i.e. is System Settings genuinely the way back?
+    ///
+    /// The question to ask before telling a user to go grant a permission. `!isAutomationGranted()`
+    /// is the wrong test for that: it is also true when Notes merely is not running, which would send
+    /// someone to an Automation pane to fix nothing.
+    static func isAutomationDenied() -> Bool {
+        automationStatus(promptIfNeeded: false) == .denied
+    }
+
+    /// Whether a Notes write should be **attempted**, prompting first if the state is undetermined.
+    ///
+    /// Deliberately not the same question as `isAutomationGranted()`. Only a definitive denial
+    /// returns false. `.targetNotRunning` (-600) is not a permission state at all — it means the
+    /// probe could not see Notes — and blocking on it sent the user to an Automation pane to fix
+    /// something that was never broken, while the operation itself would have succeeded: sending an
+    /// Apple event to a non-running app launches it, which is exactly what `NotesScript` does. An
+    /// indeterminate pre-flight must not veto an operation that can still work; if it genuinely
+    /// cannot, `NotesScript` surfaces the real `osascript` failure, which is the better error anyway.
     @discardableResult
-    static func requestAutomation() -> Bool {
-        let target = NSAppleEventDescriptor(bundleIdentifier: "com.apple.Notes")
-        let status = AEDeterminePermissionToAutomateTarget(
-            target.aeDesc, typeWildCard, typeWildCard, true
-        )
-        if status != noErr {
-            Logger.log("Permission", "Automation (Apple Notes) not granted, status \(status)")
+    static func automationAllowsAttempt() -> Bool {
+        let status = automationStatus(promptIfNeeded: true)
+        if status == .denied { return false }
+        if status != .granted {
+            Logger.log("Permission", "Automation indeterminate (\(status.diagnosis)) — attempting anyway")
         }
-        return status == noErr
+        return true
     }
 
     // MARK: - System Settings deep links
@@ -86,6 +117,46 @@ enum PermissionManager {
 
 /// The privacy permissions Better Voice needs for dictation and meeting recording. Provides a
 /// single place for the pure-query status and the System Settings deep link of each.
+/// The distinguishable outcomes of `AEDeterminePermissionToAutomateTarget`.
+///
+/// These four are not interchangeable and the difference decides what the user should be told:
+/// `.denied` means System Settings is the only way back, `.undetermined` means a prompt will resolve
+/// it, and `.targetNotRunning` means nothing is wrong with the permission at all. Collapsing them to
+/// a `Bool` is what made a `-600` read as "grant this permission" in the logs and the UI.
+enum AutomationStatus: Equatable {
+    /// `noErr` — Apple events to Notes are permitted.
+    case granted
+    /// `errAEEventNotPermitted` (-1743) — the user said no. Only System Settings can undo it.
+    case denied
+    /// `errAEEventWouldRequireUserConsent` (-1744) — undecided; prompting resolves it.
+    case undetermined
+    /// `procNotFound` (-600) — the probe could not see Notes running. Not a permission state.
+    case targetNotRunning
+    case other(OSStatus)
+
+    init(_ raw: OSStatus) {
+        switch raw {
+        case noErr:   self = .granted
+        case -1743:   self = .denied
+        case -1744:   self = .undetermined
+        case -600:    self = .targetNotRunning
+        default:      self = .other(raw)
+        }
+    }
+
+    /// One line naming the state and the action that would resolve it — written for a log reader
+    /// trying to answer "is this the user's problem, and which one".
+    var diagnosis: String {
+        switch self {
+        case .granted:          return "granted"
+        case .denied:           return "denied by the user — only System Settings → Privacy & Security → Automation can restore it"
+        case .undetermined:     return "undetermined — a consent prompt would resolve it"
+        case .targetNotRunning: return "Notes not running, so permission is undeterminable — not a denial"
+        case .other(let raw):   return "unexpected AE status \(raw)"
+        }
+    }
+}
+
 enum PermissionKind: CaseIterable {
     case accessibility
     case microphone

@@ -3,17 +3,21 @@ import BetterVoiceCore
 
 /// Streaming segment-level persistence for meeting mode
 ///
-/// Every time a SegmentBuffer flush + L2 call completes (changed/identity/failed/skipped all get written),
-/// a line is immediately appended to `meeting-history.jsonl` in the app's support directory.
+/// Every time a SegmentBuffer flush completes, a line is immediately appended to
+/// `meeting-history.jsonl` in the app's support directory.
 ///
 /// Data uses:
-/// - Distillation / evaluation / A-B comparison (rawText vs polishedText)
-/// - L2 behavior monitoring (kind distribution, avgMs)
+/// - Evaluation / A-B comparison of transcripts
 /// - Data preservation in case of a mid-meeting crash (streaming writes, not dependent on the meeting ending normally)
 ///
+/// Write-only by construction: `JSONLWriter.append` takes an `Encodable`, and nothing in the app or
+/// in `bench/` decodes this file. That is why dropping the retired cleanup stage's columns
+/// (`rawText`, `polishedText`, `l2Kind`, `l2ElapsedMs`) needed no format migration -- there is no
+/// reader to migrate. Anything that starts reading these lines has to tolerate both shapes itself.
+///
 /// `speakerId` is left empty: diarization hasn't run yet while the meeting is in progress
-/// (FluidAudio processes it all at once on stop). When distillation needs speaker labels,
-/// backfill them using `audioPath + startTime/endTime`.
+/// (FluidAudio processes it all at once on stop). When a consumer needs speaker labels, backfill
+/// them using `audioPath + startTime/endTime`.
 struct MeetingSegmentRecord: Codable, Sendable {
     let timestamp: Date
     let meetingId: String
@@ -22,11 +26,7 @@ struct MeetingSegmentRecord: Codable, Sendable {
     let startTime: TimeInterval     // Seconds relative to the meeting start
     let endTime: TimeInterval
     let triggerReason: String       // "pause" / "maxChars" / "final"
-    let rawText: String             // SA's raw concatenation (L2 input)
-    let polishedText: String?       // L2 output, nil indicates failure
-    let finalText: String           // Final text used (polished ?? rawText)
-    let l2Kind: String              // "changed" / "identity" / "failed" / "skipped"
-    let l2ElapsedMs: Int
+    let text: String                // The segment text, post-vocabulary
 }
 
 @MainActor
@@ -38,6 +38,6 @@ final class MeetingHistory {
 
     func append(_ record: MeetingSegmentRecord) {
         writer.append(record)
-        Logger.log("MeetingHistory", "appended seg=\(record.segIndex) kind=\(record.l2Kind) chars=\(record.rawText.count)")
+        Logger.log("MeetingHistory", "appended seg=\(record.segIndex) trigger=\(record.triggerReason) chars=\(record.text.count)")
     }
 }

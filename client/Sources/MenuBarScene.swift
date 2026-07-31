@@ -23,8 +23,8 @@ enum WindowID {
 @Observable
 final class MenuBarModel {
     var isRecording = false
-    /// Dictation is transcribing/polishing (VoiceModule .processing) — drives the "busy"
-    /// glyph and the hotkey guard.
+    /// Dictation is transcribing (VoiceModule .transcribing) — drives the "busy" glyph and the
+    /// hotkey guard.
     var isProcessing = false
     var serverStatus: ModelServer.Status = ModelServer.shared.status
     /// Display version of an available Sparkle update (set by UpdaterController), or nil. Drives

@@ -1,16 +1,19 @@
 import Foundation
 
-/// History record for each voice session
-/// Written to ~/Library/Logs/BetterVoice2/voice-history.jsonl
-/// The distillation pipeline reads training data from this file
+/// History record for each dictation, written to ~/Library/Logs/BetterVoice2/voice-history.jsonl.
+///
+/// `rawText` vs `finalText` is the one comparison worth keeping: it shows what the deterministic
+/// stages (`FillerStripper`, then `Vocabulary`) changed, which is the only transformation left on this
+/// path. Four other fields came out — `polishedText` (always nil since the LLM cleanup stage was
+/// deleted), `words` and `audioPath` (see `TranscriptionResult`), and `l1Text`, which was not merely
+/// vestigial but a duplicate: it and `rawSA` were both assigned `transcription.fullText`.
+///
+/// Write-only, like `meeting-history.jsonl` — `JSONLWriter.append` is `Encodable`-only and nothing
+/// reads either file, which is why renaming and dropping columns needed no migration.
 struct VoiceHistoryEntry: Codable {
     let timestamp: Date
-    let rawSA: String
-    let l1Text: String
-    let polishedText: String?
+    let rawText: String
     let finalText: String
-    let words: [WordInfo]
-    let audioPath: String?
     let appBundleID: String?
     let appName: String?
 }
@@ -21,21 +24,11 @@ final class VoiceHistory {
     // debugging artifact, and dictation must work before any workspace is configured.
     private let writer = JSONLWriter(fileURL: Logger.logDirectory.appendingPathComponent("voice-history.jsonl"))
 
-    func save(
-        transcription: TranscriptionResult,
-        l1Text: String,
-        polishedText: String?,
-        finalText: String,
-        app: AppIdentity?
-    ) {
+    func save(transcription: TranscriptionResult, finalText: String, app: AppIdentity?) {
         let entry = VoiceHistoryEntry(
             timestamp: transcription.timestamp,
-            rawSA: transcription.fullText,
-            l1Text: l1Text,
-            polishedText: polishedText,
+            rawText: transcription.fullText,
             finalText: finalText,
-            words: transcription.words,
-            audioPath: transcription.audioPath,
             appBundleID: app?.bundleID,
             appName: app?.appName
         )

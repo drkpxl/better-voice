@@ -11,21 +11,25 @@ A macOS menu-bar app with two halves: on-device dictation, and meeting notes tha
 
 ## What it does
 
-**Dictation** (menu bar): hold your hotkey, speak, release — the text is cleaned up and inserted at your cursor in any app. Transcription uses Apple's on-device `SpeechAnalyzer`; an optional local LLM pass fixes recognition errors and removes filler words.
+**Dictation** (menu bar): hold your hotkey, speak, release — the text is inserted at your cursor in any app, typically in under 300 ms. Transcription runs on-device with NVIDIA Parakeet TDT v3 (CoreML, via FluidAudio). Filler words are removed by a deterministic word-list pass, and your vocabulary's spellings are applied by exact word-boundary replacement — no model runs on your dictated text.
 
 **Meetings** (drag in a recording, or ⌘N/⌘O, or paste a transcript): a guided flow transcribes it and tells speakers apart locally, you confirm the speaker names, and a local LLM writes a summary with a human title (e.g. "Jun 18th - Q3 Roadmap Sync"). Better Voice then creates two notes in **Apple Notes** — a transcript note and a summary note, in folders you pick once during setup — and opens the summary. There's no in-app library or editor; everything after that lives in Apple Notes, so search, editing, and iCloud sync all happen there. Voice enrollment carries across meetings: name a voice once and Better Voice suggests that name next time.
 
-## Models
+## How it's put together
 
-Dictation cleanup and meeting summarization are configured **independently** — mix and match per section:
+Two stages, deliberately separate:
+
+**Transcription and diarization** need no LLM and have no configuration. Parakeet TDT v3 produces the words with per-word timings; [FluidAudio](https://github.com/FluidInference/FluidAudio) works out who spoke when; the two are joined into speaker turns. Everything here is deterministic and reproducible.
+
+**Summarization** takes one speaker-labelled text transcript and writes the notes. This is the only stage with a model choice:
 
 | Provider | Notes |
 |----------|-------|
-| **Apple on-device** | Zero setup; requires Apple Intelligence enabled. The default. |
-| **Ollama** | Point at a local (or LAN) Ollama server. |
+| **Ollama** | A local (or LAN) Ollama server. The seeded default where Apple Intelligence is unavailable. |
 | **OpenAI-compatible** | LM Studio, llama.cpp, mlx-lm, Jan, or any `/v1/chat/completions` server. |
+| **Apple on-device** | Zero setup, but a 4,096-token context window — enough for short recordings, not for an hour-long meeting, where it falls back to chunk-and-combine. |
 
-Transcription is always Apple's on-device speech model; speaker diarization runs locally via [FluidAudio](https://github.com/FluidInference/FluidAudio).
+An hour of meeting is roughly 13,000 tokens of transcript, so context length is the thing that matters most when picking a model here.
 
 ## Requirements
 
@@ -69,7 +73,9 @@ Better Voice stands on:
 - **[FluidAudio](https://github.com/FluidInference/FluidAudio)** — on-device speaker diarization (Apache-2.0).
 - **[Sparkle](https://sparkle-project.org)** — in-app updates for the official builds (MIT).
 
-Transcription and the zero-setup on-device model both use Apple's frameworks (`SpeechAnalyzer` and Foundation Models).
+- **[NVIDIA Parakeet TDT](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)** — the on-device speech model, run through FluidAudio's CoreML conversion.
+
+The zero-setup summarization option uses Apple's Foundation Models framework.
 
 ## License
 
