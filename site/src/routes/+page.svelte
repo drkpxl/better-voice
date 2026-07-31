@@ -560,6 +560,8 @@ Better Voice 1.0 is in final testing. The download lands here
 	/* Section spacing */
 	.showcase {
 		padding-block: var(--space-2xl);
+		padding-inline: var(--space-lg);
+		background-color: var(--color-bg-alt);
 		border-block: 1px solid var(--color-border-light);
 	}
 
@@ -652,7 +654,7 @@ Better Voice 1.0 is in final testing. The download lands here
 	   at a glance rather than asserted in prose. */
 	.jobs h2 {
 		margin-bottom: var(--space-lg);
-		max-width: 24ch;
+		max-width: 60ch;
 	}
 
 	.jobs-intro {
