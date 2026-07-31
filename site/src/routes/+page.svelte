@@ -55,9 +55,8 @@
 	}
 
 	// Bake-off numbers, measured 2026-07-30 on one 116-second dictation recording (197 words)
-	// and one 57.5-minute four-speaker recording. Source of truth:
-	// specs/2026-07-30-asr-pipeline-bakeoff-design.md + bench/results/2026-07-30-chart.html.
-	// Don't edit these by hand — they come out of the harness in bench/.
+	// and one 57.5-minute four-speaker recording. Full methodology and findings:
+	// 2026-07-30-asr-bakeoff-findings.md.
 	const researchStats = [
 		{
 			value: "35",

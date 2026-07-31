@@ -54,14 +54,3 @@ planning-notes/
 
 # Git worktrees (local isolated workspaces)
 .worktrees/
-
-# Bake-off run state — recordings, transcripts, and results are local artifacts.
-bench/runs/
-bench/**/__pycache__/
-
-# Bake-off run state is local, but scored results + the chart are kept.
-!bench/results/
-# ...except rendered views that inline verbatim transcript samples. These are regenerable from
-# results.json, whose transcript fields are redacted, and this repo is public.
-bench/results/*.html
-bench/results/x-cards/
