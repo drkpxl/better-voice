@@ -5,8 +5,8 @@
 	import SettingsScreen from "$lib/components/SettingsScreen.svelte";
 	import MenuBarScene from "$lib/components/MenuBarScene.svelte";
 
-	const version = "1.0.0";
-	const minMacOS = "26 Tahoe";
+	const version = "1.0.4";
+	const minMacOS = "15 Sequoia";
 	// Stable alias maintained by client/scripts/release.sh (copies the newest DMG over it).
 	const releaseUrl = `${base}/downloads/BetterVoice2-latest.dmg`;
 	// Flip to true once release.sh has published the DMG (until then the download would 404,
@@ -32,13 +32,13 @@
 			id: "dictation",
 			label: "Dictation",
 			caption:
-				"Hold your hotkey anywhere. The menu-bar app listens, cleans up, and types at your cursor.",
+				"Hold your hotkey anywhere. The menu-bar app transcribes with Parakeet and types at your cursor.",
 		},
 		{
 			id: "settings",
 			label: "Settings",
 			caption:
-				"Choose your Apple Notes folders and, if you like, point dictation and summaries at a different model.",
+				"Choose your Apple Notes folders and, if you like, point summarization at a different model.",
 		},
 	];
 	let active = $state("notes");
@@ -100,24 +100,20 @@
 			lead: "Nothing here measures streaming latency.",
 			body: "Time-to-first-word is what actually governs how dictation feels, and every timing above is batch processing of a finished file.",
 		},
-		{
-			lead: "Parakeet is not in the app yet.",
-			body: "Every number in this section is a measurement, not a feature. Better Voice ships Apple’s engine today. When that changes, this page will say so.",
-		},
 	];
 
 	const features = [
 		{
 			title: "Dictation in any app",
-			body: "Hold your hotkey, speak, and release. The text is cleaned up and inserted at your cursor in whatever app you’re in. Apple’s on-device speech model does the transcription; a local model then fixes recognition errors and drops filler words.",
+			body: "Hold your hotkey, speak, and release. Parakeet TDT v3 transcribes on-device, filler words are removed deterministically, and your vocabulary's spellings are applied by exact word-boundary replacement — no model runs on your dictated text. The text lands at your cursor in under 300 ms.",
 		},
 		{
 			title: "Meetings become Apple Notes",
 			body: "Three ways to capture a meeting: start a recording from the menu bar and Better Voice records the call straight off your Mac, no bot to invite or drop in a recording you already have or paste a transcript. All three end the same way: transcribed, speakers named, summarized, and added straight to Apple Notes, transcript included.",
 		},
 		{
-			title: "Bring your own model",
-			body: "Dictation cleanup and meeting summaries are configured independently. Each can use Apple on-device (zero setup) or a local model server you run yourself, for people who want more control or more accuracy.",
+			title: "Bring your own model for summaries",
+			body: "Meeting summarization can use Apple on-device (zero setup) or a local model server you run yourself — Ollama or any OpenAI-compatible endpoint. Dictation has no model choice: Parakeet is the only engine, and it needs no configuration.",
 		},
 		{
 			title: "Private by default",
@@ -133,7 +129,7 @@
 		},
 		{
 			title: "Measured, then changed",
-			body: "Before deciding what to build next I benchmarked 35 on-device dictation pipelines on my own voice and published the result — including the part where the pipeline I currently ship landed near the bottom of the 35. The engine work that follows from it is what I’m building now.",
+			body: "Before deciding what to build I benchmarked 35 on-device dictation pipelines on my own voice and published the result — including the part where the pipeline I was shipping landed near the bottom. The engine work that followed from it is what ships today.",
 		},
 	];
 </script>
@@ -197,9 +193,10 @@
 			<p class="lead">
 				Better Voice replaces your dictation app and your AI meeting notetaker
 				with one app that runs entirely on your Mac. Hold a single key to
-				dictate into anything. Record a meeting or drop in a recording and get a
-				clean, speaker-labeled summary delivered straight to Apple Notes, where
-				it’s already waiting on your iPhone, iPad, and Mac. No subscription.
+				dictate into anything — Parakeet TDT v3 transcribes on-device in under
+				300 ms. Record a meeting or drop in a recording and get a clean,
+				speaker-labeled summary delivered straight to Apple Notes, where it’s
+				already waiting on your iPhone, iPad, and Mac. No subscription.
 				Your privacy intact.
 			</p>
 			<div class="hero-cta">
@@ -293,8 +290,7 @@
 	</section>
 
 	<!-- Research: the honest credibility argument — measurements, not popularity.
-	     Everything in here is forward-looking. The app ships Apple's engine today; the
-	     Parakeet numbers are research results, and the copy has to keep saying so. -->
+	     The bake-off was the reason for the migration; Parakeet now ships. -->
 	<section class="research" id="research">
 		<p class="eyebrow">Research · measured 30 July 2026</p>
 		<h2>I measured 35 dictation pipelines instead of guessing</h2>
@@ -305,12 +301,12 @@
 			engines against five cleanup options, 35 pipelines, all scored on the same
 			116-second recording of me talking the way I actually talk: unscripted,
 			disfluent, full of work jargon. Accuracy is word error rate against a reference
-			I hand-wrote of what I <em>meant</em> to say, so a cleanup model isn’t punished
-			for deleting an “um”.
+			I hand-wrote of what I <em>meant</em> to say, so a cleanup model isn't punished
+			for deleting an "um".
 		</p>
 		<p class="research-intro">
 			It reorganised the roadmap. Nearly all of the available accuracy sits in the
-			engine. Almost none of it is in the prompt I’d been fiddling with.
+			engine. Almost none of it is in the prompt I'd been fiddling with.
 		</p>
 
 		<div class="stat-grid">
@@ -326,27 +322,26 @@
 		</div>
 
 		<div class="ledger">
-			<div class="ledger-col ledger-now">
-				<h3>What ships today</h3>
+			<div class="ledger-col ledger-before">
+				<h3>What the bake-off found</h3>
 				<p class="ledger-value">38.1%</p>
-				<p class="ledger-unit">word error rate on the test recording</p>
+				<p class="ledger-unit">word error rate — the pipeline I was shipping</p>
 				<p>
-					Apple’s <code>SpeechTranscriber</code> plus Apple’s on-device cleanup — the
-					pipeline inside the download button above. It recovered 1 of 5 jargon terms,
-					and Apple’s cleanup pass turned out to be a no-op on 4 of the 7 transcripts
-					I put through it. Cleanup costs 4–9 seconds and buys about a point.
+					Apple's <code>SpeechTranscriber</code> plus Apple's on-device cleanup. It
+					recovered 1 of 5 jargon terms, and the cleanup pass was a no-op on 4 of 7
+					transcripts. Cleanup cost 4–9 seconds and bought about a point.
 				</p>
 			</div>
-			<div class="ledger-col ledger-next">
-				<h3>Where this is going <span class="tag">not shipped yet</span></h3>
+			<div class="ledger-col ledger-after">
+				<h3>What ships now</h3>
 				<p class="ledger-value">24.2%</p>
-				<p class="ledger-unit">word error rate on the same recording</p>
+				<p class="ledger-unit">word error rate — Parakeet TDT v3, no cleanup</p>
 				<p>
-					Parakeet TDT v3 — 13.9 points better than today’s pipeline on identical
-					audio, and faster at the same time: 263× real time against Apple’s 101×. It
-					handled names and proper nouns better too. Swapping it in needs a
-					transcriber seam the app doesn’t have yet, so this is the plan, not the
-					present.
+					Parakeet TDT v3 — 13.9 points better than the old pipeline on identical
+					audio, and faster at the same time: 263× real time against Apple's 101×.
+					It handled names and proper nouns better too. The cleanup stage is gone
+					entirely — the engine is the whole game, and the app ships the engine
+					the benchmark pointed at.
 				</p>
 			</div>
 		</div>
@@ -358,7 +353,7 @@
 				recording with four speakers. Parakeet produced the whole transcript in 11.7
 				seconds — 295× real time — with no drop in quality across the hour, and local
 				diarization found exactly four speakers across 179 turns, attributing 97% of
-				the audio. Whisper large-v3-turbo needed 84 seconds for the same file; Apple’s
+				the audio. Whisper large-v3-turbo needed 84 seconds for the same file; Apple's
 				engine with diarization needed 109. The most accurate engine on short audio,
 				Qwen3-ASR 1.7B at 18.6%, fell apart here: about 38 minutes to process 57, which
 				rules it out for meetings no matter how well it scores on a two-minute clip.
@@ -391,7 +386,7 @@
 		<h2>One app instead of three subscriptions</h2>
 		<p class="compare-intro">
 			The usual setup: pay for a dictation app, pay for an AI notetaker, and
-			keep your meetings in yet another company’s cloud. Better Voice does both
+			keep your meetings in yet another company's cloud. Better Voice does both
 			jobs on your Mac and hands the results to the notes app you already use.
 		</p>
 		<div class="compare-grid">
@@ -423,9 +418,10 @@
 			<div>
 				<h3>Dictation</h3>
 				<p>
-					Press your hotkey and talk. Better Voice transcribes on-device, tidies
-					the text, and drops it wherever your cursor is — email, chat, code,
-					notes. No window to switch to, nothing uploaded.
+					Press your hotkey and talk. Parakeet TDT v3 transcribes on-device,
+					filler words are removed deterministically, and the text lands at
+					your cursor — email, chat, code, notes. No window to switch to,
+					nothing uploaded.
 				</p>
 			</div>
 			<div>
@@ -460,7 +456,7 @@
 		<div class="maker-card">
 			<h2>Two users, and one of them is me</h2>
 			<p>
-				That’s the honest count. Better Voice is a one-person project — mine, built
+				That's the honest count. Better Voice is a one-person project — mine, built
 				under the name Baseline Makes — so there are no logos to put in a row here and
 				no reviews to quote. What I can offer instead is the work above: I measure
 				before I ship, I publish the numbers including the ones that make my own
@@ -473,7 +469,7 @@
 	<!-- Privacy callout -->
 	<section class="privacy">
 		<div class="privacy-card">
-			<h2>Your audio never leaves Apple</h2>
+			<h2>Your audio never leaves your Mac</h2>
 			<p>
 				AI notetakers upload your meetings to their servers to transcribe and
 				summarize them. Better Voice does all of that on your Mac. The only
@@ -840,8 +836,8 @@
 		margin: 0;
 	}
 
-	/* Ledger: what ships today vs. what the measurements point at. Deliberately shaped
-	   like the compare grid so "today" reading worse than "next" is unmissable. */
+	/* Ledger: what the bake-off found vs. what ships now. Deliberately shaped
+	   like the compare grid so "before" reading worse than "after" is unmissable. */
 	.ledger {
 		display: grid;
 		grid-template-columns: 1fr;
@@ -863,7 +859,7 @@
 		padding: var(--space-lg);
 	}
 
-	.ledger-next {
+	.ledger-after {
 		border-left: 4px solid var(--color-accent);
 	}
 
@@ -880,7 +876,7 @@
 		flex-wrap: wrap;
 	}
 
-	.ledger-next h3 {
+	.ledger-after h3 {
 		color: var(--color-accent);
 	}
 
@@ -905,11 +901,11 @@
 		margin: 0;
 	}
 
-	.ledger-now .ledger-value {
+	.ledger-before .ledger-value {
 		color: var(--color-text-muted);
 	}
 
-	.ledger-next .ledger-value {
+	.ledger-after .ledger-value {
 		color: var(--color-accent);
 	}
 

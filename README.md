@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml/badge.svg)](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Platform: macOS 26+](https://img.shields.io/badge/macOS-26%2B-black?logo=apple&logoColor=white)
+![Platform: macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple&logoColor=white)
 ![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-black?logo=apple&logoColor=white)
 
 A macOS menu-bar app with two halves: on-device dictation, and meeting notes that land in Apple Notes. Everything — transcription, speaker recognition, summarization — is processed locally on your Mac; your audio never leaves the machine.
@@ -33,7 +33,7 @@ An hour of meeting is roughly 13,000 tokens of transcript, so context length is 
 
 ## Requirements
 
-- macOS 26 or later (Apple Intelligence recommended for the zero-setup default).
+- macOS 15 or later.
 - Apple silicon.
 
 ## Permissions
@@ -70,9 +70,8 @@ swift build   # compile only
 
 Better Voice stands on:
 
-- **[FluidAudio](https://github.com/FluidInference/FluidAudio)** — on-device speaker diarization (Apache-2.0).
+- **[FluidAudio](https://github.com/FluidInference/FluidAudio)** — on-device speaker diarization and the Parakeet TDT v3 speech model (Apache-2.0).
 - **[Sparkle](https://sparkle-project.org)** — in-app updates for the official builds (MIT).
-
 - **[NVIDIA Parakeet TDT](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)** — the on-device speech model, run through FluidAudio's CoreML conversion.
 
 The zero-setup summarization option uses Apple's Foundation Models framework.
