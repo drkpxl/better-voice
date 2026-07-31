@@ -214,8 +214,8 @@
 					>
 				{/if}
 			</div>
-			<p class="hero-note">
-Free and MIT-licensed. One first-run download puts the speech model on your
+			<p class="hero-note readability-limit">
+				Free and MIT-licensed. One first-run download puts the speech model on your
 				Mac. <a href="#setup">Here's what setup actually involves</a>.
 			</p>
 		</div>
@@ -288,7 +288,7 @@ Free and MIT-licensed. One first-run download puts the speech model on your
 	<!-- Compare: the side-by-side that makes the one-app claim concrete. -->
 	<section class="compare">
 		<h2>What you’d otherwise be running</h2>
-		<p class="compare-intro">
+		<p class="compare-intro readability-limit">
 			Two products, two bills, and your words split across both of them, plus
 			whichever cloud each vendor keeps your recordings in.
 		</p>
@@ -334,7 +334,7 @@ Free and MIT-licensed. One first-run download puts the speech model on your
 	     launch, where it stops being an informed choice and becomes a support problem. -->
 	<section class="setup" id="setup">
 		<h2>What setup actually involves</h2>
-		<p class="setup-intro">
+		<p class="setup-intro readability-limit">
 			Two things are worth knowing before you download. Both are real, and neither is buried in
 			a settings pane.
 		</p>
@@ -353,7 +353,7 @@ Free and MIT-licensed. One first-run download puts the speech model on your
 	<section class="privacy">
 		<div class="privacy-card">
 			<h2>Your audio never leaves your Mac</h2>
-			<p>
+			<p class="readability-limit">
 				AI notetakers upload your meetings to their servers to transcribe and
 				summarize them. Better Voice does all of that on your Mac. The only
 				thing that ever leaves is the finished note and only to <em
@@ -557,12 +557,19 @@ Better Voice 1.0 is in final testing. The download lands here
 		transform: none;
 		box-shadow: none;
 	}
-
-	/* Showcase */
+	/* Section spacing */
 	.showcase {
-		padding-block: var(--space-xl);
-		background-color: var(--color-bg-alt);
+		padding-block: var(--space-2xl);
 		border-block: 1px solid var(--color-border-light);
+	}
+
+	.jobs,
+	.compare,
+	.features,
+	.setup,
+	.privacy,
+	.download {
+		padding-block: var(--space-2xl);
 	}
 
 	.tabs {
