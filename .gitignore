@@ -54,3 +54,6 @@ planning-notes/
 
 # Git worktrees (local isolated workspaces)
 .worktrees/
+
+# Playwright MCP screenshot scratch (local visual checks, not source)
+.playwright-mcp/

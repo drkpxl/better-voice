@@ -27,6 +27,13 @@ final class MenuBarModel {
     /// hotkey guard.
     var isProcessing = false
     var serverStatus: ModelServer.Status = ModelServer.shared.status
+    /// What the Parakeet cache is doing, mirrored from `AsrModelStore` by the app's phase observer.
+    /// Starts `.notInstalled` rather than `.installed` so the menu never claims dictation is ready
+    /// before the first probe has answered; the observer resolves it within milliseconds at launch.
+    var asrPhase: AsrModelPhase = .notInstalled
+    /// Stage text for the download in words ("…file 2 of 4"). Deliberately not a percentage — the
+    /// underlying fraction sweeps 0.5→1.0 once per model file and cannot be summed into one.
+    var asrActivity: String?
     /// Display version of an available Sparkle update (set by UpdaterController), or nil. Drives
     /// the "Update to X…" menu item.
     var availableUpdateVersion: String?
@@ -66,6 +73,11 @@ struct MenuBarLabel: View {
         }
         if model.isProcessing {
             return .menuBarStatusIcon(badge: "⋯", badgeColor: .systemGray)
+        }
+        // A first-run model download outranks connection status: it is the one state where dictation
+        // does not work at all, and the user needs somewhere to see why.
+        if case .downloading = model.asrPhase {
+            return .menuBarStatusIcon(badge: "↓", badgeColor: .systemBlue)
         }
         switch model.serverStatus {
         case .connected: return .menuBarStatusIcon()
@@ -112,6 +124,21 @@ struct MenuBarMenu: View {
             }
 
         Divider()
+
+        // Speech-model state, above the permission rows because while this is unresolved the
+        // permissions do not matter — dictation cannot run regardless of what is granted.
+        switch model.asrPhase {
+        case .downloading:
+            // One-time 470 MB fetch. Stage text, not a percentage — see `MenuBarModel.asrActivity`.
+            Text(model.asrActivity ?? t("Downloading speech model…"))
+            Text(t("Dictation starts working when this finishes."))
+        case .notInstalled:
+            Text(t("Speech model not downloaded"))
+        case .failed:
+            Text(t("Speech model download failed — retrying at next use"))
+        case .installed:
+            EmptyView()
+        }
 
         // One Accessibility row: it gates BOTH the global hotkey (active CGEventTap) and typing at
         // the cursor. Input Monitoring is intentionally absent — the app never uses that service

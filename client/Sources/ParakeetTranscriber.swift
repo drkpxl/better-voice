@@ -52,14 +52,56 @@ actor ParakeetTranscriber {
     /// import would otherwise download and load the models twice.
     private var preparing: Task<(AsrManager, Int), Error>?
 
+    /// Owns "are the models on disk, and if not what is happening about it". Split from `preparing`
+    /// above, which single-flights *this* type's `AsrManager` construction: the store single-flights
+    /// the 470 MB fetch and is the only thing that can report its progress. Before it was wired up,
+    /// `prepared()` awaited that download with `progress: nil` and no phase to read, so a dictation
+    /// taken during a first-run download parked in `.transcribing` with a live-looking HUD until the
+    /// user force-quit — the 1.1.0 hang.
+    private let downloader: ParakeetModelDownloader
+    private let store: AsrModelStore
+
+    init() {
+        let downloader = ParakeetModelDownloader(version: Self.version)
+        self.downloader = downloader
+        self.store = AsrModelStore(downloader: downloader)
+    }
+
     var isReady: Bool { manager != nil }
+
+    /// What the model cache is doing. The app's single source for "may I dictate right now?" and for
+    /// the progress shown while the answer is no.
+    var phase: AsrModelPhase {
+        get async { await store.phase }
+    }
+
+    /// Human-readable description of the current fetch stage ("Downloading speech model — file 2 of
+    /// 4"), or nil when nothing is downloading. Shown INSTEAD of a percentage; see the note on
+    /// `ParakeetModelDownloader.activity` for why the library's fraction is not presentable.
+    nonisolated var activity: String? { downloader.activity }
 
     /// Download (470 MB on first run) and load the models. Idempotent; a no-op once prepared.
     ///
     /// On failure the in-flight task is cleared so the next call retries rather than caching the
     /// failure forever — a warm-up that failed on a flaky network must not poison the first real use.
     func prepare(progress: (@Sendable (Double) -> Void)? = nil) async throws {
-        _ = try await prepared(progress: progress)
+        // Progress now lives in `store.phase` rather than travelling down as a callback, because the
+        // hotkey path needs to *read* it at an arbitrary moment ("is it safe to record?") and a
+        // callback only tells whoever happens to be awaiting. Callers that still want a callback —
+        // the import wizard's progress bar — get one by polling that phase for the duration.
+        guard let progress else {
+            _ = try await prepared()
+            return
+        }
+
+        let poller = Task { [store] in
+            while !Task.isCancelled {
+                if case .downloading(let fraction) = await store.phase { progress(fraction) }
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
+        defer { poller.cancel() }
+        _ = try await prepared()
     }
 
     func transcribe(
@@ -69,7 +111,7 @@ actor ParakeetTranscriber {
     ) async throws -> Transcript {
         // `locale` is deliberately ignored rather than rejected: the app is English-only (decision 3)
         // and throwing would break the bench's `--locale` flag for no benefit.
-        let (manager, layers) = try await prepared(progress: nil)
+        let (manager, layers) = try await prepared()
 
         let audioDuration = try Self.duration(of: fileURL)
 
@@ -126,7 +168,7 @@ actor ParakeetTranscriber {
     /// audio over ~15s and a dictation is transcribed in roughly 0.004s per second of speech, so a
     /// 5-minute one finishes in about 1.2s -- there is nothing to report.
     func transcribe(audio: CapturedAudio, locale: Locale? = nil) async throws -> Transcript {
-        let (manager, layers) = try await prepared(progress: nil)
+        let (manager, layers) = try await prepared()
         let audioDuration = audio.duration
 
         var decoderState = TdtDecoderState.make(decoderLayers: layers)
@@ -154,6 +196,10 @@ actor ParakeetTranscriber {
     func unload() async {
         preparing?.cancel()
         preparing = nil
+        // Also stop any download the store has in flight. Cancelling only `preparing` would leave the
+        // fetch running and land `.installed` afterwards, so the phase would claim models the caller
+        // just asked to release.
+        await store.cancel()
         manager = nil
         decoderLayers = 2
         Logger.log("ASR", "Parakeet models unloaded")
@@ -161,9 +207,9 @@ actor ParakeetTranscriber {
 
     // MARK: - Preparation
 
-    private func prepared(progress: (@Sendable (Double) -> Void)?) async throws -> (AsrManager, Int) {
+    private func prepared() async throws -> (AsrManager, Int) {
         if let manager { return (manager, decoderLayers) }
-        let task = preparing ?? Task { try await Self.makeManager(progress: progress) }
+        let task = preparing ?? Task { try await self.makeManager() }
         preparing = task
         do {
             let (fresh, layers) = try await task.value
@@ -177,27 +223,29 @@ actor ParakeetTranscriber {
         }
     }
 
-    private static func makeManager(
-        progress: (@Sendable (Double) -> Void)?
-    ) async throws -> (AsrManager, Int) {
-        // Built as an explicitly-typed local: inlining it inside `Optional.map` at the call site left
-        // the type checker unable to even produce a diagnostic.
-        // `DownloadProgress` also carries a `phase`; only the fraction is forwarded, because the seam's
-        // contract is a single 0...1 and the phase has no consumer yet.
-        var downloadHandler: DownloadUtils.ProgressHandler?
-        if let progress {
-            downloadHandler = { update in progress(min(max(update.fractionCompleted, 0), 1)) }
-        }
-
-        let models: AsrModels
+    private func makeManager() async throws -> (AsrManager, Int) {
+        // The store owns the fetch: it single-flights across the launch warm-up and a first import,
+        // survives one caller walking away, and — the point of routing through it — publishes a phase
+        // the hotkey path can read before deciding whether to open the mic.
         do {
-            models = try await AsrModels.downloadAndLoad(
-                version: version,
-                progressHandler: downloadHandler
-            )
+            try await store.prepare()
         } catch {
             throw TranscriptionError.modelUnavailable("\(error)")
         }
+
+        // A download stashes the set it loaded on the way past; an already-installed cache
+        // short-circuits `prepare()` without running one, so load from disk in that case.
+        let models: AsrModels
+        if let stashed = downloader.take() {
+            models = stashed
+        } else {
+            do {
+                models = try await downloader.loadInstalled()
+            } catch {
+                throw TranscriptionError.modelUnavailable("\(error)")
+            }
+        }
+
         let manager = AsrManager(models: models)
         guard await manager.isAvailable else {
             throw TranscriptionError.modelUnavailable("manager reported unavailable after load")

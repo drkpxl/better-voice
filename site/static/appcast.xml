@@ -3,6 +3,38 @@
     <channel>
         <title>BetterVoice2</title>
         <item>
+            <title>1.1.1</title>
+            <pubDate>Fri, 31 Jul 2026 14:56:21 -0600</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice2-1.1.1.zip" length="4922387" type="application/octet-stream" sparkle:edSignature="P7dBuyOTqpeQPI7JqqDLxvSL/iQzXIDQ6oxd1839K3vaEMzvBi935favozxAdpCw6VvN7bXtASzRsp26qQf9Bg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice28-7.delta" sparkle:deltaFrom="7" length="408314" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="NJgtCs/dUenyofq4rbjvjbH8DN3JTriDpqAg1QaBhWB5if86ORr7V+EYn1FqEDbmvS1QK8kCzFCukSXhdDdADg=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice28-6.delta" sparkle:deltaFrom="6" length="588850" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="Rwy0vKtq7HTb3o2GXzCTORQ3MfK+D8/7wuonI3jv4K1Ch2xr0vHFYgL4dKru3EBXLws6B6IL0umjlz0L5hiqAA=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice28-5.delta" sparkle:deltaFrom="5" length="639318" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="yEp3Cy35hfrBPd7gg5bjIxssGJSfo393ixJf7UIJS4guJQ0DGuxtYpMuOFGlP8nMUpI5svYNyNlouRswWF0NAw=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice28-4.delta" sparkle:deltaFrom="4" length="674194" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="0Ql8ECzjGG2XDoLcXXisapND6j9mFXZhaZ0AaJc2LApxUTeUbBIVdx2VYcqyOSynQffzOb9V3WZ7uMycredbBQ=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice28-3.delta" sparkle:deltaFrom="3" length="682606" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="WM+Cqgf1h0XW7IYbXhf7nh6z0ZJTbC0Fr9GcRBYn/vHiqfB5iyUhu16L5VkcsPIzt7V3qf4iKxhKLLMtZ/F8Aw=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
+            <title>1.1.0</title>
+            <pubDate>Fri, 31 Jul 2026 14:17:07 -0600</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice2-1.1.0.zip" length="4911251" type="application/octet-stream" sparkle:edSignature="ntzcGOdLF3WUQY3w2Chkax89qb3XDpMxNMXnuoJzJm7NIGBDeWA0DnKMwXtLanY2XX6yOQaf2hFXag3yDpLDAA=="/>
+            <sparkle:deltas>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice27-6.delta" sparkle:deltaFrom="6" length="581646" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="f8g5zoJqkJ4uRVETEYu1MI27wRmwcV3tI0ehqPu1BFjodvgDUtCseYzKoAeMYswEbJYapurjuAWwHLC1KpbHCg=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice27-5.delta" sparkle:deltaFrom="5" length="627502" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="IHtMsLX4GlYKXAKK4VDQB51MWoi70yWJLLaE3/bSRp+r5Zb8PonklZajCrdrw6eQVLjZoiaF4Cu9MzoDkGHhBA=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice27-4.delta" sparkle:deltaFrom="4" length="653182" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="iYwwcigXk0FYVfj9gNRYLhLx+avNO6Op2SMCGKDDUKtZaN3ocUQpgtkpmekHmgGX7XEMciVvy38TDyEnlzwtDw=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice27-3.delta" sparkle:deltaFrom="3" length="660910" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="1f49eTXRgpGMGnWuda66Exxor6jBoAEbJ8KfVOuhkbkfuenmZt4QrhdgELqlxy+Ya+b7yapm+prPa1D3v3YdAQ=="/>
+                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice27-2.delta" sparkle:deltaFrom="2" length="664642" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="MsSsVBqn5GT4Y8w3sJ3up+pB8iRSlYG7Jg0Zm2FGeXSZvBTXuoZgyQN33ZJV0kk2fgkUiWYBSWPdpqeUwXxLBw=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>1.0.4</title>
             <pubDate>Tue, 14 Jul 2026 18:45:22 -0600</pubDate>
             <sparkle:version>6</sparkle:version>
@@ -14,32 +46,6 @@
                 <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice26-4.delta" sparkle:deltaFrom="4" length="512582" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="UoiZNvIhHQrT0ExwZgqW/VgNuOT2DPx6jNkt1w/5sDhsbQHvMr7/7D9GzLPELYkxeN+p/zeUq6PNu+eB9ja8CQ=="/>
                 <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice26-3.delta" sparkle:deltaFrom="3" length="537818" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="RzHQUNr2ZEvpqscERG+oCOY9+6wcHOzdIvzEHg2zCOh7d8IA7rHS+TToNSjoebxP4XnoZEUEtfJTlGpQDG1fCQ=="/>
                 <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice26-2.delta" sparkle:deltaFrom="2" length="534422" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="O/5hLlU977ASZhsCLr3TFCpq0JP7Mp0e2uNI+ui6hPoywLZmrm9YhUNMqwkm9V53MhojKzgDlqxBm0UiMbnWAg=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
-            <title>1.0.3</title>
-            <pubDate>Mon, 13 Jul 2026 13:28:00 -0600</pubDate>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice2-1.0.3.zip" length="4927410" type="application/octet-stream" sparkle:edSignature="GA17+UtOH47dFZvLjGywRMGZdJm9yKIzq0aqyu4y3McuFKETEUErX+AsmIYZwHDn9yR3tG2pW2tjcUicAMK9DQ=="/>
-            <sparkle:deltas>
-                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice25-4.delta" sparkle:deltaFrom="4" length="419882" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="NsiALzokWSAgjI3eW7auMtD61bAP5VuguzkL/l23VSDzJ2aOySaWQr+IxMT+ayeu5ieWvWjWH8yKZO1vn1HBDw=="/>
-                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice25-3.delta" sparkle:deltaFrom="3" length="469906" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="rbNxCO3D30EBbZ/K3vD4OyANs2gYpQBS33Ks7E4rMzGhjBVknUP6sF5lC2x5R8k1JEf9Kjg5QBqYJ1eg9ivYAA=="/>
-                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice25-2.delta" sparkle:deltaFrom="2" length="467386" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="3MH9Y7bgY844JpkQeG0etGh2F9pQZR7sTroMBKWZYm2V2fOAtVN5iMnhIqQb5keZ2Zfz6PpdK99B/p1SSNyzDg=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
-            <title>1.0.2</title>
-            <pubDate>Sun, 12 Jul 2026 08:23:03 -0600</pubDate>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice2-1.0.2.zip" length="4898545" type="application/octet-stream" sparkle:edSignature="YhV1to9izWdy9BcUqGly7T4dCKEtNckZEQGHyYf6+l97HkKeMbh1GHY+R5omq+Vn4WRIfIQBSvJjh8k2jggyCw=="/>
-            <sparkle:deltas>
-                <enclosure url="https://voice.baselinemakes.com/updates/BetterVoice24-3.delta" sparkle:deltaFrom="3" length="372106" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="1ynudeRyCPbORz3W01+adtC4h5xfpvOBze1NQN5/8XRXT1BImMepgv0t08ZiDOBJ4TlAvTsSzsYLee+XcOqUBQ=="/>
             </sparkle:deltas>
         </item>
     </channel>

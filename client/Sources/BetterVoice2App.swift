@@ -175,6 +175,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Watch the model phase and mirror it into the two places that need it: the dictation gate
+        // (so the hotkey can refuse a press instead of recording audio it cannot transcribe) and the
+        // menu bar (so a first-run download is something the user can SEE).
+        //
+        // Polling rather than a stream: `AsrModelStore` is deliberately Foundation-only and publishes
+        // no observation seam, and a half-second tick against an in-process actor costs nothing next
+        // to the download it is reporting on. It stops as soon as the models are installed.
+        Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                let phase = await ParakeetTranscriber.shared.phase
+                guard let self else { return }
+                self.voiceModule.applyModelPhase(phase)
+                self.menuModel.asrPhase = phase
+                // Stage text ("file 2 of 4") rather than a percentage. The downloader logs each
+                // transition itself, so this loop only mirrors it to the UI — 1.1.0 wrote NOTHING on
+                // this path across a 470 MB fetch, which is why the hang was indistinguishable from a
+                // broken hotkey in the log.
+                self.menuModel.asrActivity = ParakeetTranscriber.shared.activity
+                if case .installed = phase { break }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+        }
+
         // menu-bar icon tracks the server connection
         ModelServer.shared.onStatusChange = { [weak self] status in
             self?.menuModel.serverStatus = status
@@ -208,6 +231,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         voiceModule.onAudioLevel = { [weak self] level in
             self?.recordingIndicator.update(level: level)
+        }
+        // A press that arrives before the models are down has to say something. A refused hotkey with
+        // no feedback is indistinguishable from a dead one — and the notch HUD is a 38pt waveform
+        // wing with nowhere to put a sentence, so this goes through the notification channel the app
+        // already reserves for real faults.
+        voiceModule.onModelsUnavailable = { _ in
+            // No percentage, and a duration instead: the fetch is ~470 MB and the only number the
+            // library offers is not summable across its four files, so "a few minutes" is both more
+            // honest and more useful than a bar that sits at 0% for most of the wait.
+            Notify.warn(
+                t("Dictation not ready yet"),
+                t("Better Voice is downloading its speech model (about 470 MB, usually a few minutes). Dictation works as soon as it finishes — progress is in the menu bar.")
+            )
         }
 
         // register the global hotkey

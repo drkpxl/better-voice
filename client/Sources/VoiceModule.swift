@@ -73,9 +73,48 @@ final class VoiceModule {
         return transport == kAudioDeviceTransportTypeBluetooth || transport == kAudioDeviceTransportTypeBluetoothLE
     }
 
+    /// Whether the speech models are on disk and dictation can actually run.
+    ///
+    /// Mirrored here as a plain flag, refreshed by the app's phase observer, because the hotkey path
+    /// has to decide *synchronously* whether to open the mic. Awaiting the store on the press would
+    /// mean either dropping the press or starting capture optimistically — and starting optimistically
+    /// is exactly what 1.1.0 did: the recording began, the stop worked, and then transcription parked
+    /// on an invisible 470 MB download behind a HUD that still looked like a live mic.
+    private(set) var modelsReady = false
+    private(set) var modelFraction: Double = 0
+
+    /// Raised when the hotkey is pressed while the models are still coming down, with the current
+    /// 0...1 fraction. The app turns it into user-visible feedback; without it the press would be
+    /// silently swallowed, which reads as a broken hotkey.
+    var onModelsUnavailable: ((Double) -> Void)?
+
+    /// Fold the latest model phase in. Called from the app's observer.
+    func applyModelPhase(_ phase: AsrModelPhase) {
+        switch phase {
+        case .installed:
+            modelsReady = true
+            modelFraction = 1
+        case .downloading(let fraction):
+            modelsReady = false
+            modelFraction = fraction
+        case .notInstalled, .failed:
+            modelsReady = false
+            modelFraction = 0
+        }
+    }
+
     func onHotKeyDown() {
         switch state {
         case .idle:
+            // Refuse the press rather than record audio we cannot transcribe yet. Declining costs the
+            // user one dictation; recording optimistically costs them the whole app, because the
+            // stop-press then parks in `.transcribing` for the length of a 470 MB download with no way
+            // out but force-quitting.
+            guard modelsReady else {
+                Logger.log("Voice", "Dictation unavailable: speech model not ready (\(Int(modelFraction * 100))%)")
+                onModelsUnavailable?(modelFraction)
+                return
+            }
             startRecording()
         case .recording:
             stopAndProcess()
