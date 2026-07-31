@@ -1,5 +1,5 @@
 import Cocoa
-import CoreGraphics
+@preconcurrency import CoreGraphics
 
 /// Global hotkey
 ///
@@ -25,33 +25,35 @@ import CoreGraphics
 ///   `.keyboardEventAutorepeat`), so holding the combo doesn't rapid-fire start/stop.
 ///
 /// The two bindings are matched independently against every flagsChanged/keyDown event (by
+/// The two bindings are matched independently against every flagsChanged/keyDown event (by
 /// keyCode + modifier bits), so they can be set to different keys/modifiers freely; setting them
 /// to the SAME binding is caught earlier, in Settings (`HotKeySettingsViewModel`), not here.
-final class GlobalHotKey: @unchecked Sendable {
-    @MainActor static let shared = GlobalHotKey()
+@MainActor
+final class GlobalHotKey {
+    static let shared = GlobalHotKey()
 
-    nonisolated(unsafe) var onPress: (() -> Void)?
-    nonisolated(unsafe) var onRelease: (() -> Void)?
+    var onPress: (() -> Void)?
+    var onRelease: (() -> Void)?
     /// Meeting binding's callback — see the class doc comment above for its fire-once-per-press,
     /// release-ignored semantics.
-    nonisolated(unsafe) var onMeetingFire: (() -> Void)?
+    var onMeetingFire: (() -> Void)?
 
     fileprivate nonisolated(unsafe) var eventTap: CFMachPort?
-    private nonisolated(unsafe) var runLoopSource: CFRunLoopSource?
+    private var runLoopSource: CFRunLoopSource?
     /// Modifier-only press-state for the dictation binding.
-    private nonisolated(unsafe) var isPressed = false
+    private var isPressed = false
     /// Modifier-only press-state for the meeting binding (independent of `isPressed` above).
-    private nonisolated(unsafe) var isMeetingPressed = false
+    private var isMeetingPressed = false
     /// Set when another key is pressed while a modifier-only DICTATION hotkey is held, marking the
     /// hold as a combo gesture (e.g. Right Option + M for the meeting binding) rather than a clean
     /// modifier tap — so the dictation release-fire is suppressed and the two bindings don't
     /// cross-fire when they share a modifier.
-    private nonisolated(unsafe) var dictationModifierConsumed = false
+    private var dictationModifierConsumed = false
     /// Armed when a *combo* dictation hotkey's key-combination is pressed; the toggle fires on the
     /// following modifier RELEASE (not on key-down), so by the time we toggle → transcribe →
     /// synthesize ⌘V the keyboard is quiescent and a still-held modifier can't corrupt the paste
     /// into ⌘⌥V. Reproduces the modifier-only hotkey's fire-on-release edge for combos.
-    private nonisolated(unsafe) var dictationComboArmed = false
+    private var dictationComboArmed = false
 
     /// Periodically checks whether the CGEventTap is still enabled, and re-enables it automatically if disabled.
     /// On macOS 26, a CGEventTap running for a long time (hours to days) can be silently disabled,
@@ -59,10 +61,10 @@ final class GlobalHotKey: @unchecked Sendable {
     /// callback itself has been disabled), so an external active ping is needed.
     private var healthTimer: Timer?
 
-    /// The currently active dictation config (nonisolated because the callback reads it from a non-actor context)
-    fileprivate nonisolated(unsafe) var currentConfig: HotKeyConfig = .default
-    /// The currently active meeting config (nonisolated for the same reason as `currentConfig`)
-    fileprivate nonisolated(unsafe) var currentMeetingConfig: HotKeyConfig = .meetingDefault
+    /// The currently active dictation config.
+    fileprivate var currentConfig: HotKeyConfig = .default
+    /// The currently active meeting config.
+    fileprivate var currentMeetingConfig: HotKeyConfig = .meetingDefault
 
     @MainActor
     func start() {
@@ -113,7 +115,9 @@ final class GlobalHotKey: @unchecked Sendable {
     private func startHealthMonitor() {
         healthTimer?.invalidate()
         healthTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
-            guard let self, let tap = self.eventTap else { return }
+            guard let self else { return }
+            // eventTap is nonisolated(unsafe) — only ever touched from the main runloop.
+            guard let tap = self.eventTap else { return }
             if !CGEvent.tapIsEnabled(tap: tap) {
                 CGEvent.tapEnable(tap: tap, enable: true)
                 Logger.log("HotKey", "Re-enabled CGEventTap (was disabled by system)")
@@ -355,21 +359,28 @@ private func globalHotKeyCallback(
     guard let userInfo else { return Unmanaged.passUnretained(event) }
     let hotkey = Unmanaged<GlobalHotKey>.fromOpaque(userInfo).takeUnretainedValue()
 
+    // Extract all values from the non-Sendable CGEvent before crossing into the main actor,
+    // so the closure never captures the event object itself.
     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+    let flags = event.flags
+
     if type == .flagsChanged {
-        hotkey.handleFlags(event.flags, keyCode: keyCode)
+        MainActor.assumeIsolated { hotkey.handleFlags(flags, keyCode: keyCode) }
     } else if type == .keyDown {
         let isAutorepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
         // Swallow a matched combo key-down (return nil) so its printable character (≥ for ⌥.,
         // µ for ⌥M) never reaches the focused field.
-        if hotkey.handleKeyDown(keyCode: keyCode, flags: event.flags, isAutorepeat: isAutorepeat) {
+        let consumed = MainActor.assumeIsolated { hotkey.handleKeyDown(keyCode: keyCode, flags: flags, isAutorepeat: isAutorepeat) }
+        if consumed {
             return nil
         }
     }
 
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-        if let tap = hotkey.eventTap {
-            CGEvent.tapEnable(tap: tap, enable: true)
+        MainActor.assumeIsolated {
+            if let tap = hotkey.eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
         }
     }
 

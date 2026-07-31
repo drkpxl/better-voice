@@ -12,25 +12,29 @@ BIN_PATH = .build/debug
 LOG_DIR = $(HOME)/Library/Logs/$(APP_NAME)-Dev
 LOG_FILE = $(LOG_DIR)/debug.log
 
-# 签名身份：默认用稳定的自签名证书，让 TCC 权限（麦克风/输入监控）跨重新编译保留。
-# ad-hoc 签名每次 hash 变化 -> 系统视为新 app -> 已授权的权限被重置。
-# 覆盖: SIGN_IDENTITY="Apple Development: ..." make run   （先 `make setup` 创建证书）
+# Signing identity: default to a stable self-signed certificate so TCC permissions
+# (Microphone, Input Monitoring) survive across rebuilds.
+# Ad-hoc signing changes the hash every time -> the system treats it as a new app ->
+# already-granted permissions are reset.
+# Override: SIGN_IDENTITY="Apple Development: ..." make run   (run `make setup` first)
 SIGN_IDENTITY ?= Better Voice Development
 
-# 安装相关变量
+# Install variables
 INSTALL_DIR = $(HOME)/Applications
 INSTALL_APP = $(INSTALL_DIR)/$(APP_NAME).app
 LAUNCHD_LABEL = com.baselinemakes.bettervoice2
 LAUNCHD_PLIST = ~/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
-# 旧 label（Baseline Makes 品牌重塑前）。install/uninstall 都要清理它，否则改名前安装过的机器
-# 会残留一个指向已删除 app 的 LaunchAgent(每次登录报错/重装后双重自启)。
+# Old label (before the Baseline Makes rebrand). install/uninstall must both clean it up,
+# otherwise machines that installed before the rename will have a stale LaunchAgent pointing
+# at the deleted app (error on every login / double launch after reinstall).
 LEGACY_LAUNCHD_PLIST = ~/Library/LaunchAgents/com.drkpxl.bettervoice2.plist
 
 build:
 	swift build
 
-# 构建已签名的 app bundle（内嵌 Sparkle.framework）——run/install 共用，与 build-dmg.sh 保持一致。
-# SPM 只产出 Sparkle.framework，不会自动嵌入 .app，需手动拷贝 + 加 rpath + 签名（rpath 必须在签名前改）。
+# Build a signed app bundle (embeds Sparkle.framework) — shared by run/install, same as build-dmg.sh.
+# SPM only produces Sparkle.framework, it doesn't embed it into the .app automatically.
+# Must copy manually + add rpath + sign (rpath must be set before signing).
 bundle: build
 	@mkdir -p $(APP_MACOS) $(APP_FRAMEWORKS) $(APP_RESOURCES)
 	@cp $(BIN_PATH)/$(APP_NAME) $(APP_MACOS)/$(APP_NAME)
@@ -56,7 +60,7 @@ bundle: build
 	codesign --force --deep --sign "$$SIGN" $(APP_FRAMEWORKS)/Sparkle.framework; \
 	codesign --force --sign "$$SIGN" $(APP_BUNDLE)
 
-# 构建 app bundle 并通过 LaunchServices 启动（TCC 权限归属 $(APP_NAME) 而非 Terminal）
+# Build the app bundle and launch via LaunchServices (TCC permissions belong to $(APP_NAME), not Terminal)
 run: bundle
 	@killall $(APP_NAME) 2>/dev/null; sleep 0.5; true
 	@mkdir -p $(LOG_DIR)
@@ -64,7 +68,7 @@ run: bundle
 	@open $(APP_BUNDLE)
 	@sleep 1 && touch $(LOG_FILE) && tail -f $(LOG_FILE)
 
-# 直接运行裸二进制（调试用，麦克风可能不工作）
+# Run the raw binary directly (debugging only — microphone may not work)
 run-raw: build
 	.build/debug/$(APP_NAME)
 
@@ -72,17 +76,17 @@ clean:
 	swift package clean
 	rm -rf .build/$(APP_NAME).app
 
-# 创建自签名代码签名证书（TCC 权限跨编译持久化）
+# Create a self-signed code signing certificate (TCC permissions persist across rebuilds)
 setup:
 	@bash scripts/setup-cert.sh
 
-# 安装到 ~/Applications 并设置开机自启
+# Install to ~/Applications and enable launch-on-login
 install: bundle
-	@echo "=== 安装到 $(INSTALL_DIR) ==="
+	@echo "=== Installing to $(INSTALL_DIR) ==="
 	@mkdir -p $(INSTALL_DIR)
 	@rm -rf $(INSTALL_APP)
 	@cp -R $(APP_BUNDLE) $(INSTALL_APP)
-	@echo "=== 配置开机自启 ==="
+	@echo "=== Configuring launch-on-login ==="
 	@mkdir -p ~/Library/LaunchAgents
 	@printf '%s\n' \
 		'<?xml version="1.0" encoding="UTF-8"?>' \
@@ -105,41 +109,41 @@ install: bundle
 		'</plist>' > $(LAUNCHD_PLIST)
 	@launchctl unload $(LAUNCHD_PLIST) 2>/dev/null || true
 	@launchctl load $(LAUNCHD_PLIST)
-	@# 迁移：卸掉改名前的旧 LaunchAgent，避免双重自启
+	@# Migration: unload the old pre-rebrand LaunchAgent to avoid double launch-on-login
 	@launchctl unload $(LEGACY_LAUNCHD_PLIST) 2>/dev/null || true
 	@rm -f $(LEGACY_LAUNCHD_PLIST)
 	@echo ""
-	@echo "✅ 安装完成！"
-	@echo "   应用位置: $(INSTALL_APP)"
-	@echo "   开机自启: 已启用"
+	@echo "Install complete!"
+	@echo "   App location: $(INSTALL_APP)"
+	@echo "   Launch on login: enabled"
 	@echo ""
-	@echo "   手动启动: open $(INSTALL_APP)"
-	@echo "   查看日志: tail -f $(LOG_FILE)"
-	@echo "   卸载:     make uninstall"
+	@echo "   Manual launch: open $(INSTALL_APP)"
+	@echo "   View logs: tail -f $(LOG_FILE)"
+	@echo "   Uninstall: make uninstall"
 
-# 卸载应用并移除开机自启
+# Uninstall the app and remove launch-on-login
 uninstall:
-	@echo "=== 停止开机自启 ==="
+	@echo "=== Stopping launch-on-login ==="
 	@launchctl unload $(LAUNCHD_PLIST) 2>/dev/null || true
 	@rm -f $(LAUNCHD_PLIST)
 	@launchctl unload $(LEGACY_LAUNCHD_PLIST) 2>/dev/null || true
 	@rm -f $(LEGACY_LAUNCHD_PLIST)
-	@echo "=== 停止运行中的 $(APP_NAME) ==="
+	@echo "=== Stopping running $(APP_NAME) ==="
 	@killall $(APP_NAME) 2>/dev/null || true
-	@echo "=== 移除应用 ==="
+	@echo "=== Removing app ==="
 	@rm -rf $(INSTALL_APP)
 	@echo ""
-	@echo "✅ 卸载完成！"
+	@echo "Uninstall complete!"
 	@echo ""
-	@echo "   用户数据保存在你在引导时选择的工作区文件夹中，需要时请手动删除。"
+	@echo "   User data is in the workspace folder you chose during setup; delete manually if needed."
 
-# 查看最近日志
+# View recent logs
 check-log:
 	@tail -30 $(LOG_FILE) 2>/dev/null || echo "  no log yet at $(LOG_FILE)"
 
-# 数据现在保存在用户选择的工作区文件夹（非固定路径），这里只显示日志目录
+# Data is now in the user-chosen workspace folder (not a fixed path); this only shows the log dir
 check-data:
-	@echo "=== 日志目录 $(LOG_DIR) ==="
+	@echo "=== Log dir $(LOG_DIR) ==="
 	@ls -lh $(LOG_FILE) 2>/dev/null || echo "  debug.log: not yet"
-	@echo "=== 数据 ==="
-	@echo "  转录/摘要/说话人数据保存在你在引导时选择的工作区文件夹中。"
+	@echo "=== Data ==="
+	@echo "  Transcripts/summaries/speaker data is in the workspace folder you chose during setup."

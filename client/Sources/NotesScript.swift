@@ -1,5 +1,6 @@
 import BetterVoiceCore
 import Foundation
+import os
 
 /// Minimal, write-only bridge to Apple Notes via AppleScript (`/usr/bin/osascript`).
 ///
@@ -218,24 +219,6 @@ enum NotesScript {
         }
     }
 
-    /// Thread-safe "did the watchdog fire" flag, shared between the watchdog work item and the
-    /// exit-status interpretation in `run`.
-    private final class WatchdogFlag: @unchecked Sendable {
-        private let lock = NSLock()
-        private var value = false
-        func mark() { lock.lock(); value = true; lock.unlock() }
-        var didFire: Bool { lock.lock(); defer { lock.unlock() }; return value }
-    }
-
-    /// Thread-safe box for the pipe-drain results (written on background queues, read after
-    /// `readGroup.wait()` — the lock also publishes the writes to the waiting thread).
-    private final class DataBox: @unchecked Sendable {
-        private let lock = NSLock()
-        private var data = Data()
-        func set(_ new: Data) { lock.lock(); data = new; lock.unlock() }
-        var value: Data { lock.lock(); defer { lock.unlock() }; return data }
-    }
-
     private static func run(script: String, args: [String]) throws -> String {
         let scriptURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("bettervoice-notes-\(UUID().uuidString)")
@@ -256,27 +239,27 @@ enum NotesScript {
 
         // Read both pipes concurrently while the process runs — reading them sequentially
         // after waitUntilExit() can deadlock if a pipe's buffer fills before it's drained.
-        let stdoutBox = DataBox()
-        let stderrBox = DataBox()
+        let stdoutBox = OSAllocatedUnfairLock<Data>(initialState: Data())
+        let stderrBox = OSAllocatedUnfairLock<Data>(initialState: Data())
         let readGroup = DispatchGroup()
         readGroup.enter()
         DispatchQueue.global(qos: .utility).async {
-            stdoutBox.set(stdoutPipe.fileHandleForReading.readDataToEndOfFile())
+            stdoutBox.withLock { $0 = stdoutPipe.fileHandleForReading.readDataToEndOfFile() }
             readGroup.leave()
         }
         readGroup.enter()
         DispatchQueue.global(qos: .utility).async {
-            stderrBox.set(stderrPipe.fileHandleForReading.readDataToEndOfFile())
+            stderrBox.withLock { $0 = stderrPipe.fileHandleForReading.readDataToEndOfFile() }
             readGroup.leave()
         }
 
         // Hard backstop above the AppleScript-level timeout, in case osascript itself hangs:
         // SIGTERM first, then SIGKILL after a grace period if osascript ignored it, so
         // waitUntilExit() below is guaranteed to return.
-        let watchdogFlag = WatchdogFlag()
+        let watchdogFlag = OSAllocatedUnfairLock<Bool>(initialState: false)
         let watchdog = DispatchWorkItem {
             guard process.isRunning else { return }
-            watchdogFlag.mark()
+            watchdogFlag.withLock { $0 = true }
             Logger.log("NotesScript", "osascript exceeded \(processTimeoutSeconds)s, terminating")
             process.terminate()
             DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + killGraceSeconds) {
@@ -292,13 +275,13 @@ enum NotesScript {
         watchdog.cancel()
         readGroup.wait()
 
-        let stderr = String(data: stderrBox.value, encoding: .utf8)?
+        let stderr = String(data: stderrBox.withLock { $0 }, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         if process.terminationReason == .uncaughtSignal {
             // Only the watchdog's own kill is a timeout; any other signal (crash, external
             // kill) is reported as what it is, not mislabeled as Notes being slow.
-            if watchdogFlag.didFire {
+            if watchdogFlag.withLock { $0 } {
                 throw NotesScriptError.timeout
             }
             throw NotesScriptError.osascriptFailed(status: process.terminationStatus, stderr: stderr)
@@ -314,6 +297,6 @@ enum NotesScript {
             throw NotesScriptError.osascriptFailed(status: process.terminationStatus, stderr: stderr)
         }
 
-        return String(data: stdoutBox.value, encoding: .utf8) ?? ""
+        return String(data: stdoutBox.withLock { $0 }, encoding: .utf8) ?? ""
     }
 }

@@ -1,20 +1,21 @@
 #!/bin/bash
-# 创建自签名代码签名证书 "Better Voice Development"
-# 用于 macOS TCC 权限在重新编译后持久化（ad-hoc 签名每次 hash 变化会丢失权限）
+# Create a self-signed code signing certificate "Better Voice Development"
+# so macOS TCC permissions persist across rebuilds (ad-hoc signing changes
+# the hash every time, which resets already-granted permissions).
 set -euo pipefail
 
 CERT_NAME="Better Voice Development"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
-# 1. 检查证书是否已存在
+# 1. Check if the certificate already exists
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$CERT_NAME"; then
-    echo "证书 '$CERT_NAME' 已存在，无需重复创建"
+    echo "Certificate '$CERT_NAME' already exists, skipping creation"
     exit 0
 fi
 
-echo "正在创建自签名代码签名证书 '$CERT_NAME' ..."
+echo "Creating self-signed code signing certificate '$CERT_NAME' ..."
 
-# 2. 创建临时工作目录
+# 2. Create a temporary working directory
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
@@ -23,7 +24,7 @@ KEY="$TMPDIR/key.pem"
 CERT="$TMPDIR/cert.pem"
 P12="$TMPDIR/cert.p12"
 
-# 3. 生成 openssl 配置
+# 3. Generate openssl config
 cat > "$CONF" <<'OPENSSL_CONF'
 [req]
 distinguished_name = req_dn
@@ -39,7 +40,7 @@ extendedKeyUsage = codeSigning
 basicConstraints = CA:FALSE
 OPENSSL_CONF
 
-# 4. 生成自签名证书（有效期 10 年）
+# 4. Generate a self-signed certificate (10-year validity)
 openssl req -x509 -newkey rsa:2048 \
     -keyout "$KEY" -out "$CERT" \
     -days 3650 -nodes \
@@ -47,9 +48,9 @@ openssl req -x509 -newkey rsa:2048 \
     -subj "/CN=$CERT_NAME" \
     2>/dev/null
 
-echo "  证书已生成"
+echo "  Certificate generated"
 
-# 5. 导出为 p12 格式
+# 5. Export as p12 format
 # OpenSSL 3.x mishandles empty PKCS12 passwords, causing macOS `security import`
 # to fail with "MAC verification failed". Use a temporary password as workaround.
 # Also force legacy algorithms (3DES + SHA1) since OpenSSL 3.x defaults to
@@ -65,34 +66,34 @@ openssl pkcs12 -export \
     -passout "pass:$P12_PASS" \
     2>/dev/null
 
-echo "  已导出 p12"
+echo "  Exported p12"
 
-# 6. 导入到 login keychain
+# 6. Import into login keychain
 security import "$P12" \
     -k "$KEYCHAIN" \
     -P "$P12_PASS" \
     -T /usr/bin/codesign
 
-echo "  已导入到 login keychain"
+echo "  Imported into login keychain"
 
-# 7. 信任自签名证书用于代码签名
+# 7. Trust the self-signed certificate for code signing
 security add-trusted-cert -p codeSign -k "$KEYCHAIN" "$CERT"
-echo "  已添加代码签名信任"
+echo "  Added code signing trust"
 
-# 8. 设置 partition list（允许 codesign 无弹窗使用）
+# 8. Set partition list (allows codesign to use the key without a prompt)
 security set-key-partition-list \
     -S "apple-tool:,apple:" \
     -s -k "" \
     "$KEYCHAIN" \
-    2>/dev/null || echo "  注意: set-key-partition-list 需要 keychain 密码为空或手动确认"
+    2>/dev/null || echo "  Note: set-key-partition-list needs an empty keychain password or manual confirmation"
 
-# 9. 验证证书
+# 9. Verify the certificate
 echo ""
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$CERT_NAME"; then
-    echo "证书 '$CERT_NAME' 创建成功！"
-    echo "现在可以使用 make run 来构建和运行（TCC 权限将跨编译持久化）"
+    echo "Certificate '$CERT_NAME' created successfully!"
+    echo "You can now use 'make run' to build and launch (TCC permissions will persist across rebuilds)"
 else
-    echo "错误: 证书创建后未能在 keychain 中找到"
-    echo "请尝试手动检查: security find-identity -v -p codesigning"
+    echo "Error: certificate not found in keychain after creation"
+    echo "Try checking manually: security find-identity -v -p codesigning"
     exit 1
 fi

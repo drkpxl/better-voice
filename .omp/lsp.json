@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "sourcekit-lsp": {
+      "command": "sourcekit-lsp",
+      "fileTypes": [".swift"],
+      "rootMarkers": ["client/Package.swift", "client/.build", ".git"]
+    }
+  }
+}
