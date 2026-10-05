@@ -50,11 +50,11 @@ final class BoostReplacementFilterTests: XCTestCase {
 
     func testRepeatedWordReplacesInOrder() {
         let out = BoostReplacementFilter.apply(
-            to: "Tig said Tig.",
-            swaps: [Swap(original: "Tig", replacement: "Tadhg"), Swap(original: "Tig.", replacement: "Tadhg")],
+            to: "Grafanna said Grafanna.",
+            swaps: [Swap(original: "Grafanna", replacement: "Grafana"), Swap(original: "Grafanna.", replacement: "Grafana")],
             aliases: [:]
         )
-        XCTAssertEqual(out, "Tadhg said Tadhg.")
+        XCTAssertEqual(out, "Grafana said Grafana.")
     }
 
     func testSwapsOutOfTranscriptOrderStillApply() {
@@ -95,19 +95,39 @@ final class BoostReplacementFilterTests: XCTestCase {
 
     func testSpanInsideALongerWordIsNotReplaced() {
         let out = BoostReplacementFilter.apply(
-            to: "A tight deadline for Tig.",
-            swaps: [Swap(original: "Tig", replacement: "Tadhg")],
+            to: "Use Datadogs tools for Datadob.",
+            swaps: [Swap(original: "Datadog", replacement: "DataDog")],
             aliases: [:]
         )
-        XCTAssertEqual(out, "A tight deadline for Tadhg.")
+        XCTAssertEqual(out, "Use Datadogs tools for Datadob.", "must not match inside 'Datadogs'")
     }
 
     func testCaseSensitiveWordMatchSkipsEarlierSubstring() {
         let out = BoostReplacementFilter.apply(
-            to: "Tight timeline, ask Tig.",
-            swaps: [Swap(original: "Tig", replacement: "Tadhg")],
+            to: "Ulterras timeline, ask Ulterra.",
+            swaps: [Swap(original: "Ulterra", replacement: "Alterra")],
             aliases: [:]
         )
-        XCTAssertEqual(out, "Tight timeline, ask Tadhg.")
+        XCTAssertEqual(out, "Ulterras timeline, ask Alterra.")
+    }
+
+    func testUnrelatedOneForOneSwapIsRejected() {
+        // Measured in live use: the rescorer swapped a real word for a vocabulary name.
+        let text = "It doesn't really match our brand styles, but it works."
+        let out = BoostReplacementFilter.apply(
+            to: text,
+            swaps: [Swap(original: "styles,", replacement: "Emmie"),
+                    Swap(original: "functionally it does", replacement: "Ikon Pass"),
+                    Swap(original: "top of gray,", replacement: "Allterra")],
+            aliases: [:]
+        )
+        XCTAssertEqual(out, text)
+    }
+
+    func testMeasuredCorrectionsStillPass() {
+        for (orig, term) in [("Xylequist", "Zylquist"), ("datadob", "Datadog"), ("icon pass", "Ikon Pass"),
+                             ("SAOIS", "Saoirse"), ("Ulterra", "Alterra"), ("Kuba needs", "Kubernetes")] {
+            XCTAssertTrue(BoostReplacementFilter.isSafe(Swap(original: orig, replacement: term), aliases: [:]), orig)
+        }
     }
 }

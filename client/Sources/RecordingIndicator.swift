@@ -316,7 +316,14 @@ private struct LivePreviewView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .glassEffect(.regular.tint(.black.opacity(0.55)), in: RoundedRectangle(cornerRadius: 16))
+            // Solid brand purple, not glass: glass over a light desktop read as white-on-gray.
+            // White on the brand's deep purple (#5847d6) is 6.4:1.
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(nsColor: NSColor(srgbRed: 0x58 / 255, green: 0x47 / 255, blue: 0xd6 / 255, alpha: 0.96)))
+                    .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+            )
+            .padding(6)   // room for the shadow inside the panel
             .animation(.easeOut(duration: 0.15), value: state.previewText)
             .accessibilityHidden(true)   // announced via the HUD, not read on every update
     }

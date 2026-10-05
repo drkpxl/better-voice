@@ -9,7 +9,9 @@ import Foundation
 /// term's own words plus extras (that is deletion, not correction). Otherwise a shrinking swap
 /// needs either to be one of the user's own "heard as" aliases ("cooper net ease" → "Kubernetes"),
 /// or to spell much the same letters ("Kuba needs" → "Kubernetes"). Swaps that keep or grow the
-/// word count are trusted — the rescorer already required acoustic evidence for them.
+/// word count still have to spell much the same letters as the term: on real speech the rescorer
+/// proposes plenty of acoustically "supported" nonsense — measured in live use, "…match our brand
+/// styles" became "…match our brand Emmie", and it suggested "functionally it does" → "Ikon Pass".
 ///
 /// Punctuation around a replaced span is kept: the rescorer's span carries the sentence's period,
 /// and its replacement doesn't.
@@ -47,17 +49,22 @@ public enum BoostReplacementFilter {
         return text.range(of: pattern, options: .regularExpression)
     }
 
+    /// How alike (letters only) a span and the term must be. 0.5 keeps every correction measured on
+    /// the jargon clips (the weakest: "SAOIS" → "Saoirse", 0.57) and rejects unrelated words.
+    static let minimumSimilarity = 0.5
+
     static func isSafe(_ swap: Swap, aliases: [String: [String]]) -> Bool {
         let original = normalized(swap.original)
         let replacement = normalized(swap.replacement)
         guard !replacement.isEmpty else { return false }
+        // The user's own "heard as" alias for the term is always trusted.
+        if (aliases[replacement] ?? []).contains(where: { normalized($0) == original }) { return true }
         let originalWords = original.split(separator: " ")
         let replacementWords = replacement.split(separator: " ")
-        if originalWords.count <= replacementWords.count { return true }
         // The term itself plus extra words: the swap would only delete the extras.
-        if contains(originalWords, replacementWords) { return false }
-        if (aliases[replacement] ?? []).contains(where: { normalized($0) == original }) { return true }
-        return letterSimilarity(original, replacement) >= 0.5
+        if originalWords.count > replacementWords.count, contains(originalWords, replacementWords) { return false }
+        // Otherwise the span must look like a mis-hearing of the term, whatever the word counts.
+        return letterSimilarity(original, replacement) >= minimumSimilarity
     }
 
     private static func contains(_ words: [Substring], _ run: [Substring]) -> Bool {

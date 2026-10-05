@@ -48,8 +48,9 @@ final class LiveDictationPreview {
                     let text = Self.display(transcript.text)
                     if !text.isEmpty { self?.onText?(text) }
                 } catch {
-                    // A preview failure is cosmetic; the final pass reports real errors.
-                    Logger.log("Preview", "Preview transcription failed: \(error)")
+                    // A preview failure is cosmetic; the final pass reports real errors. Being
+                    // cancelled at stop is expected, not worth a log line.
+                    if !Task.isCancelled { Logger.log("Preview", "Preview transcription failed: \(error)") }
                 }
             }
         }
