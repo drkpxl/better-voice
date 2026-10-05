@@ -141,27 +141,58 @@ enum TextInjector {
     }
 }
 
-/// A full copy of a pasteboard's contents: every item, every type, as raw data.
+/// A copy of a pasteboard's contents: every item, every type, as raw data.
 ///
 /// Reading `data(forType:)` forces any lazily-promised representation, which is the point — the
-/// owner of a promise may be gone by the time we restore. Types that yield no data are skipped.
+/// owner of a promise may be gone by the time we restore. Types that yield no data are skipped, as
+/// are types that are only ever generated on demand (`dyn.*` conversions, file promises): the owner
+/// regenerates those, and rendering them here would only cost time and memory on the main thread.
+///
+/// A clipboard bigger than `byteBudget` (a large image, a huge spreadsheet range) isn't copied at
+/// all: holding it costs more than the convenience is worth, so the dictated text is left on the
+/// clipboard instead.
 @MainActor
 private struct PasteboardSnapshot {
-    private let items: [[(NSPasteboard.PasteboardType, Data)]]
+    private static let byteBudget = 32 * 1024 * 1024
+    private static let skippedTypes: Set<String> = [
+        "com.apple.NSFilePromiseItemMetaData",
+        "com.apple.pasteboard.promised-file-content-type",
+        "com.apple.pasteboard.promised-file-url",
+        "com.apple.pasteboard.promised-suggested-file-name",
+    ]
+    /// nspasteboard.org: "this was put back by a clipboard tool" — not a new copy to record.
+    private static let restoredMarker = NSPasteboard.PasteboardType("org.nspasteboard.RestoredType")
+
+    /// Nil when the clipboard was over budget.
+    private let items: [[(NSPasteboard.PasteboardType, Data)]]?
 
     init(_ pb: NSPasteboard) {
-        items = (pb.pasteboardItems ?? []).map { item in
-            item.types.compactMap { type in
-                item.data(forType: type).map { (type, $0) }
+        var total = 0
+        var copied: [[(NSPasteboard.PasteboardType, Data)]] = []
+        for item in pb.pasteboardItems ?? [] {
+            var reps: [(NSPasteboard.PasteboardType, Data)] = []
+            for type in item.types where !type.rawValue.hasPrefix("dyn.") && !Self.skippedTypes.contains(type.rawValue) {
+                guard let data = item.data(forType: type) else { continue }
+                total += data.count
+                guard total <= Self.byteBudget else {
+                    items = nil
+                    return
+                }
+                reps.append((type, data))
             }
-        }.filter { !$0.isEmpty }
+            if !reps.isEmpty { copied.append(reps) }
+        }
+        items = copied
     }
 
     var summary: String {
-        items.isEmpty ? "empty" : "\(items.count) item(s)/\(items.reduce(0) { $0 + $1.count }) type(s)"
+        guard let items else { return "over \(Self.byteBudget / 1024 / 1024) MB, not saved" }
+        return items.isEmpty ? "empty" : "\(items.count) item(s)/\(items.reduce(0) { $0 + $1.count }) type(s)"
     }
 
+    /// Put the saved contents back. Over budget: leave the pasteboard as it is.
     func restore(to pb: NSPasteboard) {
+        guard let items else { return }
         pb.clearContents()
         guard !items.isEmpty else { return }
         let restored = items.map { reps -> NSPasteboardItem in
@@ -169,6 +200,7 @@ private struct PasteboardSnapshot {
             for (type, data) in reps { item.setData(data, forType: type) }
             return item
         }
+        restored[0].setData(Data(), forType: Self.restoredMarker)
         pb.writeObjects(restored)
     }
 }

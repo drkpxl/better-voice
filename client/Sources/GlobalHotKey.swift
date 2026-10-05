@@ -1,5 +1,6 @@
 import Cocoa
 @preconcurrency import CoreGraphics
+import BetterVoiceCore
 
 /// Global hotkey
 ///
@@ -194,13 +195,19 @@ final class GlobalHotKey {
         Logger.log("HotKey", "Meeting hotkey reloaded: \(config.displayName) (keyCode=\(config.keyCode), modifierOnly=\(config.isModifierOnly))")
     }
 
+    /// The modifier keys held in `flags`. Not `.deviceIndependentFlagsMask`: that range also holds
+    /// non-key bits (posted events carry 0x20000000), which would make a remapped or scripted
+    /// hotkey press (Karabiner, Keyboard Maestro) never match.
+    private static func modifierKeys(_ flags: CGEventFlags) -> NSEvent.ModifierFlags {
+        NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+            .intersection([.capsLock, .shift, .control, .option, .command, .numericPad, .help, .function])
+    }
+
     /// True when `flags` carries exactly `cfg`'s device-independent modifier bits — shared by
     /// both bindings' key-combination matching.
     private func modifiersMatch(_ cfg: HotKeyConfig, _ flags: CGEventFlags) -> Bool {
         let cfgMods = cfg.deviceIndependentModifiers
-        let evtMods = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-            .intersection(.deviceIndependentFlagsMask)
-        return cfgMods == evtMods
+        return cfgMods == Self.modifierKeys(flags)
     }
 
     /// Returns true when this key-down matched a combo binding and the callback should SWALLOW it
@@ -298,8 +305,7 @@ final class GlobalHotKey {
         // that pressing an *extra* modifier while armed doesn't fire early — only releasing one of
         // the combo's own modifiers does.
         let required = Self.releasableModifiers(cfg)
-        let current = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-            .intersection(.deviceIndependentFlagsMask)
+        let current = Self.modifierKeys(flags)
         guard !current.isSuperset(of: required) else { return }
 
         dictationComboArmed = false
@@ -351,17 +357,9 @@ final class GlobalHotKey {
 
     private static let escapeKeyCode: Int64 = 53   // kVK_Escape
 
-    /// Given a modifier keyCode, returns whether it is pressed in CGEventFlags
+    /// Whether this physical modifier key (not just "an Option key") is down — see `ModifierKeyState`.
     private func isModifierDown(for keyCode: UInt16, in flags: CGEventFlags) -> Bool {
-        switch keyCode {
-        case 54, 55: return flags.contains(.maskCommand)    // Right/Left Cmd
-        case 56, 60: return flags.contains(.maskShift)      // Left/Right Shift
-        case 57:     return flags.contains(.maskAlphaShift) // Caps Lock
-        case 58, 61: return flags.contains(.maskAlternate)  // Left/Right Option
-        case 59, 62: return flags.contains(.maskControl)    // Left/Right Control
-        case 63:     return flags.contains(.maskSecondaryFn) // fn
-        default:     return false
-        }
+        ModifierKeyState.isDown(keyCode: keyCode, flags: flags.rawValue)
     }
 }
 

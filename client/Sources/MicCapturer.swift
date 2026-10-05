@@ -33,6 +33,8 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         case notAuthorized
         case noAudioDevice
         case alreadyCapturing
+        /// `stop()`/`close()` landed while `start()` was still opening the session.
+        case stoppedDuringStart
     }
 
     /// Normalized (0...1) amplitude per buffer, hopped to the main queue before invocation — same
@@ -116,10 +118,23 @@ final class MicCapturer: NSObject, @unchecked Sendable {
         audioOutput.setSampleBufferDelegate(delegate, queue: captureQueue)
         session.addOutput(audioOutput)
 
-        self.captureDelegate = delegate
-        self.captureSession = session
-        self.captureQueue = captureQueue
         session.startRunning()
+
+        // Publish the session only if no stop()/close() landed while it was opening (Bluetooth
+        // setup can take a while). One that did found nothing to tear down and left that to us —
+        // otherwise the session would keep running, mic live, behind a stopped capturer.
+        let stillWanted = stateLock.withLock { () -> Bool in
+            guard isCapturing else { return false }
+            captureDelegate = delegate
+            captureSession = session
+            self.captureQueue = captureQueue
+            return true
+        }
+        guard stillWanted else {
+            Self.teardown(session: session, queue: captureQueue, writer: wavWriter)
+            Logger.log("Meeting", "MicCapturer stopped while starting — closed the session")
+            throw CaptureError.stoppedDuringStart
+        }
 
         started = true
         Logger.log("Meeting", "MicCapturer started (\(audioDevice.localizedName)) → \(audioFileURL?.lastPathComponent ?? "memory")")
@@ -127,39 +142,36 @@ final class MicCapturer: NSObject, @unchecked Sendable {
 
     /// Stops capture + finalizes the WAV. No-op if not currently capturing.
     func stop() async {
-        let wasCapturing = stateLock.withLock { () -> Bool in
-            if isCapturing { isCapturing = false; return true }
-            return false
-        }
-        guard wasCapturing else { return }
-        captureSession?.stopRunning()
-        captureSession = nil
-        captureDelegate = nil
-        // Finalize ON the capture queue so it's ordered strictly after any write() the delegate
-        // may still be executing — `stopRunning()` doesn't guarantee an in-flight callback
-        // returned first.
-        if let captureQueue {
-            captureQueue.sync { wavWriter?.finalize() }
-        } else {
-            wavWriter?.finalize()
-        }
-        self.captureQueue = nil
+        guard let (session, queue) = takeSession() else { return }
+        Self.teardown(session: session, queue: queue, writer: wavWriter)
         Logger.log("Meeting", "MicCapturer stopped")
+    }
+
+    /// Marks capture stopped and hands back the live session to tear down. Nil when not capturing,
+    /// or when `start()` hasn't published its session yet — it then sees `isCapturing == false`
+    /// and tears its own session down.
+    private func takeSession() -> (AVCaptureSession, DispatchQueue)? {
+        stateLock.withLock {
+            guard isCapturing else { return nil }
+            isCapturing = false
+            defer { captureSession = nil; captureDelegate = nil; captureQueue = nil }
+            guard let captureSession, let captureQueue else { return nil }
+            return (captureSession, captureQueue)
+        }
+    }
+
+    /// Finalize ON the capture queue so it's ordered strictly after any write() the delegate may
+    /// still be executing — `stopRunning()` doesn't guarantee an in-flight callback returned first.
+    private static func teardown(session: AVCaptureSession, queue: DispatchQueue, writer: PCMWavWriter?) {
+        session.stopRunning()
+        queue.sync { writer?.finalize() }
     }
 
     /// Synchronous teardown for the app-quitting path — mirrors `SystemAudioCapturer.close()`.
     /// Idempotent; safe even if `start()` never fully completed.
     func close() {
-        stateLock.withLock { isCapturing = false }
-        captureSession?.stopRunning()
-        captureSession = nil
-        captureDelegate = nil
-        if let captureQueue {
-            captureQueue.sync { wavWriter?.finalize() }
-        } else {
-            wavWriter?.finalize()
-        }
-        self.captureQueue = nil
+        guard let (session, queue) = takeSession() else { return }
+        Self.teardown(session: session, queue: queue, writer: wavWriter)
     }
 }
 

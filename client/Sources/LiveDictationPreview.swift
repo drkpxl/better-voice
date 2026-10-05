@@ -56,21 +56,15 @@ final class LiveDictationPreview {
         }
     }
 
-    /// The last stopped run, kept so `stopAndWait()` can still wait for it after a plain `stop()`.
-    private var stopping: Task<Void, Never>?
-
-    func stop() {
-        if let loop { stopping = loop }
-        loop?.cancel()
+    /// Stop, returning the stopped run so the caller can await a pass already inside the engine.
+    /// Returned rather than kept here: a caller that waits later must wait on ITS run, never on (or
+    /// cancel) the run of a dictation started in the meantime.
+    @discardableResult
+    func stop() -> Task<Void, Never>? {
+        let run = loop
+        run?.cancel()
         loop = nil
-    }
-
-    /// Stop, and wait for a pass already inside the engine to finish.
-    func stopAndWait() async {
-        stop()
-        let running = stopping
-        stopping = nil
-        await running?.value
+        return run
     }
 
     private static func display(_ raw: String) -> String {

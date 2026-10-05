@@ -295,7 +295,7 @@ final class VoiceModule {
             return
         }
 
-        preview.stop()
+        let previewRun = preview.stop()
         let tStop0 = CFAbsoluteTimeGetCurrent()
         let recordingMs = Int((tStop0 - recordingStartT) * 1000)
         state = .transcribing
@@ -305,12 +305,18 @@ final class VoiceModule {
         Task {
             let captured = await recorder.stop()
             // The preview's in-flight pass and the final pass must not share the engine at once.
-            await self.preview.stopAndWait()
+            await previewRun?.value
             // Esc during transcription: `cancel()` already returned to idle and must stay the
             // owner of `state` — every exit below goes through this.
             @MainActor func finish() { if gen == self.generation { self.state = .idle } }
             let captureMs = Int((CFAbsoluteTimeGetCurrent() - tStop0) * 1000)
             if self.recorder === recorder { self.recorder = nil }
+
+            // Esc during the stop: don't spend a full transcription on audio that's discarded.
+            guard gen == self.generation else {
+                Logger.log("Voice", "Dictation cancelled while stopping; discarding")
+                return
+            }
 
             // Nothing captured at all: the mic produced no buffers, or they disagreed about format.
             // Silent -- decision 11 reserves notifications for real faults, and there is nothing here
