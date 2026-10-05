@@ -48,6 +48,22 @@ final class DictationRecorder {
         return Self.concatenate(collected.drain())
     }
 
+    /// The most recent `maxSeconds` of audio captured so far, as one buffer, without disturbing
+    /// the recording — the live preview's input. Nil before the first buffer arrives.
+    func snapshotTail(maxSeconds: TimeInterval) -> AVAudioPCMBuffer? {
+        let all = collected.snapshot()
+        guard let rate = all.first?.format.sampleRate, rate > 0 else { return nil }
+        let budget = AVAudioFrameCount(maxSeconds * rate)
+        var tail: [AVAudioPCMBuffer] = []
+        var frames: AVAudioFrameCount = 0
+        for buffer in all.reversed() {
+            tail.append(buffer)
+            frames += buffer.frameLength
+            if frames >= budget { break }
+        }
+        return Self.concatenate(tail.reversed())
+    }
+
     /// Synchronous teardown for the app-quitting path.
     func close() {
         capturer.close()
@@ -111,6 +127,12 @@ private final class BufferBox: @unchecked Sendable {
 
     func append(_ buffer: AVAudioPCMBuffer) {
         lock.withLock { buffers.append(buffer) }
+    }
+
+    /// A copy of the collection so far (the buffers themselves are shared, and never mutated
+    /// after capture hands them over).
+    func snapshot() -> [AVAudioPCMBuffer] {
+        lock.withLock { buffers }
     }
 
     func drain() -> [AVAudioPCMBuffer] {

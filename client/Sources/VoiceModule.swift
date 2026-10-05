@@ -29,6 +29,9 @@ final class VoiceModule {
     var onStateChange: ((State) -> Void)?
     /// A dictation was cancelled (Esc) — the UI plays its cancel cue instead of the stop cue.
     var onCancel: (() -> Void)?
+    /// Live transcript of the recording so far (display only; see `LiveDictationPreview`).
+    var onPreviewText: ((String) -> Void)?
+    private let preview = LiveDictationPreview()
 
     /// Tap vs hold interpretation of the hotkey's physical edges.
     private var gesture = DictationGesture()
@@ -178,6 +181,7 @@ final class VoiceModule {
         guard state != .idle else { return }
         Logger.log("Voice", "Cancelled during \(state)")
         generation += 1
+        preview.stop()
         holdTimer?.cancel()
         holdTimer = nil
         gesture.reset()
@@ -245,6 +249,11 @@ final class VoiceModule {
                     return
                 }
                 Logger.log("Voice", "Recording... press hotkey again to stop")
+                self.preview.onText = { [weak self] text in
+                    guard let self, case .recording = self.state, self.recorder === voiceSession else { return }
+                    self.onPreviewText?(text)
+                }
+                self.preview.start(recorder: voiceSession)
             } catch {
                 Logger.log("Voice", "Failed to start: \(error)")
                 // Only reset if this session is still the current one — the user may have already
@@ -263,6 +272,7 @@ final class VoiceModule {
             return
         }
 
+        preview.stop()
         let tStop0 = CFAbsoluteTimeGetCurrent()
         let recordingMs = Int((tStop0 - recordingStartT) * 1000)
         state = .transcribing

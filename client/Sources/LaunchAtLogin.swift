@@ -46,3 +46,24 @@ struct LaunchAtLoginToggle: View {
         status = SMAppService.mainApp.status
     }
 }
+
+/// A Settings toggle for a top-level Boolean preference that applies the moment it's flipped,
+/// independent of the Settings window's Save/Cancel draft.
+struct ImmediateToggle: View {
+    let title: String
+    let key: String
+    @State private var isOn: Bool
+
+    init(_ title: String, key: String, default defaultValue: Bool) {
+        self.title = title
+        self.key = key
+        _isOn = State(initialValue: RuntimeConfig.shared.bool(key, default: defaultValue))
+    }
+
+    var body: some View {
+        Toggle(title, isOn: $isOn)
+            .onChange(of: isOn) { _, newValue in
+                RuntimeConfig.shared.updateTopLevel(key, newValue)
+            }
+    }
+}

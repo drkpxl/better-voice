@@ -80,6 +80,17 @@ final class RuntimeConfig {
         values["strip_fillers"] as? Bool ?? true
     }
 
+    /// Whether the recording HUD shows a live transcript while dictating. Display only — the
+    /// inserted text is unaffected. Defaults on.
+    var livePreviewEnabled: Bool {
+        values["live_preview"] as? Bool ?? true
+    }
+
+    /// A top-level Boolean preference by key (for simple toggles that need no dedicated property).
+    func bool(_ key: String, default defaultValue: Bool) -> Bool {
+        values[key] as? Bool ?? defaultValue
+    }
+
     /// Dictation hotkey configuration.
     var hotKeyConfig: [String: Any] {
         values["hotkey"] as? [String: Any] ?? [:]

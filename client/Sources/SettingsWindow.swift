@@ -243,6 +243,7 @@ struct SettingsContentView: View {
             Form {
                 Section(t("General")) {
                     LaunchAtLoginToggle()
+                    ImmediateToggle(t("Show live transcript while dictating"), key: "live_preview", default: true)
                 }
 
                 Section(t("Connection")) {

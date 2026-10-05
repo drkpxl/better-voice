@@ -44,6 +44,8 @@ final class RecordingIndicator {
         if wasEmpty {
             normalizer.reset()
             state.audioLevel = 0
+            state.previewText = ""
+            announce(t("Recording"))
         }
         ensureWindow()
     }
@@ -103,7 +105,67 @@ final class RecordingIndicator {
             panel.close()
         }
         window = nil
+        hidePreview()
         Logger.log("UI", "Recording indicator hidden")
+    }
+
+    // MARK: - Live transcript
+
+    private var previewPanel: NSPanel?
+    private static let previewSize = NSSize(width: 440, height: 56)
+
+    /// Show (or update) the live transcript under the HUD. Empty text hides it.
+    func setPreview(_ text: String) {
+        guard let hud = window else { return }
+        state.previewText = text
+        guard !text.isEmpty else { hidePreview(); return }
+        guard previewPanel == nil else { return }
+
+        let size = Self.previewSize
+        let frame = NSRect(
+            x: hud.frame.midX - size.width / 2,
+            y: hud.frame.minY - size.height - 8,
+            width: size.width,
+            height: size.height
+        )
+        let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.level = .screenSaver
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        panel.ignoresMouseEvents = true
+        let host = NSHostingView(rootView: LivePreviewView(state: state))
+        host.frame = NSRect(origin: .zero, size: size)
+        panel.contentView = host
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.2
+            panel.animator().alphaValue = 1
+        }
+        previewPanel = panel
+    }
+
+    private func hidePreview() {
+        state.previewText = ""
+        guard let panel = previewPanel else { return }
+        panel.orderOut(nil)
+        panel.contentView = nil
+        panel.close()
+        previewPanel = nil
+    }
+
+    /// VoiceOver: say what the HUD is doing, since the HUD itself is not focusable.
+    func announce(_ message: String) {
+        NSAccessibility.post(
+            element: NSApp as Any,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
     }
 
     /// Takes the raw RMS (0...1) and drives the waveform after adaptive normalization.
@@ -121,7 +183,12 @@ final class RecordingIndicator {
     func setTranscribing(_ transcribing: Bool) {
         guard window != nil else { return }
         state.isTranscribing = transcribing
-        if transcribing { state.audioLevel = 0 }
+        if transcribing {
+            state.audioLevel = 0
+            // The preview was a guess at work in progress; the real text is about to be inserted.
+            hidePreview()
+            announce(t("Transcribing"))
+        }
     }
 }
 
@@ -174,43 +241,82 @@ struct Geometry {
 
 // MARK: - State
 
-private final class RecordingIndicatorState: ObservableObject {
-    @Published var audioLevel: Float = 0
+@MainActor
+@Observable
+private final class RecordingIndicatorState {
+    var audioLevel: Float = 0
     /// True once capture has stopped and the engine is running. The waveform has nothing to show at
-    /// that point -- no audio is arriving -- so the view animates instead of sitting frozen, which is
-    /// what "stopped updating" would otherwise look like.
-    @Published var isTranscribing = false
+    /// that point -- no audio is arriving -- so the bars switch to a "working" sweep instead of
+    /// sitting frozen, which is what "stopped updating" would otherwise look like.
+    var isTranscribing = false
+    /// Live transcript while recording (see `LiveDictationPreview`); empty when there is none.
+    var previewText = ""
 }
 
 // MARK: - Content
 
 private struct RecordingIndicatorContentView: View {
-    @ObservedObject var state: RecordingIndicatorState
+    let state: RecordingIndicatorState
     let geometry: Geometry
 
     var body: some View {
+        if geometry.hasNotch {
+            notchWings
+        } else {
+            // No notch to hang from: a Liquid Glass pill, which reads as part of the system UI
+            // rather than a black slab over the menu bar.
+            WaveformView(audioLevel: state.audioLevel, transcribing: state.isTranscribing)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .glassEffect(.regular.tint(.black.opacity(0.55)), in: pillShape)
+        }
+    }
+
+    private var pillShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            bottomLeadingRadius: geometry.cornerRadius,
+            bottomTrailingRadius: geometry.cornerRadius
+        )
+    }
+
+    /// The notch's wings stay solid black: anything else would show the seam against the notch.
+    private var notchWings: some View {
         Group {
             if geometry.hasNotch {
                 // Left-wing waveform + middle solid-black notch + right-wing empty space (hidden by the camera cutout).
                 HStack(spacing: 0) {
-                    CompactWaveformView(audioLevel: state.audioLevel)
+                    CompactWaveformView(audioLevel: state.audioLevel, transcribing: state.isTranscribing)
                         .frame(width: geometry.leftWingWidth, height: geometry.height)
                     Color.black
                         .frame(width: geometry.notchWidth, height: geometry.height)
                     Color.clear
                         .frame(width: geometry.rightWingWidth, height: geometry.height)
                 }
-            } else {
-                WaveformView(audioLevel: state.audioLevel)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
-        .clipShape(UnevenRoundedRectangle(
-            bottomLeadingRadius: geometry.cornerRadius,
-            bottomTrailingRadius: geometry.cornerRadius
-        ))
+        .clipShape(pillShape)
+    }
+}
+
+/// The live transcript bubble under the HUD: the last two lines of what's been heard, newest at
+/// the end (head-truncated, so the start falls away as you keep talking).
+private struct LivePreviewView: View {
+    let state: RecordingIndicatorState
+
+    var body: some View {
+        Text(state.previewText)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.white)
+            .lineLimit(2)
+            .truncationMode(.head)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .glassEffect(.regular.tint(.black.opacity(0.55)), in: RoundedRectangle(cornerRadius: 16))
+            .animation(.easeOut(duration: 0.15), value: state.previewText)
+            .accessibilityHidden(true)   // announced via the HUD, not read on every update
     }
 }
 
@@ -232,6 +338,7 @@ private struct WaveformBar: View {
 /// 9 symmetric vertical bars (used for the no-notch pill).
 private struct WaveformView: View {
     let audioLevel: Float
+    var transcribing = false
 
     private static let barCount = 9
     private static let multipliers: [CGFloat] = [0.35, 0.55, 0.75, 0.9, 1.0, 0.9, 0.75, 0.55, 0.35]
@@ -254,7 +361,9 @@ private struct WaveformView: View {
     }
 
     private func amplitude(for index: Int, pulseTime: TimeInterval?) -> CGFloat {
-        sharedAmplitude(level: audioLevel, multiplier: Self.multipliers[index], index: index, pulseTime: pulseTime)
+        transcribing
+            ? workingAmplitude(index: index, count: Self.barCount, time: pulseTime ?? 0)
+            : sharedAmplitude(level: audioLevel, multiplier: Self.multipliers[index], index: index, pulseTime: pulseTime)
     }
 
     private func response(for index: Int) -> Double {
@@ -266,6 +375,7 @@ private struct WaveformView: View {
 /// 5 compact vertical bars (used for the notch's left wing).
 private struct CompactWaveformView: View {
     let audioLevel: Float
+    var transcribing = false
 
     private static let barCount = 5
     private static let multipliers: [CGFloat] = [0.5, 0.75, 1.0, 0.75, 0.5]
@@ -275,12 +385,14 @@ private struct CompactWaveformView: View {
             HStack(spacing: 1.5) {
                 ForEach(0..<Self.barCount, id: \.self) { index in
                     WaveformBar(
-                        amplitude: sharedAmplitude(
-                            level: audioLevel,
-                            multiplier: Self.multipliers[index],
-                            index: index,
-                            pulseTime: context.date.timeIntervalSinceReferenceDate
-                        ),
+                        amplitude: transcribing
+                            ? workingAmplitude(index: index, count: Self.barCount, time: context.date.timeIntervalSinceReferenceDate)
+                            : sharedAmplitude(
+                                level: audioLevel,
+                                multiplier: Self.multipliers[index],
+                                index: index,
+                                pulseTime: context.date.timeIntervalSinceReferenceDate
+                            ),
                         width: 2,
                         maxHeight: 14
                     )
@@ -290,6 +402,15 @@ private struct CompactWaveformView: View {
         }
         .frame(height: 18)
     }
+}
+
+/// "Working" look while the engine runs: a single bump sweeping across the bars, clearly distinct
+/// from the live, level-driven waveform so the switch from listening to transcribing is visible.
+private func workingAmplitude(index: Int, count: Int, time: TimeInterval) -> CGFloat {
+    let phase = (time * 1.6).truncatingRemainder(dividingBy: 1)        // 0...1, ~0.6s per sweep
+    let center = phase * Double(count + 1) - 0.5
+    let distance = abs(Double(index) - center)
+    return CGFloat(0.12 + 0.6 * max(0, 1 - distance / 1.5))
 }
 
 /// FreeFlow's bar amplitude formula: at low levels, adds a bit of traveling wave/shimmer to make the waveform feel "alive".

@@ -232,6 +232,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         voiceModule.onAudioLevel = { [weak self] level in
             self?.recordingIndicator.update(level: level)
         }
+        voiceModule.onPreviewText = { [weak self] text in
+            self?.recordingIndicator.setPreview(text)
+        }
         // A press that arrives before the models are down has to say something. A refused hotkey with
         // no feedback is indistinguishable from a dead one — and the notch HUD is a 38pt waveform
         // wing with nowhere to put a sentence, so this goes through the notification channel the app
@@ -261,8 +264,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.shared.onCancelKey = { [weak self] in
             self?.voiceModule.cancel()
         }
-        voiceModule.onCancel = {
+        voiceModule.onCancel = { [weak self] in
             DictationSound.playCancel()
+            self?.recordingIndicator.announce(t("Dictation cancelled"))
         }
         // Meeting hotkey: a fire-once toggle (no processing gate needed — toggleMeeting() is
         // already start/stop-gated by MeetingCoordinator's own state machine, same guard the menu
