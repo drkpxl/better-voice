@@ -18,19 +18,20 @@
 		| { kind: 'header'; label: string }
 		| { kind: 'divider' }
 		| { kind: 'item'; label: string; check?: boolean; hovered?: boolean }
+		| { kind: 'submenu'; label: string; hovered?: boolean }
 		| { kind: 'shortcut'; label: string; shortcut: string };
 
 	const rows: Row[] = [
 		{ kind: 'header', label: 'Better Voice' },
 		{ kind: 'divider' },
-		{ kind: 'item', label: 'Global hotkey monitoring: Authorized', check: true },
-		{ kind: 'item', label: 'Text injection (cursor): Authorized', check: true },
+		{ kind: 'item', label: 'Global hotkey & text injection: Authorized', check: true },
 		{ kind: 'item', label: 'Microphone: Authorized', check: true },
 		{ kind: 'divider' },
-		{ kind: 'item', label: 'Open Better Voice', hovered: true },
-		{ kind: 'item', label: 'Set Hotkey…' },
+		{ kind: 'item', label: 'Start Meeting Recording' },
+		{ kind: 'submenu', label: 'Recent Dictations', hovered: true },
 		{ kind: 'divider' },
-		{ kind: 'item', label: 'Start Meeting…' },
+		{ kind: 'item', label: 'Open Better Voice' },
+		{ kind: 'item', label: 'Set Hotkeys…' },
 		{ kind: 'divider' },
 		{ kind: 'item', label: 'Welcome / Setup Guide' },
 		{ kind: 'divider' },
@@ -98,6 +99,8 @@
 	<div class="rec-indicator">
 		<Waveform height={18} color="#fff" animated={true} />
 	</div>
+	<!-- Live transcript preview, shown under the indicator while you talk. -->
+	<div class="live-preview" aria-hidden="true">so the deploy goes out Thursday after</div>
 
 	<!-- 2. DROPDOWN MENU (below the status item, toward the right) -->
 	<div class="menu" role="menu">
@@ -106,6 +109,11 @@
 				<div class="divider" aria-hidden="true"></div>
 			{:else if row.kind === 'header'}
 				<div class="row header">{row.label}</div>
+			{:else if row.kind === 'submenu'}
+				<div class="row item flex" class:hovered={row.hovered}>
+					<span class="label">{row.label}</span>
+					<span class="shortcut" aria-hidden="true">›</span>
+				</div>
 			{:else if row.kind === 'shortcut'}
 				<div class="row item flex">
 					<span class="label">{row.label}</span>
@@ -219,6 +227,21 @@
 		z-index: 2;
 	}
 
+	.live-preview {
+		position: absolute;
+		top: 62px;
+		left: clamp(10px, 8%, 70px);
+		max-width: min(260px, 52%);
+		padding: 7px 14px;
+		border-radius: 16px;
+		background: rgba(88, 71, 214, 0.96);
+		color: #fff;
+		font-size: 12.5px;
+		line-height: 1.35;
+		box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+		z-index: 2;
+	}
+
 	/* 2. DROPDOWN MENU */
 	.menu {
 		position: absolute;
@@ -292,6 +315,17 @@
 	.row.item.hovered {
 		background: var(--bv-accent);
 		color: #fff;
+	}
+
+	/* Narrow: the menu spans the scene, so drop it below the indicator + preview. */
+	@media (max-width: 560px) {
+		.live-preview {
+			max-width: calc(100% - 24px);
+		}
+
+		.menu {
+			top: 112px;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {

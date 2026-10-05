@@ -243,11 +243,24 @@ final class GlobalHotKey {
         let cfg = currentConfig
         guard comboMatches(cfg, keyCode: keyCode, flags: flags) else { return false }
         if !isAutorepeat, !dictationComboArmed {
-            dictationComboArmed = true
             Logger.log("HotKey", "\(cfg.displayName) DOWN")
             if let onDictationDown { DispatchQueue.main.async { onDictationDown() } }
+            if Self.releasableModifiers(cfg).isEmpty {
+                // A bare key (F5, `) has no modifier release to wait for, and the tap doesn't see
+                // keyUp: report the release now, so every press is a tap that toggles.
+                Logger.log("HotKey", "\(cfg.displayName) UP (no modifiers)")
+                if let onDictationUp { DispatchQueue.main.async { onDictationUp() } }
+            } else {
+                dictationComboArmed = true
+            }
         }
         return true
+    }
+
+    /// The combo's modifiers that produce a flagsChanged release. `.function`/`.numericPad` ride
+    /// along on F-keys and keypad keys themselves, so they never "release" on their own.
+    private static func releasableModifiers(_ cfg: HotKeyConfig) -> NSEvent.ModifierFlags {
+        cfg.deviceIndependentModifiers.subtracting([.function, .numericPad, .capsLock])
     }
 
     /// Meeting's key-combination path — fires `onMeetingFire` once per physical press. Autorepeat
@@ -284,7 +297,7 @@ final class GlobalHotKey {
         // Fire only once a REQUIRED modifier is no longer held. Superset check (not exact match) so
         // that pressing an *extra* modifier while armed doesn't fire early — only releasing one of
         // the combo's own modifiers does.
-        let required = cfg.deviceIndependentModifiers
+        let required = Self.releasableModifiers(cfg)
         let current = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
             .intersection(.deviceIndependentFlagsMask)
         guard !current.isSuperset(of: required) else { return }

@@ -5,7 +5,7 @@
 	import SettingsScreen from "$lib/components/SettingsScreen.svelte";
 	import MenuBarScene from "$lib/components/MenuBarScene.svelte";
 
-	const version = "1.1.1";
+	const version = "1.2.0";
 	const minMacOS = "26 Tahoe";
 	// Stable alias maintained by client/scripts/release.sh (copies the newest DMG over it).
 	const releaseUrl = `${base}/downloads/BetterVoice2-latest.dmg`;
@@ -32,7 +32,7 @@
 			id: "dictation",
 			label: "Dictation",
 			caption:
-				"Hold your hotkey anywhere. The menu-bar app transcribes with Parakeet and types at your cursor.",
+				"Tap your hotkey or hold it while you talk. A live transcript follows along under the indicator, and the text lands at your cursor when you stop.",
 		},
 		{
 			id: "settings",
@@ -61,13 +61,13 @@
 		{
 			kicker: "Job one",
 			title: "Dictation, in every app you use",
-			body: "Hold your hotkey, talk, let go. The text appears at your cursor: email, Slack, your editor, a form in the browser. There's no window to switch to and nothing to paste. Filler words come out by a fixed word list and your own spellings go in by exact word-match, so nothing rewrites what you actually said.",
+			body: "Tap your hotkey to start and again to stop, or hold it while you talk and let go. You see the words as you say them, and they appear at your cursor: email, Slack, your editor, a form in the browser. Esc cancels, your clipboard is put back afterwards, and filler words come out by a fixed word list, so nothing rewrites what you actually said.",
 			replaces: "Instead of a dictation subscription",
 		},
 		{
 			kicker: "Job two",
 			title: "Meeting notes, written and filed",
-			body: "Record the call straight off your Mac, drop in a recording you already have, or paste a transcript. Better Voice transcribes it, works out who spoke when, has you name the voices once, and writes a summary with a real title. Name someone once and it recognises them in later meetings.",
+			body: "Record the call straight off your Mac, drop in a recording you already have, or paste a transcript. Better Voice transcribes it, works out who spoke when, has you name the voices once, and writes a summary with a real title. Long imports keep going in the background, and you get a notification when the note is ready.",
 			replaces: "Instead of an AI notetaker",
 		},
 	];
@@ -103,6 +103,18 @@
 		{
 			title: "Learns the people you meet with",
 			body: "Name a voice once and Better Voice suggests that name next time it hears them. Naming gets faster every meeting instead of starting over.",
+		},
+		{
+			title: "Hears your vocabulary",
+			body: "Add the names and jargon you use and Better Voice listens for them in the audio itself, so a word the speech model would mishear still comes out spelled your way. Your exact spellings are applied on top.",
+		},
+		{
+			title: "Works with Shortcuts",
+			body: "Toggle dictation, start or stop a meeting recording, import a file, transcribe audio to text, or grab your last dictation, from the Shortcuts app or Spotlight. The last ten dictations are also one click away in the menu bar.",
+		},
+		{
+			title: "Not just English",
+			body: "The speech model recognises most European languages on its own. Set yours in Settings if short clips come out in the wrong alphabet. The filler-word cleanup is English-only, so it stays out of the way otherwise.",
 		},
 		{
 			title: "Free, and MIT-licensed",
@@ -306,7 +318,7 @@
 			<div class="compare-col compare-after">
 				<h3>With Better Voice</h3>
 				<ul>
-					<li>Hold-to-talk dictation in every app</li>
+					<li>Tap or hold-to-talk dictation in every app</li>
 					<li>Records and summarizes meetings in the same app</li>
 					<li>No bot; the audio is captured on your Mac</li>
 					<li>Notes in Apple Notes, on every device you own</li>
@@ -401,9 +413,11 @@ Better Voice 1.0 is in final testing. The download lands here
 					</li>
 
 					<li>
-						<strong>Grant permissions when asked</strong>: Microphone, Input Monitoring
-						(for the hotkey), Accessibility (to type at your cursor), and Automation
+						<strong>Grant permissions when asked</strong>: Microphone, Accessibility
+						(for the hotkey and to type at your cursor), and Automation
 						for Notes (so Better Voice can add meeting notes and open them for you).
+						Recording a call live also asks for System Audio Recording, to hear the
+						other side.
 						Then quit and reopen once so macOS applies them.
 					</li>
 					<li>

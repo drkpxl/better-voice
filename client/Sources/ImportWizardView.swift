@@ -253,7 +253,7 @@ struct ProcessingStepView: View {
             Text(t("This can take a while for long recordings."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Button(t("Stop Import")) { session.cancel() }
+            Button(t("Stop Import")) { if confirmStopImport() { session.cancel() } }
                 .keyboardShortcut(.cancelAction)
                 .disabled(!session.canCancel)
             Spacer()
@@ -387,7 +387,7 @@ struct SummarizingStepView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
             if session.canCancel {
-                Button(t("Stop Import")) { session.cancel() }
+                Button(t("Stop Import")) { if confirmStopImport() { session.cancel() } }
                     .keyboardShortcut(.cancelAction)
             }
             Spacer()

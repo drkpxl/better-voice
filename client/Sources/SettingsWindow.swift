@@ -219,6 +219,9 @@ final class SettingsViewModel {
 struct SettingsContentView: View {
     @Bindable var viewModel: SettingsViewModel
     @State private var showNotesPicker = false
+    /// Model picked per provider this session, so a provider misclick (Ollama → Apple → Ollama)
+    /// doesn't lose the model — Settings saves as you go, with no Cancel.
+    @State private var modelByProvider: [String: String] = [:]
 
     /// Options for a model dropdown: the server-reported models, guaranteeing `current` is present so a
     /// configured-but-unlisted model (not pulled yet, remote, or list unavailable) isn't silently lost.
@@ -366,18 +369,17 @@ struct SettingsContentView: View {
             Section {
                 Toggle(t("Summarize meetings"), isOn: $viewModel.summarizationEnabled)
                 LLMProviderPicker(selection: $viewModel.summarizationProvider)
-                    .onChange(of: viewModel.summarizationProvider) { _, newValue in
+                    .onChange(of: viewModel.summarizationProvider) { oldValue, newValue in
                         viewModel.summarizationAvailableModels = []
+                        modelByProvider[oldValue] = viewModel.summarizationModel
                         if newValue == "apple" {
                             viewModel.summarizationModel = FoundationModelsBackend.modelName
-                            viewModel.summarizationEndpoint = ""
-                            // The API key is kept: Settings saves as you go, so clearing it here
-                            // would delete it from the Keychain on a misclick.
+                            // Endpoint and API key are kept (Apple ignores both): Settings saves as
+                            // you go, so clearing them here would lose them on a misclick.
                         } else {
-                            // Leaving Apple (or switching between Ollama/OpenAI-compatible):
-                            // the old model name belongs to a different provider, so it's
-                            // never valid here — clear it rather than leave a stale value.
-                            viewModel.summarizationModel = ""
+                            // A model name from another provider is never valid here; restore the
+                            // one picked for this provider earlier, if any.
+                            viewModel.summarizationModel = modelByProvider[newValue] ?? ""
                             if viewModel.summarizationEndpoint.isEmpty {
                                 viewModel.summarizationEndpoint = LLMProvider.defaultEndpoint(forTag: newValue)
                             }

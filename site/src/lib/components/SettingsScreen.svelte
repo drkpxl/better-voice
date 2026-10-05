@@ -294,13 +294,6 @@
 		outline: none;
 	}
 
-	.endpoint {
-		width: 220px;
-		font-family:
-			ui-monospace, 'SF Mono', Menlo, Monaco, 'Cascadia Code', monospace;
-		font-size: 12px;
-	}
-
 	.name {
 		width: 200px;
 	}

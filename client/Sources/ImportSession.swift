@@ -453,12 +453,14 @@ final class ImportSession {
         }
     }
 
-    /// True while finished work exists ONLY in this session's memory: the Notes write failed
-    /// (`.saveFailed`) or is still in flight. Quitting in this state would discard it, so the
-    /// quit check confirms first.
+    /// True while finished work exists ONLY in this session's memory: transcription is done and
+    /// waiting on speaker names (`.naming`), the Notes write failed (`.saveFailed`), or it is still
+    /// in flight. Quitting in this state would discard it, so the quit check confirms first.
     var hasUnsavedFinishedWork: Bool {
-        if case .saveFailed = step { return true }
-        return isSavingToNotes
+        switch step {
+        case .naming, .saveFailed: return true
+        default: return isSavingToNotes
+        }
     }
 
     /// Rescue screen's "Try again": re-invokes just the Notes write with the content already kept
