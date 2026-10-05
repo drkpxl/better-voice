@@ -241,6 +241,10 @@ struct SettingsContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
+                Section(t("General")) {
+                    LaunchAtLoginToggle()
+                }
+
                 Section(t("Connection")) {
                     HStack {
                         Text(t("Status"))

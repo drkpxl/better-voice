@@ -5,7 +5,8 @@ import CoreAudio
 import BetterVoiceCore
 
 /// Voice module
-/// Interaction: press right Command to start recording+transcription -> press right Command again to stop -> auto-inject
+/// Interaction: tap the hotkey to start and tap again to stop, or hold it while talking and let go
+/// (see `DictationGesture`); Esc cancels. On stop the audio is transcribed and inserted at the cursor.
 @MainActor
 final class VoiceModule {
     let name = "Voice"
@@ -26,6 +27,19 @@ final class VoiceModule {
 
     /// State change callback (used by UI indicators)
     var onStateChange: ((State) -> Void)?
+    /// A dictation was cancelled (Esc) — the UI plays its cancel cue instead of the stop cue.
+    var onCancel: (() -> Void)?
+
+    /// Tap vs hold interpretation of the hotkey's physical edges.
+    private var gesture = DictationGesture()
+    private var holdTimer: Task<Void, Never>?
+    /// Whether the dictation binding is modifier-only; refreshed from config on every press.
+    private var hotKeyIsModifierOnly: Bool {
+        HotKeyConfig.load(from: RuntimeConfig.shared.hotKeyConfig).isModifierOnly
+    }
+    /// Bumped by `cancel()`, so a transcription already in flight drops its result instead of
+    /// inserting it.
+    private var generation = 0
 
     /// Real-time audio level callback (raw RMS, 0...1, used for the waveform indicator; only triggered by the dictation flow, meetings don't use this module)
     var onAudioLevel: ((Float) -> Void)?
@@ -103,9 +117,42 @@ final class VoiceModule {
         }
     }
 
+    // MARK: - Hotkey edges
+
     func onHotKeyDown() {
-        switch state {
-        case .idle:
+        if case .transcribing = state { Logger.log("Voice", "Ignored hotkey, transcribing") }
+        let action = gesture.down(
+            at: CFAbsoluteTimeGetCurrent(),
+            isRecording: state == .recording,
+            isBusy: state == .transcribing,
+            modifierOnly: hotKeyIsModifierOnly
+        )
+        perform(action)
+    }
+
+    func onHotKeyUp() {
+        holdTimer?.cancel()
+        holdTimer = nil
+        perform(gesture.up(at: CFAbsoluteTimeGetCurrent()))
+    }
+
+    func onHotKeyOtherKey() {
+        perform(gesture.otherKeyPressed())
+    }
+
+    private func perform(_ action: DictationGesture.Action) {
+        switch action {
+        case .none:
+            break
+        case .scheduleHoldTimer:
+            holdTimer?.cancel()
+            holdTimer = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(DictationGesture.holdThreshold))
+                guard !Task.isCancelled, let self else { return }
+                self.perform(self.gesture.holdTimerFired(at: CFAbsoluteTimeGetCurrent()))
+            }
+        case .start:
+            guard case .idle = state else { return }
             // Refuse the press rather than record audio we cannot transcribe yet. Declining costs the
             // user one dictation; recording optimistically costs them the whole app, because the
             // stop-press then parks in `.transcribing` for the length of a 470 MB download with no way
@@ -113,18 +160,33 @@ final class VoiceModule {
             guard modelsReady else {
                 Logger.log("Voice", "Dictation unavailable: speech model not ready (\(Int(modelFraction * 100))%)")
                 onModelsUnavailable?(modelFraction)
+                gesture.reset()
                 return
             }
             startRecording()
-        case .recording:
+        case .stop:
+            guard case .recording = state else { return }
             stopAndProcess()
-        case .transcribing:
-            Logger.log("Voice", "Ignored hotkey, transcribing")
         }
     }
 
-    func onHotKeyUp() {
-        // No action on key release
+    // MARK: - Cancel
+
+    /// Abandon the current dictation: stop capture, drop the audio and any transcription in flight,
+    /// insert nothing. No-op when idle.
+    func cancel() {
+        guard state != .idle else { return }
+        Logger.log("Voice", "Cancelled during \(state)")
+        generation += 1
+        holdTimer?.cancel()
+        holdTimer = nil
+        gesture.reset()
+        if let recorder {
+            self.recorder = nil
+            Task { _ = await recorder.stop() }
+        }
+        state = .idle
+        onCancel?()
     }
 
     private func startRecording() {
@@ -206,17 +268,21 @@ final class VoiceModule {
         state = .transcribing
         Logger.log("Voice", "Stopping... (recorded \(recordingMs)ms)")
 
+        let gen = generation
         Task {
             let captured = await recorder.stop()
+            // Esc during transcription: `cancel()` already returned to idle and must stay the
+            // owner of `state` — every exit below goes through this.
+            @MainActor func finish() { if gen == self.generation { self.state = .idle } }
             let captureMs = Int((CFAbsoluteTimeGetCurrent() - tStop0) * 1000)
-            self.recorder = nil
+            if self.recorder === recorder { self.recorder = nil }
 
             // Nothing captured at all: the mic produced no buffers, or they disagreed about format.
             // Silent -- decision 11 reserves notifications for real faults, and there is nothing here
             // the user can act on.
             guard let buffer = captured else {
                 Logger.log("Voice", "No audio captured; nothing to transcribe")
-                state = .idle
+                finish()
                 return
             }
 
@@ -226,7 +292,7 @@ final class VoiceModule {
             // cheaper and the more common cause.
             guard audio.duration >= Self.minimumDictationSeconds else {
                 Logger.log("Voice", "Discarded \(String(format: "%.2f", audio.duration))s dictation (below \(Self.minimumDictationSeconds)s)")
-                state = .idle
+                finish()
                 return
             }
 
@@ -238,7 +304,7 @@ final class VoiceModule {
             )
             guard !level else {
                 Logger.log("Voice", "Captured audio is silent; skipping transcription")
-                state = .idle
+                finish()
                 return
             }
 
@@ -258,7 +324,7 @@ final class VoiceModule {
                     t("Dictation failed"),
                     (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 )
-                state = .idle
+                finish()
                 return
             }
             let asrMs = Int((CFAbsoluteTimeGetCurrent() - tAsr) * 1000)
@@ -269,11 +335,15 @@ final class VoiceModule {
                 // long enough and not silent, so this is speech the engine could not resolve. Still
                 // silent -- there is no action to offer -- but logged as its own case.
                 Logger.log("Voice", "Engine returned empty text for \(String(format: "%.1f", audio.duration))s of audio")
-                state = .idle
+                finish()
                 return
             }
 
             Logger.log("Voice", "Transcribed via \(transcript.engineID): \(text)")
+            guard gen == self.generation else {
+                Logger.log("Voice", "Dictation cancelled during transcription; discarding")
+                return
+            }
 
             let tPipe = CFAbsoluteTimeGetCurrent()
             await pipeline.process(
@@ -284,7 +354,7 @@ final class VoiceModule {
             let pipelineMs = Int((CFAbsoluteTimeGetCurrent() - tPipe) * 1000)
             let voiceTotalMs = Int((CFAbsoluteTimeGetCurrent() - tStop0) * 1000)
             Logger.log("Voice", "Timing: recording=\(recordingMs)ms capture_stop=\(captureMs)ms asr=\(asrMs)ms pipeline=\(pipelineMs)ms voice_total=\(voiceTotalMs)ms")
-            state = .idle
+            finish()
         }
     }
 

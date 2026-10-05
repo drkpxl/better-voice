@@ -11,12 +11,14 @@ import Cocoa
 /// 2. key combination (e.g. Cmd+Shift+R) -- listens for keyDown, matches keyCode + modifiers
 ///
 /// ONE CGEventTap, TWO independent bindings, sharing the same callback/mask:
-/// - **Dictation** (`currentConfig` / `onPress` / `onRelease`) is a toggle fired from
-///   `VoiceModule.onHotKeyDown` (idle -> recording -> stopAndProcess) — `onPress`/`onRelease` are
-///   named for the physical key edges, not push-to-talk semantics; `onHotKeyUp` is a no-op today.
-///   Modifier-only fires on the RELEASE edge (v1's edge, so one tap = one toggle); key-combo mode
-///   fires on keyDown only (no keyUp tracking — release is irrelevant to a toggle). This is the
-///   ORIGINAL behavior, unchanged by the second binding below.
+/// - **Dictation** (`currentConfig`) reports raw physical edges — `onDictationDown` /
+///   `onDictationUp`, plus `onDictationOtherKey` when another key joins a modifier-only press — and
+///   `VoiceModule` turns them into tap-to-toggle or hold-to-talk via `DictationGesture` (Core).
+///   Modifier-only: down on the modifier's press edge, up on its release. Key-combo: down on the
+///   first non-autorepeat matching keyDown, up when one of the combo's modifiers is released (so
+///   the keyboard is quiescent before the synthesized ⌘V, see `handleDictationComboRelease`).
+/// - **Esc** cancels a dictation while `cancelArmed` is set (VoiceModule arms it while recording or
+///   transcribing), and is swallowed so the focused app doesn't also see it.
 /// - **Meeting** (`currentMeetingConfig` / `onMeetingFire`) is also a toggle
 ///   (`MeetingCoordinator.toggleMeeting()`), fired EXACTLY ONCE per physical press regardless of
 ///   mode: modifier-only fires on the PRESS edge (not release — release is ignored outright, see
@@ -32,8 +34,16 @@ import Cocoa
 final class GlobalHotKey {
     static let shared = GlobalHotKey()
 
-    var onPress: (() -> Void)?
-    var onRelease: (() -> Void)?
+    /// Dictation hotkey pressed / released (physical edges — see the class doc comment).
+    var onDictationDown: (() -> Void)?
+    var onDictationUp: (() -> Void)?
+    /// Another key went down while a modifier-only dictation hotkey was held.
+    var onDictationOtherKey: (() -> Void)?
+    /// Esc pressed while `cancelArmed`.
+    var onCancelKey: (() -> Void)?
+    /// Set by VoiceModule while a dictation is recording or transcribing, so Esc means "cancel"
+    /// only then and reaches the focused app untouched the rest of the time.
+    var cancelArmed = false
     /// Meeting binding's callback — see the class doc comment above for its fire-once-per-press,
     /// release-ignored semantics.
     var onMeetingFire: (() -> Void)?
@@ -44,15 +54,10 @@ final class GlobalHotKey {
     private var isPressed = false
     /// Modifier-only press-state for the meeting binding (independent of `isPressed` above).
     private var isMeetingPressed = false
-    /// Set when another key is pressed while a modifier-only DICTATION hotkey is held, marking the
-    /// hold as a combo gesture (e.g. Right Option + M for the meeting binding) rather than a clean
-    /// modifier tap — so the dictation release-fire is suppressed and the two bindings don't
-    /// cross-fire when they share a modifier.
-    private var dictationModifierConsumed = false
-    /// Armed when a *combo* dictation hotkey's key-combination is pressed; the toggle fires on the
-    /// following modifier RELEASE (not on key-down), so by the time we toggle → transcribe →
-    /// synthesize ⌘V the keyboard is quiescent and a still-held modifier can't corrupt the paste
-    /// into ⌘⌥V. Reproduces the modifier-only hotkey's fire-on-release edge for combos.
+    /// Armed when a *combo* dictation hotkey's key-combination is pressed; its "up" edge is the
+    /// following modifier RELEASE (not the key's own keyUp, which the tap doesn't observe), so a
+    /// stop → transcribe → synthesized ⌘V always runs with the keyboard quiescent and a still-held
+    /// modifier can't corrupt the paste into ⌘⌥V.
     private var dictationComboArmed = false
 
     /// Periodically checks whether the CGEventTap is still enabled, and re-enables it automatically if disabled.
@@ -198,11 +203,18 @@ final class GlobalHotKey {
     /// Returns true when this key-down matched a combo binding and the callback should SWALLOW it
     /// (return nil) so its printable character (≥ for ⌥., µ for ⌥M) doesn't leak into the field.
     fileprivate func handleKeyDown(keyCode: Int64, flags: CGEventFlags, isAutorepeat: Bool) -> Bool {
-        // Any key pressed while a modifier-only dictation hotkey is held makes this a combo
-        // gesture, not a clean tap — suppress the eventual release-fire so, e.g., Right Option + M
-        // (the meeting binding) doesn't also toggle a Right-Option dictation hotkey on release.
-        if currentConfig.isModifierOnly, isPressed {
-            dictationModifierConsumed = true
+        // Esc cancels an active dictation. Only bare Esc: ⌘Esc / ⌥Esc are other apps' shortcuts.
+        if keyCode == Self.escapeKeyCode, cancelArmed, !isAutorepeat,
+           flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]).isEmpty {
+            Logger.log("HotKey", "Esc — cancel dictation")
+            if let onCancelKey { DispatchQueue.main.async { onCancelKey() } }
+            return true
+        }
+        // Any key pressed while a modifier-only dictation hotkey is held makes the press another
+        // shortcut (e.g. Right Option + M for the meeting binding, Right ⌘C) — `DictationGesture`
+        // then ignores it, so the two bindings don't cross-fire when they share a modifier.
+        if currentConfig.isModifierOnly, isPressed, !isAutorepeat {
+            if let onDictationOtherKey { DispatchQueue.main.async { onDictationOtherKey() } }
         }
         // Evaluate BOTH (side effects: arm/fire) — `||` would short-circuit the meeting check.
         let consumedDictation = handleDictationKeyDown(keyCode: keyCode, flags: flags, isAutorepeat: isAutorepeat)
@@ -217,19 +229,18 @@ final class GlobalHotKey {
         return modifiersMatch(cfg, flags)
     }
 
-    /// Dictation's key-combination path. ARMS the toggle on key-down but does NOT fire here — the
-    /// toggle fires on the following modifier release (see `handleDictationComboRelease`). Firing on
-    /// release reproduces the modifier-only hotkey's guarantee that the keyboard is quiescent before
-    /// we toggle → transcribe → synthesize ⌘V, so a still-held Option can't corrupt the paste into
-    /// ⌘⌥V. Autorepeat keyDowns (the OS resends keyDown while a key is held) don't re-arm, but a
-    /// matched combo is always CONSUMED (return true) — including autorepeats — so no character (or
-    /// a stream of them while held) leaks. Returns true when the key-down matched and was consumed.
+    /// Dictation's key-combination path: the key-down is the "down" edge, and ARMS the "up" edge
+    /// for the following modifier release (see `handleDictationComboRelease`). Autorepeat keyDowns
+    /// (the OS resends keyDown while a key is held) don't re-fire, but a matched combo is always
+    /// CONSUMED (return true) — including autorepeats — so no character (or a stream of them while
+    /// held) leaks. Returns true when the key-down matched and was consumed.
     private func handleDictationKeyDown(keyCode: Int64, flags: CGEventFlags, isAutorepeat: Bool) -> Bool {
         let cfg = currentConfig
         guard comboMatches(cfg, keyCode: keyCode, flags: flags) else { return false }
-        if !isAutorepeat {
+        if !isAutorepeat, !dictationComboArmed {
             dictationComboArmed = true
-            Logger.log("HotKey", "\(cfg.displayName) DOWN (armed — fires on release)")
+            Logger.log("HotKey", "\(cfg.displayName) DOWN")
+            if let onDictationDown { DispatchQueue.main.async { onDictationDown() } }
         }
         return true
     }
@@ -258,11 +269,10 @@ final class GlobalHotKey {
     }
 
     /// Dictation's key-combination RELEASE path. A combo hotkey (e.g. ⌥.) arms on key-down
-    /// (`handleDictationKeyDown`) and fires the toggle here, once its required modifier is released.
-    /// By deferring the fire to the release edge, the toggle → transcription → synthesized ⌘V runs
-    /// with the keyboard quiescent, so a still-held Option can't reinterpret the paste as ⌘⌥V (which
-    /// terminals in particular do, reading live modifier state). Reproduces the modifier-only
-    /// hotkey's fire-on-release reliability for combos.
+    /// (`handleDictationKeyDown`) and reports its "up" edge here, once a required modifier is
+    /// released. Because a stop only ever happens on this edge, the stop → transcription →
+    /// synthesized ⌘V runs with the keyboard quiescent, so a still-held Option can't reinterpret the
+    /// paste as ⌘⌥V (which terminals in particular do, reading live modifier state).
     private func handleDictationComboRelease(_ flags: CGEventFlags) {
         let cfg = currentConfig
         guard !cfg.isModifierOnly, dictationComboArmed else { return }
@@ -275,13 +285,12 @@ final class GlobalHotKey {
         guard !current.isSuperset(of: required) else { return }
 
         dictationComboArmed = false
-        Logger.log("HotKey", "\(cfg.displayName) UP (combo release — fire)")
-        if let onPress {
-            DispatchQueue.main.async { onPress() }
-        }
+        Logger.log("HotKey", "\(cfg.displayName) UP (combo release)")
+        if let onDictationUp { DispatchQueue.main.async { onDictationUp() } }
     }
 
-    /// Dictation's modifier-only path — UNCHANGED from before the meeting binding existed.
+    /// Dictation's modifier-only path: report the modifier's press and release edges. Whether the
+    /// press was a tap, a hold, or part of another shortcut is `DictationGesture`'s call.
     private func handleDictationFlags(_ flags: CGEventFlags, keyCode: Int64) {
         let cfg = currentConfig
         guard cfg.isModifierOnly else { return }
@@ -291,25 +300,12 @@ final class GlobalHotKey {
 
         if modDown && !isPressed {
             isPressed = true
-            dictationModifierConsumed = false   // fresh hold — clean until another key is pressed
-            // Fire on RELEASE, not press — matches v1's edge so a single tap of the
-            // modifier maps to exactly one toggle.
+            Logger.log("HotKey", "\(cfg.displayName) DOWN")
+            if let onDictationDown { DispatchQueue.main.async { onDictationDown() } }
         } else if !modDown && isPressed {
             isPressed = false
-            // A combo gesture consumed this hold (another key was pressed) — not a clean tap, so
-            // don't fire dictation. Prevents cross-fire with a combo binding sharing this modifier.
-            if dictationModifierConsumed {
-                dictationModifierConsumed = false
-                return
-            }
-            Logger.log("HotKey", "\(cfg.displayName) DOWN")
-            if let onPress {
-                DispatchQueue.main.async { onPress() }
-            }
             Logger.log("HotKey", "\(cfg.displayName) UP")
-            if let onRelease {
-                DispatchQueue.main.async { onRelease() }
-            }
+            if let onDictationUp { DispatchQueue.main.async { onDictationUp() } }
         }
     }
 
@@ -334,6 +330,8 @@ final class GlobalHotKey {
             // Release intentionally ignored — see doc comment above.
         }
     }
+
+    private static let escapeKeyCode: Int64 = 53   // kVK_Escape
 
     /// Given a modifier keyCode, returns whether it is pressed in CGEventFlags
     private func isModifierDown(for keyCode: UInt16, in flags: CGEventFlags) -> Bool {

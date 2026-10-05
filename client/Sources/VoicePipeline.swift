@@ -13,7 +13,7 @@ import BetterVoiceCore
 /// channel, it is exact word-boundary only, and it costs nothing.
 @MainActor
 final class VoicePipeline {
-    private let history = VoiceHistory()
+    private let history = VoiceHistory.shared
 
     func process(
         transcription: TranscriptionResult,

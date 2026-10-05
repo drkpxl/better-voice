@@ -207,6 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.menuModel.isRecording = (state == .recording)
             self.menuModel.isProcessing = (state == .transcribing)
+            // Esc means "cancel" only while there is a dictation to cancel.
+            GlobalHotKey.shared.cancelArmed = (state != .idle)
             switch state {
             case .recording:
                 self.recordingIndicator.setTranscribing(false)
@@ -245,18 +247,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // register the global hotkey
-        GlobalHotKey.shared.onPress = { [weak self] in
-            guard let self else { return }
-            // Dictation-vs-dictation is gated inside VoiceModule by its .processing state; guard
-            // here as well so a stray press can't stack on an in-flight transcription.
-            if self.menuModel.isProcessing {
-                Logger.log("Hotkey", "Ignored: processing in progress")
-                return
-            }
-            self.voiceModule.onHotKeyDown()
+        // Physical edges only; VoiceModule decides tap-to-toggle vs hold-to-talk (and ignores
+        // presses while a transcription is in flight).
+        GlobalHotKey.shared.onDictationDown = { [weak self] in
+            self?.voiceModule.onHotKeyDown()
         }
-        GlobalHotKey.shared.onRelease = { [weak self] in
+        GlobalHotKey.shared.onDictationUp = { [weak self] in
             self?.voiceModule.onHotKeyUp()
+        }
+        GlobalHotKey.shared.onDictationOtherKey = { [weak self] in
+            self?.voiceModule.onHotKeyOtherKey()
+        }
+        GlobalHotKey.shared.onCancelKey = { [weak self] in
+            self?.voiceModule.cancel()
+        }
+        voiceModule.onCancel = {
+            DictationSound.playCancel()
         }
         // Meeting hotkey: a fire-once toggle (no processing gate needed — toggleMeeting() is
         // already start/stop-gated by MeetingCoordinator's own state machine, same guard the menu

@@ -132,7 +132,14 @@ struct MenuBarMenu: View {
         case .notInstalled:
             Text(t("Speech model not downloaded"))
         case .failed:
-            Text(t("Speech model download failed — retrying at next use"))
+            Text(t("Speech model download failed"))
+            Button(t("Retry Speech Model Download")) {
+                Task {
+                    do { try await ParakeetTranscriber.shared.prepare() } catch {
+                        Logger.log("App", "Speech model retry failed: \(error)")
+                    }
+                }
+            }
         case .installed:
             EmptyView()
         }
@@ -146,6 +153,7 @@ struct MenuBarMenu: View {
         Divider()
 
         meetingRow
+        recentDictations
 
         Divider()
 
@@ -183,6 +191,42 @@ struct MenuBarMenu: View {
 
         Button(t("Quit")) { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
+    }
+
+    /// The last few dictations — the way back when a paste landed in the wrong field. Click copies;
+    /// ⌥-click inserts at the cursor of the app that was frontmost before the menu opened (a
+    /// menu-bar menu doesn't activate this app, so that app is still frontmost).
+    @ViewBuilder
+    private var recentDictations: some View {
+        let recent = VoiceHistory.shared.recent
+        Menu(t("Recent Dictations")) {
+            if recent.isEmpty {
+                Text(t("Nothing dictated yet"))
+            } else {
+                Text(t("Click to copy · ⌥-click to insert"))
+                ForEach(recent) { entry in
+                    Button(Self.menuTitle(for: entry)) { Self.reuse(entry) }
+                }
+                Divider()
+                Button(t("Clear History")) { VoiceHistory.shared.clear() }
+            }
+        }
+    }
+
+    private static func menuTitle(for entry: VoiceHistoryEntry) -> String {
+        let oneLine = entry.finalText.replacingOccurrences(of: "\n", with: " ")
+        let snippet = oneLine.count > 60 ? String(oneLine.prefix(60)) + "…" : oneLine
+        let time = entry.timestamp.formatted(date: .omitted, time: .shortened)
+        return "\(time)  \(snippet)"
+    }
+
+    private static func reuse(_ entry: VoiceHistoryEntry) {
+        if NSEvent.modifierFlags.contains(.option) {
+            Task { await TextInjector.inject(text: entry.finalText, to: AppIdentity.current()) }
+        } else {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(entry.finalText, forType: .string)
+        }
     }
 
     /// "Start Meeting Recording" / "Stop Meeting Recording" toggle row. The row stays put (not

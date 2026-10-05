@@ -30,4 +30,11 @@ final class JSONLWriter: Sendable {
             }
         }
     }
+
+    /// Delete the file. Runs on the write queue, so it orders correctly after any pending append.
+    func clear() {
+        queue.async { [fileURL] in
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+    }
 }
