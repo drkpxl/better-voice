@@ -173,6 +173,15 @@ final class VoiceModule {
         }
     }
 
+    /// Start or stop from outside the hotkey (Shortcuts, URL scheme): one call, no hold semantics.
+    func toggle() {
+        switch state {
+        case .idle: perform(.start)
+        case .recording: perform(.stop)
+        case .transcribing: break
+        }
+    }
+
     // MARK: - Cancel
 
     /// Abandon the current dictation: stop capture, drop the audio and any transcription in flight,

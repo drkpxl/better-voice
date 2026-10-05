@@ -130,6 +130,9 @@ if [ ! -d "$RESOURCE_BUNDLE" ]; then
     exit 1
 fi
 cp -R "$RESOURCE_BUNDLE" "$APP_CONTENTS/Resources/"
+# App Intents metadata (Shortcuts / Spotlight actions). swift build skips Xcode's metadata step;
+# this runs it. Warns instead of failing if the toolchain can't, so a release never breaks on it.
+./scripts/appintents-metadata.sh release "$APP_CONTENTS/Resources"
 # PkgInfo: macOS LaunchServices uses it to identify the bundle type (type=APPL/creator=????).
 # Without this file LaunchServices may not register the bundle id, so TCC can't find the
 # app and permission prompts (mic / system audio / automation) never appear.

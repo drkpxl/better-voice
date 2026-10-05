@@ -112,6 +112,15 @@ struct BetterVoice2App: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The live delegate, for entry points outside the scene graph (App Intents, URL scheme).
+    /// SwiftUI's `NSApp.delegate` is its own adaptor, not this object.
+    private(set) static weak var shared: AppDelegate?
+
+    override init() {
+        super.init()
+        AppDelegate.shared = self
+    }
+
     // Constructed at delegate init (before the scene body evaluates) so the App struct can
     // hand them to the MenuBarExtra views.
     let voiceModule = VoiceModule()

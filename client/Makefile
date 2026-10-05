@@ -44,6 +44,8 @@ bundle: build
 	@# so swift build emits it next to the binary but does NOT embed it into the .app. Without it
 	@# the app fatal-errors on launch ("could not load resource bundle"). Must precede codesign.
 	@cp -R $(BIN_PATH)/$(APP_NAME)_$(APP_NAME).bundle $(APP_RESOURCES)/
+	@# Shortcuts/Spotlight actions (Sources/Intents): Xcode's metadata step, which swift build skips.
+	@./scripts/appintents-metadata.sh debug $(APP_RESOURCES)
 	@rm -rf $(APP_FRAMEWORKS)/Sparkle.framework
 	@cp -R $(BIN_PATH)/Sparkle.framework $(APP_FRAMEWORKS)/Sparkle.framework
 	@otool -l $(APP_MACOS)/$(APP_NAME) | grep -q "@executable_path/../Frameworks" \
