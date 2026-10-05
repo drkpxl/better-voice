@@ -1,3 +1,4 @@
+// Small, self-applying Settings controls (no Save/Cancel draft).
 import ServiceManagement
 import SwiftUI
 
@@ -65,5 +66,29 @@ struct ImmediateToggle: View {
             .onChange(of: isOn) { _, newValue in
                 RuntimeConfig.shared.updateTopLevel(key, newValue)
             }
+    }
+}
+
+/// The speech-language picker. Applies immediately (it changes how the next dictation is
+/// transcribed, not a draft the Save button should hold).
+struct SpeechLanguagePicker: View {
+    @State private var code = RuntimeConfig.shared.speechLanguage ?? ""
+
+    var body: some View {
+        Picker(selection: $code) {
+            Text(t("Automatic")).tag("")
+            Divider()
+            ForEach(ParakeetTranscriber.supportedLanguages, id: \.code) { lang in
+                Text(lang.name).tag(lang.code)
+            }
+        } label: {
+            Text(t("Speech language"))
+        }
+        .onChange(of: code) { _, newValue in
+            RuntimeConfig.shared.updateTopLevel("speech_language", newValue.isEmpty ? nil : newValue)
+        }
+        Text(t("Better Voice recognizes most European languages. Automatic works for most people; pick your language if short dictations come out in the wrong alphabet. Filler-word removal only runs for English."))
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 }

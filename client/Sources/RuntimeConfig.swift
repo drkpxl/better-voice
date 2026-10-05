@@ -1,5 +1,6 @@
 import Foundation
 import FoundationModels
+import BetterVoiceCore
 
 /// App preferences facade. v1 stored these in `~/.better-voice/config.json` with a file-watcher;
 /// v2 backs the SAME public API onto `UserDefaults` (one dictionary under `runtimeConfigKey`), so
@@ -84,6 +85,31 @@ final class RuntimeConfig {
     /// inserted text is unaffected. Defaults on.
     var livePreviewEnabled: Bool {
         values["live_preview"] as? Bool ?? true
+    }
+
+    /// The language people speak to the engine, as a code ("en", "de", …), or nil for Automatic.
+    /// Parakeet v3 identifies the language itself; an explicit choice only stops it emitting
+    /// wrong-alphabet tokens on short, ambiguous clips (FluidAudio's script filter), and decides
+    /// whether the English filler pass runs (`SpeechLanguageRules`).
+    var speechLanguage: String? {
+        (values["speech_language"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// Whether dictation's English filler pass should run for the current speech language.
+    var fillerStrippingActive: Bool {
+        stripFillers && SpeechLanguageRules.fillerStrippingApplies(
+            speechLanguage: speechLanguage,
+            preferredLanguages: Locale.preferredLanguages
+        )
+    }
+
+    /// `speechLanguage` as a `Locale`, for the transcriber's `locale:` parameter.
+    var speechLocale: Locale? { speechLanguage.map { Locale(identifier: $0) } }
+
+    /// Whether dictation boosts vocabulary terms acoustically (`VocabularyBooster`). Only has an
+    /// effect when the vocabulary has terms.
+    var vocabularyBoostEnabled: Bool {
+        values["vocab_boost"] as? Bool ?? true
     }
 
     /// A top-level Boolean preference by key (for simple toggles that need no dedicated property).
@@ -230,6 +256,9 @@ final class RuntimeConfig {
             "onboarding_version": 0
         ]
         values = defaults
+        // Preferences can be wiped while the Keychain item survives; pick it back up rather than
+        // letting the seed's empty key delete it on the save below.
+        restoreApiKeyFromKeychain()
         save()
     }
 

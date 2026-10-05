@@ -31,7 +31,9 @@ final class VoicePipeline {
         //
         // Runs BEFORE vocabulary so a replacement's output can never be mistaken for a filler.
         let stripped: String
-        if RuntimeConfig.shared.stripFillers {
+        // English-only word list: skipped when the speech language isn't English (see
+        // `SpeechLanguageRules.fillerStrippingApplies`).
+        if RuntimeConfig.shared.fillerStrippingActive {
             let result = FillerStripper.strip(rawText)
             stripped = result.text
             if !result.removed.isEmpty {

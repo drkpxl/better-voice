@@ -325,7 +325,11 @@ final class VoiceModule {
             let tAsr = CFAbsoluteTimeGetCurrent()
             let transcript: Transcript
             do {
-                transcript = try await ParakeetTranscriber.shared.transcribe(audio: audio)
+                transcript = try await ParakeetTranscriber.shared.transcribe(
+                    audio: audio,
+                    locale: RuntimeConfig.shared.speechLocale,
+                    boostTerms: Vocabulary.shared.boostTerms
+                )
             } catch {
                 // A real fault, and the first error channel dictation has ever had. Before this, a
                 // failed dictation was indistinguishable from saying nothing.

@@ -168,6 +168,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 try await ParakeetTranscriber.shared.prepare()
                 Logger.log("App", "ASR models warm")
+                // Only users with a vocabulary pay the ~100 MB CTC download.
+                if !Vocabulary.shared.boostTerms.isEmpty {
+                    try? await VocabularyBooster.shared.prepare()
+                }
             } catch {
                 Logger.log("App", "ASR warm-up failed (will retry at point of use): \(error)")
             }

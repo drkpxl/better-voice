@@ -9,8 +9,10 @@ import Security
 /// Developer-ID app built by SwiftPM doesn't have. Items are keyed by service = bundle id, so the
 /// dev channel ("Better Voice Dev", distinct bundle id) never reads the release app's key.
 enum KeychainStore {
+    /// Never falls back to the release id: an unbundled run (the bench binary) seeds fresh
+    /// preferences, and its first save would otherwise delete the release app's key.
     private static var service: String {
-        Bundle.main.bundleIdentifier ?? "com.drkpxl.bettervoice2"
+        Bundle.main.bundleIdentifier ?? "com.drkpxl.bettervoice2.unbundled"
     }
 
     /// The stored value, or nil if absent/unreadable.

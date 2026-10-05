@@ -41,7 +41,7 @@ final class LiveDictationPreview {
                 guard audio.duration >= Self.minimumSeconds, buffer.frameLength != lastFrames else { continue }
                 lastFrames = buffer.frameLength
                 do {
-                    let transcript = try await ParakeetTranscriber.shared.transcribe(audio: audio)
+                    let transcript = try await ParakeetTranscriber.shared.transcribe(audio: audio, locale: RuntimeConfig.shared.speechLocale)
                     guard !Task.isCancelled else { return }
                     let text = Self.display(transcript.text)
                     if !text.isEmpty { self?.onText?(text) }
@@ -60,7 +60,7 @@ final class LiveDictationPreview {
 
     private static func display(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        let stripped = RuntimeConfig.shared.stripFillers ? FillerStripper.strip(trimmed).text : trimmed
+        let stripped = RuntimeConfig.shared.fillerStrippingActive ? FillerStripper.strip(trimmed).text : trimmed
         return Vocabulary.shared.apply(to: stripped)
     }
 }

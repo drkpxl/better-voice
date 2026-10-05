@@ -109,9 +109,8 @@ actor ParakeetTranscriber {
         locale: Locale? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> Transcript {
-        // `locale` is deliberately ignored rather than rejected: the app is English-only (decision 3)
-        // and throwing would break the bench's `--locale` flag for no benefit.
         let (manager, layers) = try await prepared()
+        let language = Self.language(for: locale)
 
         let audioDuration = try Self.duration(of: fileURL)
 
@@ -139,7 +138,7 @@ actor ParakeetTranscriber {
         var decoderState = TdtDecoderState.make(decoderLayers: layers)
         let result: ASRResult
         do {
-            result = try await manager.transcribe(fileURL, decoderState: &decoderState)
+            result = try await manager.transcribe(fileURL, decoderState: &decoderState, language: language)
         } catch {
             throw TranscriptionError.engineFailure("\(error)")
         }
@@ -167,21 +166,27 @@ actor ParakeetTranscriber {
     /// over whatever the microphone produced. No progress callback: FluidAudio only emits progress for
     /// audio over ~15s and a dictation is transcribed in roughly 0.004s per second of speech, so a
     /// 5-minute one finishes in about 1.2s -- there is nothing to report.
-    func transcribe(audio: CapturedAudio, locale: Locale? = nil) async throws -> Transcript {
+    /// - Parameter boostTerms: vocabulary to boost acoustically (`VocabularyBooster`); empty skips it.
+    func transcribe(audio: CapturedAudio, locale: Locale? = nil, boostTerms: [VocabularyBoostTerms.Term] = []) async throws -> Transcript {
         let (manager, layers) = try await prepared()
         let audioDuration = audio.duration
 
         var decoderState = TdtDecoderState.make(decoderLayers: layers)
         let result: ASRResult
         do {
-            result = try await manager.transcribe(audio.buffer, decoderState: &decoderState)
+            result = try await manager.transcribe(audio.buffer, decoderState: &decoderState, language: Self.language(for: locale))
         } catch {
             throw TranscriptionError.engineFailure("\(error)")
         }
 
+        var text = result.text
+        if !boostTerms.isEmpty, let timings = result.tokenTimings {
+            text = await VocabularyBooster.shared.rescore(text: text, tokenTimings: timings, buffer: audio.buffer, terms: boostTerms)
+        }
+
         let words = Self.words(from: result)
         return Transcript(
-            text: result.text,
+            text: text,
             phrases: PhraseSegmentation.phrases(from: words),
             words: words,
             audioDuration: audioDuration > 0 ? audioDuration : result.duration,
@@ -272,6 +277,20 @@ actor ParakeetTranscriber {
         return buildWordTimings(from: timings).map {
             TimedWord(text: $0.word, start: $0.startTime, end: $0.endTime, confidence: nil)
         }
+    }
+
+    /// The engine's script-filter hint for `locale`, or nil (Automatic, or a language v3 doesn't
+    /// cover — passing nothing is always safe, it just disables the filter).
+    private static func language(for locale: Locale?) -> Language? {
+        guard let code = locale?.language.languageCode?.identifier else { return nil }
+        return Language(rawValue: code)
+    }
+
+    /// Display names for the languages the engine knows, sorted for a picker.
+    nonisolated static var supportedLanguages: [(code: String, name: String)] {
+        Language.allCases
+            .map { ($0.rawValue, Locale.current.localizedString(forLanguageCode: $0.rawValue) ?? $0.rawValue) }
+            .sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
     }
 
     private static func duration(of url: URL) throws -> TimeInterval {

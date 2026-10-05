@@ -38,6 +38,12 @@ final class Vocabulary {
 
     /// Deterministic post-replacements. Applied to dictation final text and meeting turn
     /// text — the seams where text becomes user-visible/persisted.
+    /// The vocabulary as acoustic-boost terms, or empty when boosting is off.
+    var boostTerms: [VocabularyBoostTerms.Term] {
+        guard RuntimeConfig.shared.vocabularyBoostEnabled else { return [] }
+        return VocabularyBoostTerms.build(terms: terms, replacements: replacements)
+    }
+
     func apply(to text: String) -> String {
         guard !text.isEmpty, !(terms.isEmpty && replacements.isEmpty) else { return text }
         let result = VocabularyRules.apply(text, terms: terms, replacements: replacements)

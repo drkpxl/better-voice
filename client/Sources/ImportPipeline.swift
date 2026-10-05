@@ -141,11 +141,9 @@ final class ImportPipeline {
         // Single-speaker → no diarization source → FluidAudio never runs (flat transcript).
         systemAudioFileURL = (speakerMode == .multi) ? fileURL : nil
 
-        // Locale is carried through but no longer resolved against a system speech catalogue: the only
-        // engine left is English-only and ignores it (see `ParakeetTranscriber.transcribe`). The
-        // parameter stays because the bench's `--locale` flag still passes one, and dropping it would
-        // silently change that flag's meaning rather than remove it.
-        let bestLocale: Locale? = locale.map { Locale(identifier: $0) }
+        // An explicit locale (the bench's `--locale`) wins; otherwise the Settings speech language.
+        // Nil means Automatic — Parakeet v3 identifies the language itself.
+        let bestLocale: Locale? = locale.map { Locale(identifier: $0) } ?? RuntimeConfig.shared.speechLocale
         Logger.log("Import", "Locale: \(bestLocale?.identifier(.bcp47) ?? "(engine default)"), mode: \(speakerMode == .multi ? "multi" : "single")")
 
         // Read audio (decodes AAC/MP3/WAV/AIFF/CAF). A read failure is a real, user-facing error.

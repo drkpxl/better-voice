@@ -35,6 +35,17 @@ enum BenchEntry {
             return true
         }
 
+        // Dictation path (VAD trim, engine) on a file. See DictationBenchmark.
+        if args.contains("--bench-dictation") {
+            runAccessory { finish in
+                Task {
+                    await DictationBenchmark.run()
+                    finish()
+                }
+            }
+            return true
+        }
+
         // Editor edit/dirty/save chain sanity check, no GUI interaction needed.
         if args.contains("--bench-editor") {
             let harness = EditorBenchHarness()

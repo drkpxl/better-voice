@@ -328,11 +328,12 @@ struct SettingsContentView: View {
                 }
 
                 Section(t("Language")) {
+                    SpeechLanguagePicker()
                     Picker(selection: $viewModel.language) {
                         Text(t("Follow system")).tag("")
                         Text("English").tag("en")
                     } label: {
-                        Text(t("Language"))
+                        Text(t("Summary language"))
                     }
                 }
 
@@ -384,6 +385,10 @@ struct SettingsContentView: View {
                 Section(t("Data")) {
                     Button(t("Edit Personal Context...")) { WindowRouter.shared.open(id: WindowID.personalContext) }
                     Button(t("Edit Vocabulary...")) { WindowRouter.shared.open(id: WindowID.vocabulary) }
+                    ImmediateToggle(t("Boost vocabulary recognition"), key: "vocab_boost", default: true)
+                    Text(t("Listens for your vocabulary terms in the audio itself, so names and jargon are caught even when misheard. Uses a one-time ~100 MB download and adds a fraction of a second to each dictation."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Button(t("Import Vocabulary CSV...")) { viewModel.importVocabularyCSV() }
                     Button(t("Open Data Folder...")) { viewModel.openDataFolder() }
                     Button(t("View Logs...")) { viewModel.viewLogs() }
