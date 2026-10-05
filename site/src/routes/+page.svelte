@@ -5,7 +5,7 @@
 	import SettingsScreen from "$lib/components/SettingsScreen.svelte";
 	import MenuBarScene from "$lib/components/MenuBarScene.svelte";
 
-	const version = "1.2.0";
+	const version = "1.2.1";
 	const minMacOS = "26 Tahoe";
 	// Stable alias maintained by client/scripts/release.sh (copies the newest DMG over it).
 	const releaseUrl = `${base}/downloads/BetterVoice2-latest.dmg`;
