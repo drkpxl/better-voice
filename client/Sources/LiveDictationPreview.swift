@@ -31,15 +31,17 @@ final class LiveDictationPreview {
         stop()
         guard RuntimeConfig.shared.livePreviewEnabled else { return }
         loop = Task { [weak self] in
-            var lastFrames: AVAudioFrameCount = 0
+            var lastCount = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.interval)
-                guard !Task.isCancelled,
+                // Skip when nothing new arrived (capture stalled). Counted in buffers captured, not
+                // the tail's length — past the window the tail is always the same length.
+                let count = recorder.capturedBufferCount
+                guard !Task.isCancelled, count != lastCount,
                       let buffer = recorder.snapshotTail(maxSeconds: Self.window) else { continue }
                 let audio = CapturedAudio(buffer)
-                // Skip when nothing new arrived (capture stalled) or there's too little to say anything.
-                guard audio.duration >= Self.minimumSeconds, buffer.frameLength != lastFrames else { continue }
-                lastFrames = buffer.frameLength
+                guard audio.duration >= Self.minimumSeconds else { continue }
+                lastCount = count
                 do {
                     let transcript = try await ParakeetTranscriber.shared.transcribe(audio: audio, locale: RuntimeConfig.shared.speechLocale)
                     guard !Task.isCancelled else { return }
@@ -53,9 +55,21 @@ final class LiveDictationPreview {
         }
     }
 
+    /// The last stopped run, kept so `stopAndWait()` can still wait for it after a plain `stop()`.
+    private var stopping: Task<Void, Never>?
+
     func stop() {
+        if let loop { stopping = loop }
         loop?.cancel()
         loop = nil
+    }
+
+    /// Stop, and wait for a pass already inside the engine to finish.
+    func stopAndWait() async {
+        stop()
+        let running = stopping
+        stopping = nil
+        await running?.value
     }
 
     private static func display(_ raw: String) -> String {

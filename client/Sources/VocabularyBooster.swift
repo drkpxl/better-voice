@@ -66,8 +66,12 @@ actor VocabularyBooster {
         terms: [VocabularyBoostTerms.Term]
     ) async -> String {
         guard !terms.isEmpty, !tokenTimings.isEmpty, !text.isEmpty else { return text }
+        // Never download on a dictation's critical path: skip this one and fetch in the background.
+        guard spotter != nil else {
+            Task { try? await self.prepare() }
+            return text
+        }
         do {
-            try await prepare()
             guard let spotter, let (rescorer, context) = try await rescorerFor(terms, spotter: spotter) else { return text }
 
             let samples = try AudioConverter().resampleBuffer(buffer)

@@ -131,6 +131,11 @@ final class ImportHost {
 enum ImportNotifications {
     private static let delegate = Delegate()
 
+    /// Call at launch, so clicking a notification from an earlier run still opens the window.
+    static func installDelegate() {
+        UNUserNotificationCenter.current().delegate = delegate
+    }
+
     static func post(_ title: String, _ body: String) {
         let center = UNUserNotificationCenter.current()
         center.delegate = delegate

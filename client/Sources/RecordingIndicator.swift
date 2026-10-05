@@ -95,6 +95,8 @@ final class RecordingIndicator {
     /// wants it — so a dictation finishing while a meeting records leaves the HUD up.
     func hide(owner: Owner) {
         owners.remove(owner)
+        // The live transcript belongs to dictation; a meeting keeping the HUD up mustn't keep it.
+        if owner == .dictation { hidePreview() }
         guard owners.isEmpty else {
             Logger.log("UI", "Recording indicator: \(owner) released, still shown for \(owners)")
             return

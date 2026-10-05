@@ -43,6 +43,9 @@ final class VoiceModule {
     /// Bumped by `cancel()`, so a transcription already in flight drops its result instead of
     /// inserting it.
     private var generation = 0
+    /// True once the text is being inserted: past that point Esc can no longer stop the paste,
+    /// so it isn't offered (and doesn't claim to have cancelled anything).
+    private var injecting = false
 
     /// Real-time audio level callback (raw RMS, 0...1, used for the waveform indicator; only triggered by the dictation flow, meetings don't use this module)
     var onAudioLevel: ((Float) -> Void)?
@@ -140,7 +143,7 @@ final class VoiceModule {
     }
 
     func onHotKeyOtherKey() {
-        perform(gesture.otherKeyPressed())
+        perform(gesture.otherKeyPressed(at: CFAbsoluteTimeGetCurrent()))
     }
 
     /// The hotkey binding changed mid-press: drop the press (and its hold timer) so it can't start
@@ -178,6 +181,9 @@ final class VoiceModule {
         case .stop:
             guard case .recording = state else { return }
             stopAndProcess()
+        case .cancel:
+            // A modifier-only "hold" that turned out to be a slow shortcut (Right ⌘ … C).
+            cancel()
         }
     }
 
@@ -195,7 +201,7 @@ final class VoiceModule {
     /// Abandon the current dictation: stop capture, drop the audio and any transcription in flight,
     /// insert nothing. No-op when idle.
     func cancel() {
-        guard state != .idle else { return }
+        guard state != .idle, !injecting else { return }
         Logger.log("Voice", "Cancelled during \(state)")
         generation += 1
         preview.stop()
@@ -298,6 +304,8 @@ final class VoiceModule {
         let gen = generation
         Task {
             let captured = await recorder.stop()
+            // The preview's in-flight pass and the final pass must not share the engine at once.
+            await self.preview.stopAndWait()
             // Esc during transcription: `cancel()` already returned to idle and must stay the
             // owner of `state` — every exit below goes through this.
             @MainActor func finish() { if gen == self.generation { self.state = .idle } }
@@ -377,6 +385,9 @@ final class VoiceModule {
             }
 
             let tPipe = CFAbsoluteTimeGetCurrent()
+            self.injecting = true
+            GlobalHotKey.shared.cancelArmed = false
+            defer { self.injecting = false }
             await pipeline.process(
                 transcription: TranscriptionResult(fullText: text, timestamp: Date()),
                 targetApp: pinnedApp,

@@ -48,6 +48,9 @@ final class DictationRecorder {
         return Self.concatenate(collected.drain())
     }
 
+    /// How many buffers have been captured so far.
+    var capturedBufferCount: Int { collected.count }
+
     /// The most recent `maxSeconds` of audio captured so far, as one buffer, without disturbing
     /// the recording — the live preview's input. Nil before the first buffer arrives.
     func snapshotTail(maxSeconds: TimeInterval) -> AVAudioPCMBuffer? {
@@ -134,6 +137,8 @@ private final class BufferBox: @unchecked Sendable {
     func snapshot() -> [AVAudioPCMBuffer] {
         lock.withLock { buffers }
     }
+
+    var count: Int { lock.withLock { buffers.count } }
 
     func drain() -> [AVAudioPCMBuffer] {
         lock.withLock {

@@ -53,7 +53,7 @@ final class DictationGestureTests: XCTestCase {
     func testModifierUsedInShortcutDoesNothing() {
         var g = DictationGesture()
         _ = g.down(at: 0, isRecording: false, isBusy: false, modifierOnly: true)
-        XCTAssertEqual(g.otherKeyPressed(), .none)
+        XCTAssertEqual(g.otherKeyPressed(at: 0.1), .none)
         XCTAssertEqual(g.holdTimerFired(at: 0.3), .none, "a late timer must not start a consumed press")
         XCTAssertEqual(g.up(at: 0.5), .none)
     }
@@ -62,14 +62,14 @@ final class DictationGestureTests: XCTestCase {
         var g = DictationGesture()
         _ = g.down(at: 0, isRecording: false, isBusy: false, modifierOnly: true)
         _ = g.holdTimerFired(at: 0.3)
-        XCTAssertEqual(g.otherKeyPressed(), .none)
+        XCTAssertEqual(g.otherKeyPressed(at: 2.0), .none)
         XCTAssertEqual(g.up(at: 4), .stop)
     }
 
     func testShortcutWhileRecordingDoesNotStop() {
         var g = DictationGesture()
         _ = g.down(at: 0, isRecording: true, isBusy: false, modifierOnly: true)
-        _ = g.otherKeyPressed()
+        _ = g.otherKeyPressed(at: 0.1)
         XCTAssertEqual(g.up(at: 0.2), .none)
     }
 
@@ -85,5 +85,13 @@ final class DictationGestureTests: XCTestCase {
         _ = g.down(at: 0, isRecording: false, isBusy: false, modifierOnly: false)
         g.reset()
         XCTAssertEqual(g.up(at: 5), .none)
+    }
+
+    func testSlowShortcutRightAfterHoldStartCancels() {
+        var g = DictationGesture()
+        _ = g.down(at: 0, isRecording: false, isBusy: false, modifierOnly: true)
+        XCTAssertEqual(g.holdTimerFired(at: 0.3), .start)
+        XCTAssertEqual(g.otherKeyPressed(at: 0.5), .cancel)
+        XCTAssertEqual(g.up(at: 0.7), .none)
     }
 }

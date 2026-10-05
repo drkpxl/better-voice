@@ -505,7 +505,7 @@ struct WelcomeContentView: View {
                     if newValue == "apple" {
                         viewModel.model = FoundationModelsBackend.modelName
                         viewModel.endpoint = ""
-                        viewModel.apiKey = ""
+                        // Keep the API key: leaving this step saves, and clearing it would delete it.
                     } else {
                         // Leaving Apple (or switching between Ollama/OpenAI-compatible): the old
                         // model name belongs to a different provider, so it's never valid here —

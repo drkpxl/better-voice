@@ -371,7 +371,8 @@ struct SettingsContentView: View {
                         if newValue == "apple" {
                             viewModel.summarizationModel = FoundationModelsBackend.modelName
                             viewModel.summarizationEndpoint = ""
-                            viewModel.summarizationApiKey = ""
+                            // The API key is kept: Settings saves as you go, so clearing it here
+                            // would delete it from the Keychain on a misclick.
                         } else {
                             // Leaving Apple (or switching between Ollama/OpenAI-compatible):
                             // the old model name belongs to a different provider, so it's

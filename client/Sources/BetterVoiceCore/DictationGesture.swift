@@ -19,12 +19,17 @@ public struct DictationGesture: Sendable, Equatable {
         case none
         case start
         case stop
+        /// Discard a recording this press started: the "hold" was a slow shortcut after all.
+        case cancel
         /// Call `holdTimerFired()` after `holdThreshold` unless the press has ended by then.
         case scheduleHoldTimer
     }
 
     /// A press shorter than this is a tap.
     public static let holdThreshold: TimeInterval = 0.3
+    /// Another key this soon after a modifier-only hold started means it was a slow shortcut
+    /// (Right ⌘ held, then C), not dictation.
+    public static let shortcutGrace: TimeInterval = 0.5
 
     private enum State: Sendable, Equatable {
         case idle
@@ -69,13 +74,17 @@ public struct DictationGesture: Sendable, Equatable {
     }
 
     /// Another key was pressed while a modifier-only binding was held.
-    public mutating func otherKeyPressed() -> Action {
+    public mutating func otherKeyPressed(at time: TimeInterval) -> Action {
         switch state {
         case .pending, .stopOnRelease:
             state = .ignored
             return .none
-        case .started(_, holding: true):
-            // A deliberate hold is already recording; a stray key doesn't end it.
+        case .started(let start, holding: true):
+            if time - start < Self.shortcutGrace {
+                state = .ignored
+                return .cancel
+            }
+            // A hold that's been recording a while is deliberate; a stray key doesn't end it.
             return .none
         case .idle, .ignored, .started:
             return .none

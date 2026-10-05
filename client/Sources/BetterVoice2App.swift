@@ -291,6 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.meetingCoordinator.toggleMeeting()
         }
         GlobalHotKey.shared.start()
+        ImportNotifications.installDelegate()
 
         // Keep the shared permission store live and self-heal the hotkey tap: when the app
         // reactivates (e.g. the user just granted Accessibility in System Settings), re-query

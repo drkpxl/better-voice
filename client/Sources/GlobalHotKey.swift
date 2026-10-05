@@ -207,8 +207,10 @@ final class GlobalHotKey {
     /// (return nil) so its printable character (≥ for ⌥., µ for ⌥M) doesn't leak into the field.
     fileprivate func handleKeyDown(keyCode: Int64, flags: CGEventFlags, isAutorepeat: Bool) -> Bool {
         // Esc cancels an active dictation. Only bare Esc: ⌘Esc / ⌥Esc are other apps' shortcuts.
+        // Modifiers are allowed while the dictation hotkey itself is held (hold-to-talk: ⌥ is down).
+        let holdingHotKey = isPressed || dictationComboArmed
         if keyCode == Self.escapeKeyCode, cancelArmed, !isAutorepeat,
-           flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]).isEmpty {
+           holdingHotKey || flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]).isEmpty {
             Logger.log("HotKey", "Esc — cancel dictation")
             if let onCancelKey { DispatchQueue.main.async { onCancelKey() } }
             return true

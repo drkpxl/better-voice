@@ -243,6 +243,7 @@ final class ImportSession {
                 self.phase = phase
                 self.progress = frac
             }
+            guard !Task.isCancelled else { return }
             result = res
             await afterProcessing(res)
         } catch {
@@ -296,6 +297,7 @@ final class ImportSession {
                 audioPath: systemFileURL.path,
                 date: systemResult.date
             )
+            guard !Task.isCancelled else { return }
             result = merged
             await afterProcessing(merged)
         } catch {
