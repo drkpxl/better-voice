@@ -52,7 +52,7 @@ final class VoicePipeline {
 
         // Inject into the focused app
         let tInject = CFAbsoluteTimeGetCurrent()
-        TextInjector.inject(text: finalText, to: targetApp, focusTarget: focusTarget)
+        await TextInjector.inject(text: finalText, to: targetApp, focusTarget: focusTarget)
         let injectMs = Int((CFAbsoluteTimeGetCurrent() - tInject) * 1000)
 
         // Always written, as a local debug log: `rawText` vs `finalText` is what the filler stripper

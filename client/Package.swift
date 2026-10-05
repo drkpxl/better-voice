@@ -12,7 +12,7 @@ let package = Package(
     ],
     targets: [
         // Foundation-only pure-logic library so it can be unit-tested without the
-        // macOS 26 Speech/ScreenCaptureKit/FluidAudio surface or TCC permissions.
+        // FluidAudio/CoreAudio/AppKit surface or TCC permissions.
         .target(
             name: "BetterVoiceCore",
             path: "Sources/BetterVoiceCore"

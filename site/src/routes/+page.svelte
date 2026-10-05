@@ -6,7 +6,7 @@
 	import MenuBarScene from "$lib/components/MenuBarScene.svelte";
 
 	const version = "1.1.1";
-	const minMacOS = "15 Sequoia";
+	const minMacOS = "26 Tahoe";
 	// Stable alias maintained by client/scripts/release.sh (copies the newest DMG over it).
 	const releaseUrl = `${base}/downloads/BetterVoice2-latest.dmg`;
 	// Flip to true once release.sh has published the DMG (until then the download would 404,

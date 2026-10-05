@@ -4,9 +4,6 @@ import BetterVoiceCore
 
 /// SwiftUI replacement for the old `StatusBarController`'s NSStatusItem + NSMenu. State lives
 /// in `MenuBarModel`; the AppDelegate wires VoiceModule/ModelServer callbacks into it.
-///
-/// Phase 2 (dictation-only) scope: no meeting/live-capture, no Settings/Welcome scenes, no
-/// Sparkle update surface. Those land in later phases.
 
 /// Scene identifiers for `Window(id:)` / `openWindow(id:)`.
 enum WindowID {

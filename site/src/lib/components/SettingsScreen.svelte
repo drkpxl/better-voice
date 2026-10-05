@@ -19,53 +19,11 @@
 					</div>
 				</div>
 				<p class="caption">
-					Reflects whichever of Dictation Polish / Summarization below are enabled. Red if
-					either is unreachable.
+					Reflects the summarization provider below. Red if it's unreachable.
 				</p>
 			</section>
 
-			<!-- 2. Dictation Polish -->
-			<section class="group">
-				<span class="group-header">Dictation Polish</span>
-				<div class="card">
-					<div class="row">
-						<span class="row-label">Provider</span>
-						<span class="spacer"></span>
-						<button class="popup" type="button">
-							<span>Ollama</span>
-							<svg class="chevrons" viewBox="0 0 12 16" aria-hidden="true">
-								<path d="M3.5 6.5 6 4l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-								<path d="M3.5 9.5 6 12l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
-						</button>
-					</div>
-					<div class="divider"></div>
-					<div class="row">
-						<span class="row-label">Endpoint</span>
-						<span class="spacer"></span>
-						<input class="field endpoint" type="text" value="http://localhost:11434" readonly />
-					</div>
-					<div class="divider"></div>
-					<div class="row">
-						<span class="row-label">Model</span>
-						<span class="spacer"></span>
-						<button class="popup" type="button">
-							<span>qwen3.5:4b-mlx</span>
-							<svg class="chevrons" viewBox="0 0 12 16" aria-hidden="true">
-								<path d="M3.5 6.5 6 4l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-								<path d="M3.5 9.5 6 12l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
-						</button>
-						<button class="btn" type="button">Load Models</button>
-					</div>
-				</div>
-				<p class="caption">
-					Cleans up what you dictate before it's inserted. A small model here makes dictation
-					inject faster.
-				</p>
-			</section>
-
-			<!-- 3. Summarization -->
+			<!-- 2. Summarization -->
 			<section class="group">
 				<span class="group-header">Summarization</span>
 				<div class="card">

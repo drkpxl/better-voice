@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Main-window root: hosts the import wizard. Phase 5 removed the in-app file-based
-/// library/editor entirely — Apple Notes is the only meeting store now, so there is nothing
+/// Main-window root: hosts the import wizard. There is no in-app library/editor — Apple Notes is the only meeting store now, so there is nothing
 /// left to browse in-app. The window's only job is running one import at a time.
 ///
 /// The `ImportSession` lives as view `@State`: it survives while the window is open. When the

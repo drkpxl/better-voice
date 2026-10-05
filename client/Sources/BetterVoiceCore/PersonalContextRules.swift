@@ -11,7 +11,7 @@ public enum PersonalContextRules {
     /// characters of headings and prose addressed to the *user* ("Edit freely. Useful things to
     /// include: - Your name and how it's spelled."), so an untouched file is not empty. Treating it
     /// as real context ships a blank form to the model wrapped in "The following background
-    /// describes the speaker and their world", on every dictation polish and every meeting summary,
+    /// describes the speaker and their world", on every meeting summary,
     /// for anyone who never filled it in.
     ///
     /// That is not just wasted tokens. Measured on a 57-minute meeting fixture, removing it moved

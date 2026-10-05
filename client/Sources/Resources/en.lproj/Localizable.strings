@@ -3,43 +3,23 @@
 
 /* --- Status bar menu --- */
 "Better Voice" = "Better Voice";
-"Check server connection" = "Check server connection";
-"Global hotkey monitoring" = "Global hotkey monitoring";
-"Text injection (cursor)" = "Text injection (cursor)";
 "Microphone" = "Microphone";
-"Screen Recording (meeting system audio)" = "Screen Recording (meeting system audio)";
-"Stop Meeting" = "Stop Meeting";
 "Start Meeting Recording" = "Start Meeting Recording";
-"Edit Config File..." = "Edit Config File...";
 "Open Data Folder..." = "Open Data Folder...";
 "View Logs..." = "View Logs...";
 "Quit" = "Quit";
-"not configured" = "not configured";
 "Authorized" = "Authorized";
 "Not authorized — click to open Settings" = "Not authorized — click to open Settings";
 
 /* --- Menu format strings (%@ filled in code) --- */
 "%@: %@" = "%@: %@";
 "Model: %@" = "Model: %@";
-"Server: connected (%@)" = "Server: connected (%@)";
-"Server: disconnected (%@)" = "Server: disconnected (%@)";
-"Server: checking..." = "Server: checking...";
-"Set Hotkey... (%@)" = "Set Hotkey... (%@)";
 "Set Hotkeys…" = "Set Hotkeys…";
 
 /* --- Meeting transcript panel --- */
-"Better Voice Meeting Transcript" = "Better Voice Meeting Transcript";
-"Recording" = "Recording";
-"Stopped" = "Stopped";
-"%@ characters" = "%@ characters";
-"Listening..." = "Listening...";
 "Speaker" = "Speaker";
 
 /* --- Meeting export (Markdown) --- */
-"Meeting Transcript" = "Meeting Transcript";
-"Date: %@" = "Date: %@";
-"Duration: %@" = "Duration: %@";
-"Total characters: %@" = "Total characters: %@";
 "Unknown" = "Unknown";
 "%dh %dm %ds" = "%dh %dm %ds";
 "%dm %ds" = "%dm %ds";
@@ -69,13 +49,11 @@
 "Appears as the speaker label for your own voice in transcripts and summaries. Leave blank to use \"You\"." = "Appears as the speaker label for your own voice in transcripts and summaries. Leave blank to use \"You\".";
 
 /* --- Model server presets + de-Ollama'd copy (Settings / Welcome) --- */
-"Preset..." = "Preset...";
 "Local model server" = "Local model server";
 "Better Voice summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac. Dictation itself needs no model." = "Better Voice summarizes meetings using a local AI model. Ollama by default, or any OpenAI-compatible server (LM Studio, llama.cpp, mlx). The defaults work with a standard Ollama install on this Mac. Dictation itself needs no model.";
 "New to local models? Setup guide" = "New to local models? Setup guide";
 
 /* --- Field cleanup (Settings) --- */
-"Model name (blank = same as main model)" = "Model name (blank = same as main model)";
 "Minimum is 1024 — smaller values are raised when saved." = "Minimum is 1024 — smaller values are raised when saved.";
 
 /* --- Apple on-device backend (Settings / Welcome) --- */
@@ -117,7 +95,7 @@
 "Add fix" = "Add fix";
 "Remove" = "Remove";
 
-/* --- Phase 3b: Notes-only import wizard (completion / blocked / rescue screens) --- */
+/* --- Notes-only import wizard (completion / blocked / rescue screens) --- */
 "Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing." = "Apple Notes isn't set up yet. Choose an Apple Notes account and folders in Settings before importing.";
 "Better Voice needs permission to control Apple Notes. Grant Automation access in System Settings, then try again." = "Better Voice needs permission to control Apple Notes. Grant Automation access in System Settings, then try again.";
 "Added to Notes — opened the summary." = "Added to Notes — opened the summary.";
@@ -140,11 +118,10 @@
 "Close Anyway" = "Close Anyway";
 "Close" = "Close";
 
-/* --- Phase 4: Apple Notes destination picker (Welcome / Settings) --- */
+/* --- Apple Notes destination picker (Welcome / Settings) --- */
 "Apple Notes" = "Apple Notes";
 "Meeting transcripts and summaries are saved to Apple Notes." = "Meeting transcripts and summaries are saved to Apple Notes.";
 "Automation access" = "Automation access";
-"Lets Better Voice create notes in Apple Notes." = "Lets Better Voice create notes in Apple Notes.";
 "Not granted" = "Not granted";
 "Open Settings…" = "Open Settings…";
 "Destination" = "Destination";
@@ -167,26 +144,23 @@
 "Your Apple Notes folders are still being set up. Quit anyway?" = "Your Apple Notes folders are still being set up. Quit anyway?";
 "Quit Anyway" = "Quit Anyway";
 
-/* --- Phase 5: Settings / File menu + onboarding polish --- */
+/* --- Settings / File menu + onboarding polish --- */
 "Settings…" = "Settings…";
 "New Import…" = "New Import…";
 "Open Audio File…" = "Open Audio File…";
 "Change..." = "Change...";
-"Same as main model" = "Same as main model";
 "Disconnected" = "Disconnected";
 "Edit Personal Context..." = "Edit Personal Context...";
 
-/* --- Phase 6: paged onboarding wizard (Welcome) --- */
+/* --- paged onboarding wizard (Welcome) --- */
 "Back" = "Back";
 "Continue" = "Continue";
 "Get Started" = "Get Started";
 "Dictate Anywhere" = "Dictate Anywhere";
-"Hold your hotkey, speak, and release — Better Voice cleans up the text and types it at your cursor in any app." = "Hold your hotkey, speak, and release — Better Voice cleans up the text and types it at your cursor in any app.";
 "Dictate into any app with a hotkey, and turn meeting recordings into titled summaries saved to Apple Notes — everything runs locally on your Mac." = "Dictate into any app with a hotkey, and turn meeting recordings into titled summaries saved to Apple Notes — everything runs locally on your Mac.";
-"Optional — dictation works without this. Set it up now if you plan to import meetings, or skip and configure it later in Settings." = "Optional — dictation works without this. Set it up now if you plan to import meetings, or skip and configure it later in Settings.";
 "You're all set" = "You're all set";
 
-/* --- Phase 7: onboarding finish screen, 3-column recap (Welcome) --- */
+/* --- onboarding finish screen, 3-column recap (Welcome) --- */
 "Here's what you can do next. Revisit permissions and setup anytime from Settings." = "Here's what you can do next. Revisit permissions and setup anytime from Settings.";
 "Dictate" = "Dictate";
 "Tap %@ to type text wherever your cursor is." = "Tap %@ to type text wherever your cursor is.";

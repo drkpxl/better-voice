@@ -40,21 +40,22 @@ A short setup guides you through:
 ----------------------------------------
 
 Dictation (menu bar icon):
-  Hold your hotkey, speak, release. The text is cleaned up and inserted at
-  your cursor in whatever app you're in. Set or change the hotkey from the
-  menu bar icon -> "Set Hotkey...".
+  Tap your hotkey to start, tap again to stop -- or hold it while you talk
+  and let go. The text is inserted at your cursor in whatever app you're in.
+  Press Esc to cancel. Set or change the hotkey from the menu bar icon ->
+  "Set Hotkeys...".
 
 Meeting notes (main window):
-  Drag in an .m4a/.mp3/.wav recording -- or paste an existing transcript --
-  and the wizard transcribes it, separates and names the speakers, writes a
-  Markdown summary, and saves it to a searchable library you can edit and
-  copy from.
+  Drag in an .m4a/.mp3/.wav recording, paste an existing transcript, or
+  record a call live (menu bar -> "Start Meeting Recording", or the meeting
+  hotkey). The wizard transcribes it, separates and names the speakers,
+  writes a summary, and saves both to Apple Notes.
 
 Models:
-  Dictation cleanup and meeting summarization are configured independently.
-  Each can use Apple on-device (default), a local Ollama server, or any
-  OpenAI-compatible endpoint (LM Studio, llama.cpp, Jan, etc.). Configure
-  under Settings.
+  Speech is transcribed on-device by NVIDIA Parakeet (downloaded once on
+  first run, ~470 MB). Meeting summaries can use Apple on-device (default),
+  a local Ollama server, or any OpenAI-compatible endpoint (LM Studio,
+  llama.cpp, Jan, etc.). Configure under Settings.
 
 Updates:
   Menu bar icon -> "Check for Updates..." (Better Voice can also check

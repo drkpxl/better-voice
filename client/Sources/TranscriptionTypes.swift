@@ -21,8 +21,8 @@ struct CapturedAudio: @unchecked Sendable {
 
 /// Engine-neutral transcription failures.
 ///
-/// Kept separate from `ImportError` so the seam stays usable from the dictation path in Phase 3
-/// without dragging import-specific cases along.
+/// Kept separate from `ImportError` so the seam stays usable from the dictation path without
+/// dragging import-specific cases along.
 enum TranscriptionError: LocalizedError {
     /// The engine's models are not installed and could not be prepared.
     case modelUnavailable(String)

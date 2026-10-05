@@ -16,9 +16,9 @@ struct ImportWizardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(Color.brandAccent)
-        // Finished-but-unsaved work only exists in this session's memory — confirm before
-        // letting a window close (red button / ⌘W) silently discard it.
-        .background(WizardCloseGuard(shouldConfirm: { session.hasUnsavedFinishedWork }))
+        // Closing the window (red button / ⌘W) must neither silently discard finished-but-unsaved
+        // work nor leave a running import writing to Notes with nobody watching — ask first.
+        .background(WizardCloseGuard(shouldClose: { confirmCloseWizard(session) }))
     }
 
     @ViewBuilder
@@ -253,6 +253,9 @@ struct ProcessingStepView: View {
             Text(t("This can take a while for long recordings."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            Button(t("Stop Import")) { session.cancel() }
+                .keyboardShortcut(.cancelAction)
+                .disabled(!session.canCancel)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -383,6 +386,10 @@ struct SummarizingStepView: View {
                  : t("Writing a summary of the conversation."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            if session.canCancel {
+                Button(t("Stop Import")) { session.cancel() }
+                    .keyboardShortcut(.cancelAction)
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -581,6 +588,8 @@ struct SaveFailedStepView: View {
                     .disabled(session.pendingTranscriptText == nil)
                 Button(t("Copy summary")) { copy(session.pendingSummary ?? "") }
                     .disabled(session.pendingSummary == nil)
+                Button(t("Save as Markdown…")) { saveMarkdown() }
+                    .disabled(session.pendingTranscriptText == nil)
             }
             .disabled(session.isBusy)
 
@@ -595,6 +604,31 @@ struct SaveFailedStepView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(28)
+    }
+
+    /// Durable fallback when Notes keeps refusing: one Markdown file with the summary (if any)
+    /// above the full transcript, so closing the window afterwards loses nothing.
+    private func saveMarkdown() {
+        guard let transcript = session.pendingTranscriptText else { return }
+        var doc = ""
+        if let summary = session.pendingSummary, !summary.isEmpty {
+            doc += summary.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\n---\n\n"
+        }
+        doc += transcript
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        let stamp = Date().formatted(.iso8601.year().month().day())
+        panel.nameFieldStringValue = "Meeting \(stamp).md"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try doc.write(to: url, atomically: true, encoding: .utf8)
+            Logger.log("Import", "Rescue: saved meeting as Markdown to \(url.path)")
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.runModal()
+        }
     }
 
     private func copy(_ string: String) {
@@ -623,6 +657,34 @@ func confirmDiscardUnsavedImport() -> Bool {
     return alert.runModal() == .alertFirstButtonReturn
 }
 
+/// Confirm stopping an import that is still processing or summarizing. Returns true to stop.
+@MainActor
+func confirmStopImport() -> Bool {
+    NSApp.activate(ignoringOtherApps: true)
+    let alert = NSAlert()
+    alert.alertStyle = .warning
+    alert.messageText = t("Stop this import?")
+    alert.informativeText = t("The meeting is still being processed. Stopping discards the progress so far, and nothing is saved to Notes.")
+    alert.addButton(withTitle: t("Stop Import"))
+    alert.addButton(withTitle: t("Keep Going"))
+    return alert.runModal() == .alertFirstButtonReturn
+}
+
+/// The wizard window's close decision: in-flight work asks to stop it, finished-but-unsaved work
+/// asks to discard it, anything else just closes.
+@MainActor
+func confirmCloseWizard(_ session: ImportSession) -> Bool {
+    if session.hasWorkInFlight {
+        guard confirmStopImport() else { return false }
+        session.cancel()
+        return true
+    }
+    if session.hasUnsavedFinishedWork {
+        return confirmDiscardUnsavedImport()
+    }
+    return true
+}
+
 /// Intercepts the hosting window's close (red button / ⌘W) while the wizard holds finished but
 /// unsaved work — the main window's SwiftUI state (and with it this session) dies on close, so
 /// closing in `.saveFailed` or mid Notes-write would silently discard an hour of processing.
@@ -630,16 +692,16 @@ func confirmDiscardUnsavedImport() -> Bool {
 /// `windowShouldClose` to whatever delegate SwiftUI had installed; the original delegate is
 /// restored when the wizard leaves the window (view removal → `viewDidMoveToWindow(nil)`).
 struct WizardCloseGuard: NSViewRepresentable {
-    let shouldConfirm: @MainActor () -> Bool
+    let shouldClose: @MainActor () -> Bool
 
     func makeNSView(context: Context) -> GuardView {
         let view = GuardView()
-        view.delegateProxy.shouldConfirm = shouldConfirm
+        view.delegateProxy.shouldClose = shouldClose
         return view
     }
 
     func updateNSView(_ nsView: GuardView, context: Context) {
-        nsView.delegateProxy.shouldConfirm = shouldConfirm
+        nsView.delegateProxy.shouldClose = shouldClose
     }
 
     final class GuardView: NSView {
@@ -656,7 +718,7 @@ struct WizardCloseGuard: NSViewRepresentable {
 
     @MainActor
     final class CloseGuardDelegate: NSObject, NSWindowDelegate {
-        var shouldConfirm: @MainActor () -> Bool = { false }
+        var shouldClose: @MainActor () -> Bool = { true }
         // nonisolated(unsafe): read from the nonisolated NSObject forwarding overrides below.
         // All real access happens on the main thread (NSWindow delegate machinery + attach from
         // viewDidMoveToWindow), the annotation just reflects that NSObject's responds(to:)/
@@ -678,9 +740,7 @@ struct WizardCloseGuard: NSViewRepresentable {
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {
-            if shouldConfirm(), !confirmDiscardUnsavedImport() {
-                return false
-            }
+            guard shouldClose() else { return false }
             if let original, original.responds(to: #selector(NSWindowDelegate.windowShouldClose(_:))) {
                 return original.windowShouldClose?(sender) ?? true
             }

@@ -18,10 +18,8 @@ enum BetterVoice2Main {
     }
 }
 
-/// SwiftUI app: `MenuBarExtra` replaces the old NSStatusItem, and windows are `Window` scenes.
-/// Phase 2 is dictation-only: a `.regular` Dock app with a menu-bar item, a placeholder main
-/// window, and the hotkey recorder. Onboarding, the import wizard, Settings, and meetings land
-/// in later phases.
+/// SwiftUI app: `MenuBarExtra` replaces the old NSStatusItem, and windows are `Window` scenes —
+/// the import wizard (main window), onboarding, hotkeys, the two text-file editors, and Settings.
 struct BetterVoice2App: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
@@ -345,8 +343,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if meetingCoordinator.isActive, !confirmQuitDuringMeetingRecording() {
             return .terminateCancel
         }
-        guard ImportSession.activeSession?.hasUnsavedFinishedWork == true else { return .terminateNow }
-        return confirmDiscardUnsavedImport() ? .terminateNow : .terminateCancel
+        guard let session = ImportSession.activeSession else { return .terminateNow }
+        return confirmCloseWizard(session) ? .terminateNow : .terminateCancel
     }
 
     func applicationWillTerminate(_ notification: Notification) {

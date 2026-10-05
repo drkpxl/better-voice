@@ -10,8 +10,8 @@ import CoreAudio
 ///
 /// Typical scenario: recording the other party's voice in apps like Zoom during meeting mode.
 ///
-/// BetterVoice2 is an offline/batch pipeline (no live SpeechAnalyzer feed): this capturer only
-/// writes the tapped audio to a WAV file, which a later import step hands to `ImportPipeline`.
+/// Meetings are transcribed in batch afterwards: this capturer only writes the tapped audio to a
+/// WAV file, which `MeetingCoordinator` hands to the import wizard (`ImportPipeline`) on Stop.
 ///
 /// Calling `start()` is what triggers the macOS "System Audio Recording" TCC prompt on first
 /// use — there is no separate request call.
@@ -34,7 +34,7 @@ final class SystemAudioCapturer: NSObject, @unchecked Sendable {
     /// Reports a normalized (0...1) amplitude for each captured buffer; a later task drives a
     /// recording indicator with it. Invoked on the main queue (hopped off the IO queue), so a
     /// slow closure can't back up the capture queue and drop frames. `@Sendable` because it's
-    /// dispatched across queues (matches `VoiceSession`'s convention).
+    /// dispatched across queues.
     var onAudioLevel: (@Sendable (Float) -> Void)?
 
     // WAV writing (shared implementation)

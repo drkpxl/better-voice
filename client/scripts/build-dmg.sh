@@ -132,7 +132,7 @@ fi
 cp -R "$RESOURCE_BUNDLE" "$APP_CONTENTS/Resources/"
 # PkgInfo: macOS LaunchServices uses it to identify the bundle type (type=APPL/creator=????).
 # Without this file LaunchServices may not register the bundle id, so TCC can't find the
-# app and permission prompts (mic / speech recognition) never appear.
+# app and permission prompts (mic / system audio / automation) never appear.
 printf 'APPL????' > "$APP_CONTENTS/PkgInfo"
 
 # 3b) Embed Sparkle.framework (SPM only produces the framework; it isn't auto-embedded

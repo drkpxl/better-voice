@@ -159,6 +159,9 @@ final class RuntimeConfig {
     private func load() {
         if let stored = UserDefaults.standard.dictionary(forKey: Self.defaultsKey), !stored.isEmpty {
             values = stored
+            // First, before any migration can call save(): establishes what the Keychain holds, so
+            // a migration's save() can't mistake "not loaded yet" for "key cleared" and delete it.
+            restoreApiKeyFromKeychain()
             // Chronological order: the single-server split shipped first, the cleanup-stage deletion
             // second, so an install that skipped both versions must be walked through in that order.
             migrateServerSectionIfNeeded()
@@ -307,7 +310,61 @@ final class RuntimeConfig {
         save()
     }
 
+    // MARK: - API key (Keychain-backed)
+
+    /// Keychain account for `meeting.summarization.server.api_key`.
+    private static let apiKeyAccount = "summarization.api_key"
+    /// Last value written to the Keychain, so a `save()` of an unrelated setting doesn't rewrite it.
+    private var keychainApiKey: String?
+
+    /// The in-memory `values` keep `api_key` where every consumer expects it
+    /// (`summarizationServerConfig`, Settings, onboarding all read and write the plain dictionary);
+    /// only persistence differs. `save()` diverts the key into the Keychain and writes UserDefaults
+    /// without it, and `load()` puts it back. Doing it at the persistence boundary means no caller
+    /// can accidentally write the secret to the plist.
+    private static func apiKey(in values: [String: Any]) -> String? {
+        let meeting = values["meeting"] as? [String: Any]
+        let summ = meeting?["summarization"] as? [String: Any]
+        let server = summ?["server"] as? [String: Any]
+        return server?["api_key"] as? String
+    }
+
+    private static func settingApiKey(_ key: String?, in values: [String: Any]) -> [String: Any] {
+        guard var meeting = values["meeting"] as? [String: Any],
+              var summ = meeting["summarization"] as? [String: Any],
+              var server = summ["server"] as? [String: Any] else { return values }
+        if let key { server["api_key"] = key } else { server.removeValue(forKey: "api_key") }
+        summ["server"] = server
+        meeting["summarization"] = summ
+        var out = values
+        out["meeting"] = meeting
+        return out
+    }
+
+    /// Fold the Keychain copy into freshly loaded `values`. A non-empty key still sitting in
+    /// UserDefaults is an install from before the Keychain move: it wins (it's the only copy),
+    /// and the `save()` that follows moves it and strips it from the plist.
+    private func restoreApiKeyFromKeychain() {
+        let plistKey = Self.apiKey(in: values) ?? ""
+        if !plistKey.isEmpty {
+            Logger.log("Config", "Moving summarization API key from UserDefaults to the Keychain")
+            save()
+            return
+        }
+        let stored = KeychainStore.read(Self.apiKeyAccount) ?? ""
+        keychainApiKey = stored
+        if Self.apiKey(in: values) != nil || !stored.isEmpty {
+            values = Self.settingApiKey(stored, in: values)
+        }
+    }
+
     private func save() {
-        UserDefaults.standard.set(values, forKey: Self.defaultsKey)
+        let key = Self.apiKey(in: values) ?? ""
+        if key != keychainApiKey, KeychainStore.write(Self.apiKeyAccount, key) {
+            keychainApiKey = key
+        }
+        // If the Keychain write failed, keep the key in UserDefaults rather than lose it.
+        let persisted = keychainApiKey == key ? Self.settingApiKey(nil, in: values) : values
+        UserDefaults.standard.set(persisted, forKey: Self.defaultsKey)
     }
 }

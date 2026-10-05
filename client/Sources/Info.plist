@@ -18,6 +18,8 @@
 	<string>1.1.1</string>
 	<key>CFBundleVersion</key>
 	<string>8</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -29,8 +31,6 @@
 	<string>Better Voice records this Mac's audio output to transcribe the other side of your meetings.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Better Voice needs microphone access to transcribe your speech for dictation.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Better Voice needs speech recognition to transcribe on-device.</string>
 	<key>SUAutomaticallyUpdate</key>
 	<false/>
 	<key>SUEnableAutomaticChecks</key>

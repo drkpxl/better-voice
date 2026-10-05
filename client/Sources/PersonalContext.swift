@@ -71,7 +71,7 @@ enum PersonalContext {
     /// The context worth sending to a model: what the user actually wrote, or nil if that's nothing.
     ///
     /// `load()` cannot answer this — an untouched starter template is not empty, so a plain
-    /// `isEmpty` check treats a blank form as real background and ships it on every polish and
+    /// `isEmpty` check treats a blank form as real background and ships it on every
     /// summary. See `PersonalContextRules.authoredContent` for the reasoning and the measurements.
     static func promptContext() -> String? {
         guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else { return nil }

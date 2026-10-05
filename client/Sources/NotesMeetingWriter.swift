@@ -3,7 +3,7 @@ import BetterVoiceCore
 
 /// Writes a finished meeting (transcript + optional summary) to Apple Notes: renders the
 /// Markdown bodies via `BetterVoiceCore` (`MeetingMarkdown`/`markdownToNotesHTML`), then creates
-/// the notes via `NotesScript`. Two entry points cover Phase 3b's two callers: audio meetings
+/// the notes via `NotesScript`. Two entry points cover the two kinds of input: audio meetings
 /// with diarized `MeetingSegment`s, and pasted transcripts that are already plain text.
 ///
 /// Called from `ImportSession` (the import wizard's state machine): `write`/`writeTranscriptText`

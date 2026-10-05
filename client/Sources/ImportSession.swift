@@ -6,7 +6,7 @@ import BetterVoiceCore
 /// voice-prints → save to Apple Notes), but the "pauses" (setup, naming, review) are just the
 /// machine resting in a step until the user taps Continue — no modal/continuation.
 ///
-/// Phase 3b: the only durable output is Apple Notes (via `NotesMeetingWriter`) — there is no more
+/// The only durable output is Apple Notes (via `NotesMeetingWriter`) — there is no more
 /// in-app file export. `begin()` gates on Notes being configured + Automation being granted
 /// *before* any processing starts (`.blocked`); a Notes-write failure *after* processing
 /// completes (transcription/diarization/summarization already done) never loses that work — it's
@@ -110,6 +110,15 @@ final class ImportSession {
     var onFinish: (() -> Void)?
 
     private let pipeline = ImportPipeline()
+
+    /// The in-flight processing/summarizing work, so the user can stop it. Every long-running entry
+    /// point (`begin`, `beginLiveMeeting`, `confirmNaming`, `retryNotesWrite`) goes through `run(_:)`.
+    private var workTask: Task<Void, Never>?
+
+    private func run(_ body: @escaping @MainActor () async -> Void) {
+        workTask?.cancel()
+        workTask = Task { await body() }
+    }
     private let prefix = t("Speaker")
     private var localLabel: String { RuntimeConfig.shared.userName ?? t("You") }
 
@@ -147,7 +156,7 @@ final class ImportSession {
             phase = .transcribing
             progress = 0
             isBusy = true
-            Task { await runProcessing(fileURL) }
+            run { await self.runProcessing(fileURL) }
         case .liveMeeting:
             // Driven by `beginLiveMeeting(micFileURL:systemFileURL:)` instead, which runs its own
             // two-file processing (see that method) — `begin()` is never invoked directly with
@@ -160,7 +169,7 @@ final class ImportSession {
             phase = .summarizing
             progress = 0
             isBusy = true
-            Task { await runPastedTranscript(text) }
+            run { await self.runPastedTranscript(text) }
         }
     }
 
@@ -204,7 +213,7 @@ final class ImportSession {
         phase = .transcribing
         progress = 0
         isBusy = true
-        Task { await runLiveMeetingProcessing(micFileURL: micFileURL, systemFileURL: systemFileURL) }
+        run { await self.runLiveMeetingProcessing(micFileURL: micFileURL, systemFileURL: systemFileURL) }
     }
 
     // MARK: - Pasted-transcript path (no audio → no transcription/diarization)
@@ -248,6 +257,8 @@ final class ImportSession {
             result = res
             await afterProcessing(res)
         } catch {
+            // `cancel()` already moved the session on; a stage that threw because of it isn't a failure.
+            guard !Task.isCancelled else { return }
             isBusy = false
             let msg = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             step = .failed(msg)
@@ -299,6 +310,8 @@ final class ImportSession {
             result = merged
             await afterProcessing(merged)
         } catch {
+            // `cancel()` already moved the session on; a stage that threw because of it isn't a failure.
+            guard !Task.isCancelled else { return }
             isBusy = false
             let msg = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             step = .failed(msg)
@@ -316,6 +329,7 @@ final class ImportSession {
             inferredType = client.defaultType
         }
         selectedType = inferredType
+        guard !Task.isCancelled else { return }
 
         // Build speaker drafts (multi only). Imports have no local "me" speaker, but filter for safety.
         if speakerMode == .multi {
@@ -348,7 +362,7 @@ final class ImportSession {
         }
         step = .summarizing
         isBusy = true
-        Task { await finalize(names: names) }
+        run { await self.finalize(names: names) }
     }
 
     // MARK: - Finalize: learn voices, summarize, save to Apple Notes
@@ -404,6 +418,8 @@ final class ImportSession {
     /// lands on `.saveFailed` — `pendingWrite`/`pendingSummary`/`pendingTranscriptText` are left
     /// intact so `retryNotesWrite()` can try again without repeating any earlier work.
     private func writeToNotes() async {
+        // A summary that finished after the user pressed Stop must not still land in Notes.
+        guard !Task.isCancelled else { return }
         guard let pendingWrite else {
             isBusy = false // unreachable in practice, but never strand the UI on a spinner
             return
@@ -460,7 +476,7 @@ final class ImportSession {
     func retryNotesWrite() {
         guard pendingWrite != nil, !isBusy else { return }
         isBusy = true
-        Task { await writeToNotes() }
+        run { await self.writeToNotes() }
     }
 
     /// Re-shows the note created for this meeting (summary preferred, transcript otherwise) —
@@ -468,6 +484,34 @@ final class ImportSession {
     func showInNotes() {
         guard let transcriptNoteId else { return }
         Task { await NotesMeetingWriter.shared.showNote(transcriptNoteId: transcriptNoteId, summaryNoteId: summaryNoteId) }
+    }
+
+    // MARK: - Cancel
+
+    /// Stop is offered while processing, and while summarizing up to the point the Notes write
+    /// starts. Not during the write itself: an osascript call can't be interrupted, and stopping
+    /// between the transcript note and the summary note would leave half a meeting in Notes.
+    var canCancel: Bool {
+        switch step {
+        case .processing: return true
+        case .summarizing: return !isSavingToNotes
+        default: return false
+        }
+    }
+
+    /// True while there is work in flight the user would lose by closing the window — the close
+    /// guard asks before stopping it.
+    var hasWorkInFlight: Bool { canCancel }
+
+    /// Stop the import and start over. The engine stage already running finishes in the background
+    /// (FluidAudio calls aren't interruptible), but nothing after it runs and nothing is written.
+    func cancel() {
+        guard canCancel else { return }
+        Logger.log("Import", "Cancelled by user during \(step)")
+        workTask?.cancel()
+        workTask = nil
+        isBusy = false
+        finish()
     }
 
     // MARK: - Step 5

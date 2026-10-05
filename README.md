@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml/badge.svg)](https://github.com/drkpxl/better-voice/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Platform: macOS 15+](https://img.shields.io/badge/macOS-15%2B-black?logo=apple&logoColor=white)
+![Platform: macOS 26+](https://img.shields.io/badge/macOS-26%2B-black?logo=apple&logoColor=white)
 ![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-black?logo=apple&logoColor=white)
 
 A macOS menu-bar app with two halves: on-device dictation, and meeting notes that land in Apple Notes. Everything — transcription, speaker recognition, summarization — is processed locally on your Mac; your audio never leaves the machine.
@@ -11,9 +11,9 @@ A macOS menu-bar app with two halves: on-device dictation, and meeting notes tha
 
 ## What it does
 
-**Dictation** (menu bar): hold your hotkey, speak, release — the text is inserted at your cursor in any app, typically in under 300 ms. Transcription runs on-device with NVIDIA Parakeet TDT v3 (CoreML, via FluidAudio). Filler words are removed by a deterministic word-list pass, and your vocabulary's spellings are applied by exact word-boundary replacement — no model runs on your dictated text.
+**Dictation** (menu bar): tap your hotkey to start and again to stop, or hold it while you talk and let go — the text is inserted at your cursor in any app, typically in under 300 ms. Esc cancels. Transcription runs on-device with NVIDIA Parakeet TDT v3 (CoreML, via FluidAudio). Filler words are removed by a deterministic word-list pass, and your vocabulary's spellings are applied by exact word-boundary replacement — no model runs on your dictated text.
 
-**Meetings** (drag in a recording, or ⌘N/⌘O, or paste a transcript): a guided flow transcribes it and tells speakers apart locally, you confirm the speaker names, and a local LLM writes a summary with a human title (e.g. "Jun 18th - Q3 Roadmap Sync"). Better Voice then creates two notes in **Apple Notes** — a transcript note and a summary note, in folders you pick once during setup — and opens the summary. There's no in-app library or editor; everything after that lives in Apple Notes, so search, editing, and iCloud sync all happen there. Voice enrollment carries across meetings: name a voice once and Better Voice suggests that name next time.
+**Meetings** (drag in a recording, ⌘N/⌘O, paste a transcript, or record a call live with **Start Meeting Recording** / the meeting hotkey — that captures your mic and this Mac's audio output as two tracks): a guided flow transcribes it and tells speakers apart locally, you confirm the speaker names, and a local LLM writes a summary with a human title (e.g. "Jun 18th - Q3 Roadmap Sync"). Better Voice then creates two notes in **Apple Notes** — a transcript note and a summary note, in folders you pick once during setup — and opens the summary. There's no in-app library or editor; everything after that lives in Apple Notes, so search, editing, and iCloud sync all happen there. Voice enrollment carries across meetings: name a voice once and Better Voice suggests that name next time.
 
 ## How it's put together
 
@@ -33,12 +33,13 @@ An hour of meeting is roughly 13,000 tokens of transcript, so context length is 
 
 ## Requirements
 
-- macOS 15 or later.
+- macOS 26 (Tahoe) or later.
 - Apple silicon.
 
 ## Permissions
 
-- **Microphone** — for dictation.
+- **Microphone** — for dictation and live meeting recording.
+- **System Audio Recording** — only for live meeting recording, to capture the other side of a call.
 - **Input Monitoring / Accessibility** — to detect the dictation hotkey and type at your cursor.
 - **Automation (Apple Notes)** — so Better Voice can create the transcript and summary notes and open them for you. It only ever writes and opens notes; it never reads your existing notes.
 

@@ -32,16 +32,10 @@ public struct TimedWord: Sendable, Equatable {
 /// A full transcription result, independent of which engine produced it.
 ///
 /// **`phrases` is the contract, not `words`.** Both downstream consumers work in phrases —
-/// `SegmentBuffer.Entry` and `groupIntoTurns` — and the two engines arrive at phrases from opposite
-/// directions:
-///
-/// - Apple's import path gets phrases *for free*, one per `result.isFinal`, via the
-///   `.audioTimeRange` attribute. It never requests or reads per-word timings, and reads no
-///   confidence at all on that path. So `AppleSpeechTranscriber` can only fill `phrases`, and
-///   `words` is necessarily empty for it. Synthesizing per-word timings by subdividing a phrase
-///   would be inventing data.
-/// - Parakeet emits words and no phrases, so `ParakeetTranscriber` fills `words` and derives
-///   `phrases` through `PhraseSegmentation`.
+/// `SegmentBuffer.Entry` and `groupIntoTurns`. Parakeet emits words and no phrases, so
+/// `ParakeetTranscriber` fills `words` and derives `phrases` through `PhraseSegmentation`. (The
+/// retired Apple engine was the opposite: phrases for free, no per-word timings — which is why
+/// `words` stays optional rather than the contract.)
 ///
 /// An earlier draft of this type made `words` the primary unit. That was wrong, and would have
 /// forced the Apple conformance to fabricate word timings purely to satisfy the shape.

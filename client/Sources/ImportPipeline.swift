@@ -162,8 +162,8 @@ final class ImportPipeline {
         duration = Double(probeFile.length) / probeFile.processingFormat.sampleRate
         Logger.log("Import", "Audio: \(String(format: "%.1f", duration))s, \(Int(probeFile.processingFormat.sampleRate))Hz, \(probeFile.processingFormat.channelCount)ch")
 
-        // Silence gate. `MeetingCoordinator.stopMeeting` already ran this for live recordings
-        // (`MeetingCoordinator.swift:250-256`) but nothing covered a user-chosen *file*, so a silent
+        // Silence gate. `MeetingCoordinator.stopMeeting` already ran this for live recordings,
+        // but nothing covered a user-chosen *file*, so a silent
         // import ran the full pipeline and came back with zero segments and no error. Detached because
         // the check does bounded-chunk blocking reads and must not block the main actor.
         let silent = await Task.detached(priority: .utility) {
@@ -173,6 +173,9 @@ final class ImportPipeline {
             Logger.log("Import", "Silent audio \(fileURL.lastPathComponent); refusing to transcribe")
             throw ImportError.silentAudio(fileURL.lastPathComponent)
         }
+        // Cancellation checkpoints sit between stages: the engine calls themselves run to completion
+        // once started, but a cancelled import must not go on to the next (often longer) stage.
+        try Task.checkCancellation()
 
         // Prepare the engine BEFORE transcribing, and report it as its own phase.
         //
@@ -193,6 +196,7 @@ final class ImportPipeline {
             }
             report(.preparingModels, 1)
         }
+        try Task.checkCancellation()
 
         // Transcribe through the seam. Progress arrives on an arbitrary executor per the protocol, so
         // it hops to the main actor, and drops if a later `run` has superseded this one.
@@ -210,6 +214,7 @@ final class ImportPipeline {
             throw ImportError.transcriptionFailed("\(error)")
         }
         Logger.log("Import", "Transcribed: \(transcript.phrases.count) phrases via \(transcript.engineID)")
+        try Task.checkCancellation()
 
         // Replay phrases in emission order. `SegmentBuffer`'s thresholds are all measured in audio
         // timestamps and buffered characters, with no wall clock or timer, so feeding the same entries
@@ -227,10 +232,12 @@ final class ImportPipeline {
         // Flush the tail batch.
         await segmentBuffer?.flushFinal()
         report(.transcribing, 1)
+        try Task.checkCancellation()
 
         // Diarization (multi only) + phrase→speaker alignment.
         let diarized = await performDiarization(token: token)
         report(.identifyingSpeakers, 1)
+        try Task.checkCancellation()
 
         Logger.log("Import", "Complete: \(diarized.count) segments")
         return MeetingResult(segments: diarized, duration: duration, audioPath: fileURL.path)

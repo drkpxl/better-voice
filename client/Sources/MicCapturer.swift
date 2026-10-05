@@ -8,10 +8,9 @@ import BetterVoiceCore
 /// buffers → an empty WAV).
 ///
 /// Mirrors `VoiceSession`'s `AVCaptureSession`-based capture (proven Bluetooth/AirPods-compatible
-/// — `AVAudioEngine`'s `installTap` doesn't fire callbacks on Bluetooth input devices) but writes
-/// its own WAV at the mic's native rate/format instead of feeding a `SpeechAnalyzer`: v2's
-/// meeting pipeline is offline/batch (see `SystemAudioCapturer`'s doc comment), so there is no
-/// live transcriber to feed here.
+/// — `AVAudioEngine`'s `installTap` doesn't fire callbacks on Bluetooth input devices). For
+/// meetings it writes its own WAV at the mic's native rate/format, which the batch import pipeline
+/// transcribes afterwards; for dictation (`audioFileURL: nil`) it only forwards buffers in memory.
 ///
 /// **Two-file design**: this capturer and `SystemAudioCapturer` each write their OWN WAV at their
 /// own native rate — `MeetingCoordinator` hands BOTH files to `ImportSession`, which transcribes
@@ -165,8 +164,7 @@ final class MicCapturer: NSObject, @unchecked Sendable {
 }
 
 /// Receives `CMSampleBuffer`s from `AVCaptureSession`, converts to `AVAudioPCMBuffer` (reusing
-/// `CMSampleBuffer.toPCMBuffer()` from AudioCapture.swift), and forwards each buffer — no
-/// `SpeechAnalyzer` involved here, unlike `VoiceSession`'s own `AudioCaptureDelegate`.
+/// `CMSampleBuffer.toPCMBuffer()` from AudioCapture.swift), and forwards each buffer.
 private final class MicCaptureDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let onPCMBuffer: (@Sendable (AVAudioPCMBuffer) -> Void)?
     private let onAudioLevel: (@Sendable (Float) -> Void)?

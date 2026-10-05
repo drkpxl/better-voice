@@ -2,8 +2,7 @@
 
 /// One-shot resample/reformat of a single PCM buffer using a pre-built `AVAudioConverter`.
 ///
-/// Extracted from `SystemAudioCapturer` and `MeetingCaptureDelegate`, which held identical
-/// copies. The `Box` flag ensures the source buffer is handed to the converter exactly once
+/// Shared by the capture paths, which used to hold identical copies. The `Box` flag ensures the source buffer is handed to the converter exactly once
 /// (subsequent pulls report `.noDataNow`), producing one output buffer per input buffer.
 func convertPCM(buffer: AVAudioPCMBuffer,
                 using converter: AVAudioConverter,
