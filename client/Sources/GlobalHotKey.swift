@@ -41,6 +41,8 @@ final class GlobalHotKey {
     var onDictationOtherKey: (() -> Void)?
     /// Esc pressed while `cancelArmed`.
     var onCancelKey: (() -> Void)?
+    /// The dictation binding changed: any press in progress will never see its release edge.
+    var onDictationReset: (() -> Void)?
     /// Set by VoiceModule while a dictation is recording or transcribing, so Esc means "cancel"
     /// only then and reaches the focused app untouched the rest of the time.
     var cancelArmed = false
@@ -180,6 +182,7 @@ final class GlobalHotKey {
         currentConfig = config
         isPressed = false  // Prevent residual pressed state from leaking across config switches
         dictationComboArmed = false  // drop any pending combo arm so it can't fire against the new binding
+        onDictationReset?()
         Logger.log("HotKey", "Dictation hotkey reloaded: \(config.displayName) (keyCode=\(config.keyCode), modifierOnly=\(config.isModifierOnly))")
     }
 

@@ -277,6 +277,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalHotKey.shared.onCancelKey = { [weak self] in
             self?.voiceModule.cancel()
         }
+        GlobalHotKey.shared.onDictationReset = { [weak self] in
+            self?.voiceModule.resetHotKeyGesture()
+        }
         voiceModule.onCancel = { [weak self] in
             DictationSound.playCancel()
             self?.recordingIndicator.announce(t("Dictation cancelled"))

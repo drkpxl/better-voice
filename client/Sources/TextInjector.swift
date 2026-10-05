@@ -33,9 +33,34 @@ enum TextInjector {
     /// seen to take well over the old 0.5s — restoring early makes them paste the OLD clipboard.
     private static let restoreDelay: Duration = .milliseconds(900)
 
+    /// The previous injection, including its clipboard restore. Injections run one at a time: two
+    /// overlapping (a dictation finishing while Recent Dictations re-inserts) would otherwise
+    /// snapshot each other's transient text and "restore" a dictation instead of the user's clipboard.
+    @MainActor private static var previous: Task<Void, Never>?
+
+    /// Returns once ⌘V has been posted; the clipboard restore finishes afterwards in the queue
+    /// (`previous`), so the caller — and the dictation HUD — don't wait out the restore delay.
     @MainActor
     static func inject(text: String, to app: AppIdentity?, focusTarget: AXUIElement? = nil) async {
         guard !text.isEmpty else { return }
+        let prior = previous
+        await withCheckedContinuation { (pasted: CheckedContinuation<Void, Never>) in
+            previous = Task { @MainActor in
+                await prior?.value
+                await performInjection(text: text, to: app, focusTarget: focusTarget, onPasted: { pasted.resume() })
+            }
+        }
+    }
+
+    /// One injection, start to finish — returns only after the clipboard has been restored.
+    /// `onPasted` is called exactly once, right after ⌘V is posted.
+    @MainActor
+    private static func performInjection(
+        text: String,
+        to app: AppIdentity?,
+        focusTarget: AXUIElement?,
+        onPasted: () -> Void
+    ) async {
 
         let pb = NSPasteboard.general
 
@@ -91,6 +116,7 @@ enum TextInjector {
         keyUp?.flags = .maskCommand
         keyDown?.post(tap: .cgSessionEventTap)
         keyUp?.post(tap: .cgSessionEventTap)
+        onPasted()
 
         // Log changeCount purely as a diagnostic. NOTE: this is NOT a reliable success/failure
         // signal — ⌘V *reads* the pasteboard, it doesn't write, so a perfectly successful paste
@@ -104,16 +130,14 @@ enum TextInjector {
         )
 
         // Restore the clipboard once the target has had time to read it — but only if nothing else
-        // has written to it since (the user copying something new must win). Detached from the
-        // caller so the dictation flow doesn't wait on it.
-        Task { @MainActor in
-            try? await Task.sleep(for: restoreDelay)
-            guard pb.changeCount == changeCountAfterWrite else {
-                Logger.log("Injector", "Clipboard changed since paste; not restoring")
-                return
-            }
-            saved.restore(to: pb)
+        // has written to it since (the user copying something new must win). Awaited, so the next
+        // queued injection can't start until this one has handed the clipboard back.
+        try? await Task.sleep(for: restoreDelay)
+        guard pb.changeCount == changeCountAfterWrite else {
+            Logger.log("Injector", "Clipboard changed since paste; not restoring")
+            return
         }
+        saved.restore(to: pb)
     }
 }
 

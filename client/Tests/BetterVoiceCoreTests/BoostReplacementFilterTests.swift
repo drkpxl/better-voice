@@ -92,4 +92,22 @@ final class BoostReplacementFilterTests: XCTestCase {
         let out = BoostReplacementFilter.apply(to: text, swaps: [Swap(original: "whole team", replacement: "Grafana")], aliases: [:])
         XCTAssertEqual(out, text)
     }
+
+    func testSpanInsideALongerWordIsNotReplaced() {
+        let out = BoostReplacementFilter.apply(
+            to: "A tight deadline for Tig.",
+            swaps: [Swap(original: "Tig", replacement: "Tadhg")],
+            aliases: [:]
+        )
+        XCTAssertEqual(out, "A tight deadline for Tadhg.")
+    }
+
+    func testCaseSensitiveWordMatchSkipsEarlierSubstring() {
+        let out = BoostReplacementFilter.apply(
+            to: "Tight timeline, ask Tig.",
+            swaps: [Swap(original: "Tig", replacement: "Tadhg")],
+            aliases: [:]
+        )
+        XCTAssertEqual(out, "Tight timeline, ask Tadhg.")
+    }
 }

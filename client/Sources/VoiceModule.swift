@@ -143,6 +143,14 @@ final class VoiceModule {
         perform(gesture.otherKeyPressed())
     }
 
+    /// The hotkey binding changed mid-press: drop the press (and its hold timer) so it can't start
+    /// a recording whose release will never arrive.
+    func resetHotKeyGesture() {
+        holdTimer?.cancel()
+        holdTimer = nil
+        gesture.reset()
+    }
+
     private func perform(_ action: DictationGesture.Action) {
         switch action {
         case .none:

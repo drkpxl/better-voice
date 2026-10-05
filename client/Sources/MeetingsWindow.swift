@@ -25,7 +25,7 @@ final class ImportHost {
     private init() {
         session = ImportSession()
         session.onFinish = { [weak self] in self?.onImportFinished() }
-        session.onStepChange = { [weak self] step in self?.stepChanged(step) }
+        session.onStepChange = { [weak self] session, step in self?.stepChanged(session, step) }
     }
 
     /// True while it's safe to throw away the current session's state: nothing has been
@@ -103,16 +103,16 @@ final class ImportHost {
     private func makeFreshSession() -> ImportSession {
         let fresh = ImportSession()
         fresh.onFinish = { [weak self] in self?.onImportFinished() }
-        fresh.onStepChange = { [weak self] step in self?.stepChanged(step) }
+        fresh.onStepChange = { [weak self] session, step in self?.stepChanged(session, step) }
         return fresh
     }
 
     /// Tell a user who isn't looking that their import is done or waiting on them.
-    private func stepChanged(_ step: ImportStep) {
+    private func stepChanged(_ changed: ImportSession, _ step: ImportStep) {
         guard !(isWindowVisible && NSApp.isActive) else { return }
         switch step {
         case .review:
-            ImportNotifications.post(t("Meeting saved to Notes"), session.noteTitle ?? t("Your transcript and summary are ready."))
+            ImportNotifications.post(t("Meeting saved to Notes"), changed.noteTitle ?? t("Your transcript and summary are ready."))
         case .naming:
             ImportNotifications.post(t("Name the speakers"), t("Transcription finished. Confirm who's who to write the summary."))
         case .saveFailed:

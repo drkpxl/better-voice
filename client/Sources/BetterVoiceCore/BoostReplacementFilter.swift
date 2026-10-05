@@ -33,12 +33,18 @@ public enum BoostReplacementFilter {
         // which no longer matches the original, so a repeated word is handled one at a time.
         var result = text
         for swap in swaps where isSafe(swap, aliases: aliases) {
-            guard let range = result.range(of: swap.original) else { continue }
+            guard let range = wordRange(of: swap.original, in: result) else { continue }
             let (lead, _, trail) = splitPunctuation(swap.original)
             let (_, core, _) = splitPunctuation(swap.replacement)
             result.replaceSubrange(range, with: lead + core + trail)
         }
         return result
+    }
+
+    /// First occurrence of `span` that isn't part of a longer word ("Tig" must not match "Tight").
+    private static func wordRange(of span: String, in text: String) -> Range<String.Index>? {
+        let pattern = "(?<![\\p{L}\\p{N}])" + NSRegularExpression.escapedPattern(for: span) + "(?![\\p{L}\\p{N}])"
+        return text.range(of: pattern, options: .regularExpression)
     }
 
     static func isSafe(_ swap: Swap, aliases: [String: [String]]) -> Bool {

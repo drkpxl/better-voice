@@ -15,20 +15,25 @@ enum KeychainStore {
         Bundle.main.bundleIdentifier ?? "com.drkpxl.bettervoice2.unbundled"
     }
 
-    /// The stored value, or nil if absent/unreadable.
-    static func read(_ account: String) -> String? {
+    enum ReadResult: Equatable {
+        case value(String)
+        case notFound
+        /// Present but unreadable right now (locked keychain, access denied after a re-sign).
+        case unavailable
+    }
+
+    static func read(_ account: String) -> ReadResult {
         var query = baseQuery(account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &out)
-        guard status == errSecSuccess, let data = out as? Data else {
-            if status != errSecItemNotFound {
-                Logger.log("Keychain", "Read \(account) failed: \(status)")
-            }
-            return nil
+        if status == errSecItemNotFound { return .notFound }
+        guard status == errSecSuccess, let data = out as? Data, let string = String(data: data, encoding: .utf8) else {
+            Logger.log("Keychain", "Read \(account) failed: \(status)")
+            return .unavailable
         }
-        return String(data: data, encoding: .utf8)
+        return .value(string)
     }
 
     /// Store `value`, or delete the item when `value` is empty. Returns false on failure.

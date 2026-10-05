@@ -356,6 +356,8 @@ final class RuntimeConfig {
     private static let apiKeyAccount = "summarization.api_key"
     /// Last value written to the Keychain, so a `save()` of an unrelated setting doesn't rewrite it.
     private var keychainApiKey: String?
+    /// The Keychain item exists but couldn't be read at launch — never overwrite it with "".
+    private var keychainUnreadable = false
 
     /// The in-memory `values` keep `api_key` where every consumer expects it
     /// (`summarizationServerConfig`, Settings, onboarding all read and write the plain dictionary);
@@ -391,20 +393,30 @@ final class RuntimeConfig {
             save()
             return
         }
-        let stored = KeychainStore.read(Self.apiKeyAccount) ?? ""
-        keychainApiKey = stored
-        if Self.apiKey(in: values) != nil || !stored.isEmpty {
+        switch KeychainStore.read(Self.apiKeyAccount) {
+        case .value(let stored):
+            keychainApiKey = stored
             values = Self.settingApiKey(stored, in: values)
+        case .notFound:
+            keychainApiKey = ""
+        case .unavailable:
+            // Leave `keychainApiKey` nil and mark the key as unknown: a save in this state must
+            // not write an empty key over one that exists but can't be read right now.
+            keychainUnreadable = true
         }
     }
 
     private func save() {
         let key = Self.apiKey(in: values) ?? ""
-        if key != keychainApiKey, KeychainStore.write(Self.apiKeyAccount, key) {
+        if keychainUnreadable && key.isEmpty {
+            // Unknown stored value and nothing new typed: leave the Keychain alone.
+        } else if key != keychainApiKey, KeychainStore.write(Self.apiKeyAccount, key) {
             keychainApiKey = key
+            keychainUnreadable = false
         }
         // If the Keychain write failed, keep the key in UserDefaults rather than lose it.
-        let persisted = keychainApiKey == key ? Self.settingApiKey(nil, in: values) : values
+        let persisted = (keychainApiKey == key || (keychainUnreadable && key.isEmpty))
+            ? Self.settingApiKey(nil, in: values) : values
         UserDefaults.standard.set(persisted, forKey: Self.defaultsKey)
     }
 }

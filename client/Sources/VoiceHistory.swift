@@ -13,7 +13,9 @@ struct VoiceHistoryEntry: Codable, Sendable, Identifiable {
     let appBundleID: String?
     let appName: String?
 
-    var id: Date { timestamp }
+    /// Timestamps are second-precision once round-tripped through the log, so two quick
+    /// dictations can share one; the text disambiguates.
+    var id: String { "\(timestamp.timeIntervalSinceReferenceDate)|\(finalText)" }
 }
 
 /// The dictation log, and the menu bar's "Recent Dictations" list read from it — the way back

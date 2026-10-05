@@ -67,10 +67,10 @@ final class ImportSession {
 
     // Progress
     private(set) var step: ImportStep = .setup {
-        didSet { if step != oldValue { onStepChange?(step) } }
+        didSet { if step != oldValue { onStepChange?(self, step) } }
     }
     /// Called on every step change (the host notifies a user who isn't looking).
-    @ObservationIgnored var onStepChange: ((ImportStep) -> Void)?
+    @ObservationIgnored var onStepChange: ((ImportSession, ImportStep) -> Void)?
     private(set) var phase: ImportPhase = .transcribing
     private(set) var progress: Double = 0
     private(set) var isBusy = false
