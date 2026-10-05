@@ -336,11 +336,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    /// Guards ⌘Q / the menu-bar Quit against silently destroying in-flight work. Two cases, each
-    /// seen through its own self-clearing weak static (see the pointed-to doc comments):
-    /// - A finished-but-unsaved import (`ImportSession.activeSession`): `WizardCloseGuard`
-    ///   (ImportWizardView.swift) already confirms on window close, but quitting terminates the
-    ///   app directly without going through a window close first — same alert, same choice.
+    /// Guards ⌘Q / the menu-bar Quit against silently destroying in-flight work:
+    /// - An import still running, or finished but not saved to Notes (`ImportHost`'s session).
+    ///   Closing the window is harmless (the import carries on in the background); quitting is not.
     /// - The Notes destination picker mid-`save()` (`NotesDestinationPickerViewModel.
     ///   activePicker`): a `createFolder` may have reached Notes with the config write still
     ///   pending; quitting then orphans the new folder, so confirm first.
@@ -352,13 +350,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return .terminateCancel
         }
         // A meeting recording in progress happens BEFORE any ImportSession step change (there's
-        // no session yet — the WAV isn't handed off until Stop), so `ImportSession.
-        // activeSession`/`hasUnsavedFinishedWork` below never sees it; this is its own guard.
+        // no session yet — the WAV isn't handed off until Stop), so `ImportHost`'s session
+        // below never sees it; this is its own guard.
         if meetingCoordinator.isActive, !confirmQuitDuringMeetingRecording() {
             return .terminateCancel
         }
-        guard let session = ImportSession.activeSession else { return .terminateNow }
-        return confirmCloseWizard(session) ? .terminateNow : .terminateCancel
+        return confirmQuitWithImport(ImportHost.shared.session) ? .terminateNow : .terminateCancel
     }
 
     func applicationWillTerminate(_ notification: Notification) {

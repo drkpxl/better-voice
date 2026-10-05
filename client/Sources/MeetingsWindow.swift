@@ -1,61 +1,38 @@
 import SwiftUI
+import UserNotifications
 
-/// Main-window root: hosts the import wizard. There is no in-app library/editor — Apple Notes is the only meeting store now, so there is nothing
-/// left to browse in-app. The window's only job is running one import at a time.
+/// Owns the one import the app runs at a time, independent of any window.
 ///
-/// The `ImportSession` lives as view `@State`: it survives while the window is open. When the
-/// wizard finishes (`ImportSession.finish()` — Done / Close on any terminal step), the host
-/// replaces it with a brand-new session sitting at a fresh Step 1 (setup), rather than closing
-/// the window — keeping the window open for the next import mirrors the old "back to the
-/// library, ready for another" flow without a library to land on.
-struct MeetingsRootView: View {
-    @State private var session = ImportSession()
+/// The session used to live as the main window's `@State`, so closing the window threw away
+/// whatever the wizard held — which is why closing had to be guarded with "discard this?" alerts.
+/// Held here instead, an import simply carries on in the background when the window closes, and
+/// reopening the window shows it exactly where it was. When a backgrounded import finishes or
+/// needs the user (naming speakers, a failed Notes save), `ImportHost` posts a notification; the
+/// menu bar shows its progress meanwhile.
+///
+/// When the wizard finishes (`ImportSession.finish()` — Done / Close on any terminal step), the host
+/// replaces the session with a fresh one at Step 1.
+@MainActor
+@Observable
+final class ImportHost {
+    static let shared = ImportHost()
 
-    var body: some View {
-        ImportWizardView(session: session)
-            .frame(minWidth: 720, minHeight: 480)
-            // File-menu commands (⌘N / ⌘O) request an import via ImportLauncher; drag-in drops a
-            // file straight onto the window. Both replace the current session — guarded so an
-            // in-flight or not-yet-saved import is never silently discarded.
-            .dropDestination(for: URL.self) { urls, _ in
-                guard let url = urls.first, canReplaceSession else { return false }
-                startImport(url)
-                return true
-            }
-            // Drain any pending ImportLauncher request from BOTH change and appear: `openWindow`
-            // doesn't synchronously mount this view, so a request enqueued while the window was
-            // closed bumps the token before this `.onChange` subscriber exists — `.onAppear` on
-            // the freshly-mounted view is what catches it. `consume()` is read-and-clear, so both
-            // firing for one request can't double-import (see ImportLauncher).
-            .onChange(of: ImportLauncher.shared.requestToken) { drainPendingRequest() }
-            .onAppear {
-                configureIfNeeded()
-                drainPendingRequest()
-            }
-    }
+    private(set) var session: ImportSession
 
-    /// Wires the initial session's `onFinish` exactly once (idempotent: a fresh `ImportSession`
-    /// always starts with `onFinish == nil`, so this only fires the first time the window
-    /// appears for a given session).
-    private func configureIfNeeded() {
-        guard session.onFinish == nil else { return }
-        session.onFinish = { onImportFinished() }
-    }
+    /// Whether the main window is on screen. Notifications are for a user who isn't looking.
+    var isWindowVisible = false
 
-    /// When any import finishes, reset to a fresh session AND re-drain: a live-meeting/import
-    /// request that arrived while this import was mid-flight (kept pending, not dropped, by the
-    /// `canReplaceSession` guard) is now safe to act on — pick it up instead of stranding it
-    /// until the next window re-appear.
-    private func onImportFinished() {
-        resetSession(fileURL: nil)
-        drainPendingRequest()
+    private init() {
+        session = ImportSession()
+        session.onFinish = { [weak self] in self?.onImportFinished() }
+        session.onStepChange = { [weak self] step in self?.stepChanged(step) }
     }
 
     /// True while it's safe to throw away the current session's state: nothing has been
     /// processed yet, or the wizard already reached a terminal screen. Mid-flight steps
     /// (transcribing/naming/summarizing) and `.saveFailed` (finished work not yet in Notes)
     /// must never be silently replaced.
-    private var canReplaceSession: Bool {
+    var canReplaceSession: Bool {
         switch session.step {
         case .setup, .review, .failed, .blocked:
             return true
@@ -64,18 +41,33 @@ struct MeetingsRootView: View {
         }
     }
 
-    /// Enters a fresh import, single-flight via `canReplaceSession`. `fileURL` pre-fills the
-    /// setup step for the drag-and-drop entry point; nil starts empty.
-    private func startImport(_ fileURL: URL?) {
+    /// Short status for the menu bar while an import is running or waiting on the user; nil when
+    /// there's nothing to say.
+    var menuStatus: String? {
+        switch session.step {
+        case .processing:
+            return t("Importing meeting… \(Int(session.progress * 100))%")
+        case .summarizing:
+            return t("Summarizing meeting…")
+        case .naming:
+            return t("Meeting ready — name the speakers")
+        case .saveFailed:
+            return t("Meeting not saved to Notes")
+        case .setup, .review, .failed, .blocked:
+            return nil
+        }
+    }
+
+    /// Enters a fresh import (drag-and-drop), single-flight via `canReplaceSession`.
+    func startImport(_ fileURL: URL?) {
         guard canReplaceSession else { return }
         resetSession(fileURL: fileURL)
     }
 
     /// Take-and-act on whatever `ImportLauncher` has pending. Guarded by `canReplaceSession`
     /// BEFORE consuming, so a request arriving mid-import (unsafe to replace) is left pending —
-    /// a later `.onAppear`/drain picks it up rather than silently dropping it. Called from both
-    /// `.onChange(of: requestToken)` and `.onAppear` (see the body above).
-    private func drainPendingRequest() {
+    /// picked up when the current import finishes rather than silently dropped.
+    func drainPendingRequest() {
         guard canReplaceSession, let request = ImportLauncher.shared.consume() else { return }
         switch request {
         case .importFile(let fileURL):
@@ -93,19 +85,106 @@ struct MeetingsRootView: View {
         }
     }
 
-    /// Swaps in a brand-new `ImportSession` at Step 1, wired to reset itself again on finish.
+    // MARK: - Private
+
+    /// When any import finishes, reset to a fresh session AND re-drain: a request that arrived
+    /// while this import was mid-flight is now safe to act on.
+    private func onImportFinished() {
+        resetSession(fileURL: nil)
+        drainPendingRequest()
+    }
+
     private func resetSession(fileURL: URL?) {
         let fresh = makeFreshSession()
         fresh.fileURL = fileURL
         session = fresh
     }
 
-    /// A brand-new `ImportSession` wired to reset itself again on finish — shared by
-    /// `resetSession(fileURL:)` (Step 1 pre-fill) and the live-meeting / blocked drains (which
-    /// skip straight past Step 1).
     private func makeFreshSession() -> ImportSession {
         let fresh = ImportSession()
-        fresh.onFinish = { onImportFinished() }
+        fresh.onFinish = { [weak self] in self?.onImportFinished() }
+        fresh.onStepChange = { [weak self] step in self?.stepChanged(step) }
         return fresh
+    }
+
+    /// Tell a user who isn't looking that their import is done or waiting on them.
+    private func stepChanged(_ step: ImportStep) {
+        guard !(isWindowVisible && NSApp.isActive) else { return }
+        switch step {
+        case .review:
+            ImportNotifications.post(t("Meeting saved to Notes"), session.noteTitle ?? t("Your transcript and summary are ready."))
+        case .naming:
+            ImportNotifications.post(t("Name the speakers"), t("Transcription finished. Confirm who's who to write the summary."))
+        case .saveFailed:
+            ImportNotifications.post(t("Meeting not saved to Notes"), t("The transcript and summary are kept — open Better Voice to retry or copy them."))
+        case .failed(let message):
+            ImportNotifications.post(t("Import failed"), message)
+        case .setup, .processing, .summarizing, .blocked:
+            break
+        }
+    }
+}
+
+/// Local notifications for backgrounded imports. Clicking one opens the main window. Permission is
+/// requested the first time one is needed; if it's declined the menu bar status is still there.
+@MainActor
+enum ImportNotifications {
+    private static let delegate = Delegate()
+
+    static func post(_ title: String, _ body: String) {
+        let center = UNUserNotificationCenter.current()
+        center.delegate = delegate
+        Task {
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+            guard granted else {
+                Logger.log("Import", "Notification not shown (not authorized): \(title)")
+                return
+            }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            try? await center.add(UNNotificationRequest(identifier: "import", content: content, trigger: nil))
+        }
+    }
+
+    private final class Delegate: NSObject, UNUserNotificationCenterDelegate {
+        func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+            await MainActor.run { WindowRouter.shared.open(id: WindowID.main) }
+        }
+
+        func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+            [.banner, .sound]
+        }
+    }
+}
+
+/// Main-window root: hosts the import wizard for `ImportHost`'s session. There is no in-app
+/// library/editor — Apple Notes is the only meeting store, so the window's only job is the import.
+struct MeetingsRootView: View {
+    private let host = ImportHost.shared
+
+    var body: some View {
+        ImportWizardView(session: host.session)
+            .frame(minWidth: 720, minHeight: 480)
+            // File-menu commands (⌘N / ⌘O) request an import via ImportLauncher; drag-in drops a
+            // file straight onto the window. Both replace the current session — guarded so an
+            // in-flight or not-yet-saved import is never silently discarded.
+            .dropDestination(for: URL.self) { urls, _ in
+                guard let url = urls.first, host.canReplaceSession else { return false }
+                host.startImport(url)
+                return true
+            }
+            // Drain any pending ImportLauncher request from BOTH change and appear: `openWindow`
+            // doesn't synchronously mount this view, so a request enqueued while the window was
+            // closed bumps the token before this `.onChange` subscriber exists — `.onAppear` on
+            // the freshly-mounted view is what catches it. `consume()` is read-and-clear, so both
+            // firing for one request can't double-import (see ImportLauncher).
+            .onChange(of: ImportLauncher.shared.requestToken) { host.drainPendingRequest() }
+            .onAppear {
+                host.isWindowVisible = true
+                host.drainPendingRequest()
+            }
+            .onDisappear { host.isWindowVisible = false }
     }
 }

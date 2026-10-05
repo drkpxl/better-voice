@@ -51,6 +51,11 @@ final class ModelServer {
     private let openAIBackend = OpenAICompatibleBackend()
     private let foundationModelsBackend = FoundationModelsBackend()
 
+    /// The Apple backend when `server` uses it — for the guided-generation calls only it offers.
+    func appleBackend(for server: ServerConnectionConfig) -> FoundationModelsBackend? {
+        server.api == "apple" ? foundationModelsBackend : nil
+    }
+
     private func backend(for apiType: String) -> any LLMBackend {
         switch apiType {
         case "openai": return openAIBackend

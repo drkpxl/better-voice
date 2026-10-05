@@ -490,12 +490,18 @@ struct WelcomeContentView: View {
                 }
 
             if viewModel.provider == "apple" {
-                // On-device is always available with nothing to configure, so there's no
-                // connection to test — unlike Ollama/OpenAI-compatible, a "Test connection"
-                // button here would have nothing meaningful to check.
-                Text(t("Runs on-device — always available, nothing to set up."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                // Nothing to configure, so no connection to test — but the model can still be
+                // unavailable (Apple Intelligence off, ineligible Mac, still downloading), and
+                // that's worth saying here rather than at the first failed summary.
+                if let reason = FoundationModelsBackend.unavailableReason {
+                    Label(reason, systemImage: "exclamationmark.triangle")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                } else {
+                    Text(t("Runs on-device — nothing to set up."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(t("Endpoint")).font(.caption).foregroundStyle(.secondary)

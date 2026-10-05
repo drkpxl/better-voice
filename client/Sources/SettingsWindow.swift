@@ -283,9 +283,15 @@ struct SettingsContentView: View {
                             }
                         }
                     if viewModel.summarizationProvider == "apple" {
-                        Text(t("Uses Apple Intelligence on this Mac — nothing to install. Requires Apple Intelligence to be enabled in System Settings."))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if let reason = FoundationModelsBackend.unavailableReason {
+                            Label(reason, systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        } else {
+                            Text(t("Uses Apple Intelligence on this Mac — nothing to install."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     } else {
                         TextField(t("Endpoint"), text: $viewModel.summarizationEndpoint)
                         if viewModel.summarizationProvider == "openai" {

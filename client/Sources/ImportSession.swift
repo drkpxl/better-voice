@@ -12,8 +12,8 @@ import BetterVoiceCore
 /// completes (transcription/diarization/summarization already done) never loses that work — it's
 /// kept in memory and offered back via `.saveFailed` (retry / copy transcript / copy summary).
 ///
-/// One `ImportSession` per import. The host (main window) sets `onFinish` to start a fresh
-/// session (Apple Notes is the archive now, not the in-app window — see `MeetingsRootView`).
+/// One `ImportSession` per import, owned by `ImportHost` (not the window, so an import keeps
+/// running when the window closes). The host sets `onFinish` to start a fresh session.
 enum ImportStep: Equatable {
     case setup          // Step 1: choose file + single/multi
     case processing     // Step 2: transcribe (+ diarize) with live progress
@@ -41,22 +41,7 @@ enum ImportInputMode: Equatable {
 @Observable
 final class ImportSession {
 
-    /// Weak pointer to whichever `ImportSession` is currently live (there is only ever one — the
-    /// main window runs one import at a time, see `MeetingsRootView`). Kept up to date by
-    /// `init()` below.
-    ///
-    /// `WizardCloseGuard` (ImportWizardView.swift) already confirms before a window close
-    /// discards unsaved finished work, but ⌘Q / the menu-bar Quit terminate the app directly
-    /// without closing any window first, bypassing that guard entirely. `AppDelegate.
-    /// applicationShouldTerminate` (BetterVoice2App.swift) reads `activeSession?.
-    /// hasUnsavedFinishedWork` through this pointer to apply the same confirmation there. `weak`
-    /// means it self-clears once the session is released (the host replaces it with a fresh one
-    /// in `finish()`) — no manual teardown needed.
-    static weak var activeSession: ImportSession?
-
-    init() {
-        ImportSession.activeSession = self
-    }
+    init() {}
 
     /// Per-speaker draft for the naming step (salvaged from v1's wrap-up `Speaker`).
     struct SpeakerDraft: Identifiable {
@@ -81,7 +66,11 @@ final class ImportSession {
     var pastedTranscript: String = ""
 
     // Progress
-    private(set) var step: ImportStep = .setup
+    private(set) var step: ImportStep = .setup {
+        didSet { if step != oldValue { onStepChange?(step) } }
+    }
+    /// Called on every step change (the host notifies a user who isn't looking).
+    @ObservationIgnored var onStepChange: ((ImportStep) -> Void)?
     private(set) var phase: ImportPhase = .transcribing
     private(set) var progress: Double = 0
     private(set) var isBusy = false
@@ -463,9 +452,8 @@ final class ImportSession {
     }
 
     /// True while finished work exists ONLY in this session's memory: the Notes write failed
-    /// (`.saveFailed`) or is still in flight. Closing the main window in this state would
-    /// silently discard the import (the wizard's state dies with the window), so the close
-    /// guard confirms first.
+    /// (`.saveFailed`) or is still in flight. Quitting in this state would discard it, so the
+    /// quit check confirms first.
     var hasUnsavedFinishedWork: Bool {
         if case .saveFailed = step { return true }
         return isSavingToNotes
@@ -499,8 +487,7 @@ final class ImportSession {
         }
     }
 
-    /// True while there is work in flight the user would lose by closing the window — the close
-    /// guard asks before stopping it.
+    /// True while there is work in flight that quitting would lose — the quit check asks first.
     var hasWorkInFlight: Bool { canCancel }
 
     /// Stop the import and start over. The engine stage already running finishes in the background
@@ -519,10 +506,6 @@ final class ImportSession {
     /// Finish the wizard; the host just starts a fresh import (nothing to select — Apple Notes
     /// is the archive now, not an in-app library).
     func finish() {
-        // `activeSession` is weak and normally self-clears when the host drops the session, but
-        // clear it eagerly too — cheap insurance against a future strong reference keeping a
-        // finished "zombie" session alive whose stale state could block quitting.
-        if ImportSession.activeSession === self { ImportSession.activeSession = nil }
         onFinish?()
     }
 }

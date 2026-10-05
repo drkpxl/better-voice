@@ -153,6 +153,10 @@ struct MenuBarMenu: View {
         Divider()
 
         meetingRow
+        if let status = ImportHost.shared.menuStatus {
+            // A backgrounded import: its progress, and the way back to it.
+            Button(status) { WindowRouter.shared.open(id: WindowID.main) }
+        }
         recentDictations
 
         Divider()

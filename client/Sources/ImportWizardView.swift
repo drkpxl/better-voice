@@ -16,9 +16,8 @@ struct ImportWizardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(Color.brandAccent)
-        // Closing the window (red button / ⌘W) must neither silently discard finished-but-unsaved
-        // work nor leave a running import writing to Notes with nobody watching — ask first.
-        .background(WizardCloseGuard(shouldClose: { confirmCloseWizard(session) }))
+        // No close guard: the session belongs to `ImportHost`, so closing the window just sends
+        // the import to the background (see MeetingsWindow.swift).
     }
 
     @ViewBuilder
@@ -670,10 +669,9 @@ func confirmStopImport() -> Bool {
     return alert.runModal() == .alertFirstButtonReturn
 }
 
-/// The wizard window's close decision: in-flight work asks to stop it, finished-but-unsaved work
-/// asks to discard it, anything else just closes.
+/// Quitting with an import running or unsaved: ask first. Returns true to quit.
 @MainActor
-func confirmCloseWizard(_ session: ImportSession) -> Bool {
+func confirmQuitWithImport(_ session: ImportSession) -> Bool {
     if session.hasWorkInFlight {
         guard confirmStopImport() else { return false }
         session.cancel()
@@ -683,78 +681,4 @@ func confirmCloseWizard(_ session: ImportSession) -> Bool {
         return confirmDiscardUnsavedImport()
     }
     return true
-}
-
-/// Intercepts the hosting window's close (red button / ⌘W) while the wizard holds finished but
-/// unsaved work — the main window's SwiftUI state (and with it this session) dies on close, so
-/// closing in `.saveFailed` or mid Notes-write would silently discard an hour of processing.
-/// Installs itself as the window's `NSWindowDelegate`, forwarding everything except
-/// `windowShouldClose` to whatever delegate SwiftUI had installed; the original delegate is
-/// restored when the wizard leaves the window (view removal → `viewDidMoveToWindow(nil)`).
-struct WizardCloseGuard: NSViewRepresentable {
-    let shouldClose: @MainActor () -> Bool
-
-    func makeNSView(context: Context) -> GuardView {
-        let view = GuardView()
-        view.delegateProxy.shouldClose = shouldClose
-        return view
-    }
-
-    func updateNSView(_ nsView: GuardView, context: Context) {
-        nsView.delegateProxy.shouldClose = shouldClose
-    }
-
-    final class GuardView: NSView {
-        let delegateProxy = CloseGuardDelegate()
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            delegateProxy.attach(to: window)
-        }
-
-        // Purely a window-delegate hook — must never intercept clicks meant for the UI.
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    }
-
-    @MainActor
-    final class CloseGuardDelegate: NSObject, NSWindowDelegate {
-        var shouldClose: @MainActor () -> Bool = { true }
-        // nonisolated(unsafe): read from the nonisolated NSObject forwarding overrides below.
-        // All real access happens on the main thread (NSWindow delegate machinery + attach from
-        // viewDidMoveToWindow), the annotation just reflects that NSObject's responds(to:)/
-        // forwardingTarget(for:) can't be actor-isolated.
-        private nonisolated(unsafe) weak var original: NSWindowDelegate?
-        private weak var attachedWindow: NSWindow?
-
-        /// Moves the guard between windows: restores the previous window's original delegate,
-        /// then chains in front of the new window's.
-        func attach(to window: NSWindow?) {
-            if let attachedWindow, attachedWindow !== window, attachedWindow.delegate === self {
-                attachedWindow.delegate = original
-                original = nil
-            }
-            attachedWindow = window
-            guard let window, window.delegate !== self else { return }
-            original = window.delegate
-            window.delegate = self
-        }
-
-        func windowShouldClose(_ sender: NSWindow) -> Bool {
-            guard shouldClose() else { return false }
-            if let original, original.responds(to: #selector(NSWindowDelegate.windowShouldClose(_:))) {
-                return original.windowShouldClose?(sender) ?? true
-            }
-            return true
-        }
-
-        // Everything except windowShouldClose passes straight through to SwiftUI's delegate.
-        override func responds(to aSelector: Selector!) -> Bool {
-            super.responds(to: aSelector) || (original?.responds(to: aSelector) ?? false)
-        }
-
-        override func forwardingTarget(for aSelector: Selector!) -> Any? {
-            if let original, original.responds(to: aSelector) { return original }
-            return super.forwardingTarget(for: aSelector)
-        }
-    }
 }

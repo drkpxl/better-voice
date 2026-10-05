@@ -202,7 +202,7 @@ final class NotesDestinationPickerViewModel {
 
     /// Weak pointer to whichever picker view model is currently live (there is only ever one —
     /// the picker is a sheet, and Welcome/Settings never present it simultaneously). Same
-    /// self-clearing pattern as `ImportSession.activeSession`: `AppDelegate.
+    /// self-clearing weak-static pattern: `AppDelegate.
     /// applicationShouldTerminate` (BetterVoice2App.swift) checks `activePicker?.isSaving` so ⌘Q
     /// can't kill the app mid-`save()` — after `createFolder` was sent but before the config
     /// write landed, quitting would orphan a just-created folder in Notes with no config

@@ -57,6 +57,17 @@ final class SummarizationClient {
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return fallback }
 
         let system = Prompts.meetingTypeClassificationPrompt(language: language)
+
+        // Apple: guided generation picks one of the type keys directly.
+        if let apple = ModelServer.shared.appleBackend(for: server) {
+            let keys = MeetingType.allCases.map(\.configKey)
+            if let key = await apple.classify(transcript: transcript, instructions: system, allowed: keys),
+               let type = MeetingType.from(configKey: key) {
+                Logger.log("Summary", "Classified meeting type (guided): \(type.configKey)")
+                return type
+            }
+        }
+
         // Classification only needs a very short output; reuses the summarization num_ctx to accommodate long transcripts.
         let opts = ModelServer.GenerateOptions(numCtx: numCtx, numPredict: 16, timeout: timeout)
         guard let resp = await ModelServer.shared.generate(server: server, prompt: transcript, systemPrompt: system, options: opts) else {
@@ -116,6 +127,16 @@ final class SummarizationClient {
         guard !excerpt.isEmpty else { return nil }
 
         let system = PersonalContext.appended(to: Prompts.titleOnlyInstructionEN + (Vocabulary.shared.promptBlock ?? ""))
+
+        // Apple: guided generation returns the title as a typed field. Still sanitized — a
+        // schema bounds the shape, not every stray quote.
+        if let apple = ModelServer.shared.appleBackend(for: server),
+           let raw = await apple.title(forSummary: excerpt, instructions: system),
+           let title = sanitizeGeneratedTitle(raw) {
+            Logger.log("Summary", "Fallback title (guided): \(title)")
+            return title
+        }
+
         let opts = ModelServer.GenerateOptions(numCtx: numCtx, numPredict: 32, timeout: timeout)
         guard let raw = await ModelServer.shared.generate(server: server, prompt: excerpt, systemPrompt: system, options: opts) else {
             Logger.log("Summary", "Fallback title call produced nothing; falling back to type display name")

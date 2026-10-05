@@ -40,7 +40,7 @@ final class FoundationModelsBackend: LLMBackend {
 
     func generate(_ request: LLMRequest) async throws -> String? {
         let budget = capacityBudget(numPredict: request.numPredict)
-        let inputTokens = estimatedTokenCount(for: request.systemPrompt + request.prompt)
+        let inputTokens = await inputTokenCount(instructions: request.systemPrompt, prompt: request.prompt)
 
         guard inputTokens <= budget else {
             return try await overflow(request: request, budget: budget)
@@ -65,6 +65,19 @@ final class FoundationModelsBackend: LLMBackend {
     }
 
     // MARK: - Capacity math
+
+    /// Tokens `instructions` + `prompt` will occupy: the model's own count on macOS 26.4+, else the
+    /// conservative chars/3 estimate (and on any counting error).
+    private func inputTokenCount(instructions: String, prompt: String) async -> Int {
+        if #available(macOS 26.4, *) {
+            let model = SystemLanguageModel.default
+            if let i = try? await model.tokenCount(for: Instructions(instructions)),
+               let p = try? await model.tokenCount(for: prompt) {
+                return i + p
+            }
+        }
+        return estimatedTokenCount(for: instructions + prompt)
+    }
 
     /// Budget for `systemPrompt + prompt`, in estimated tokens: the session's total context minus
     /// the caller's requested output budget minus a fixed framing margin.
@@ -231,6 +244,65 @@ final class FoundationModelsBackend: LLMBackend {
         return try await mapReduce(request: reReduceRequest, budget: budget, round: round + 1)
     }
 
+    // MARK: - Guided generation (Apple only)
+
+    /// Why the on-device model can't be used right now, in words a user can act on — or nil when
+    /// it's available.
+    static var unavailableReason: String? {
+        switch SystemLanguageModel.default.availability {
+        case .available:
+            return nil
+        case .unavailable(.appleIntelligenceNotEnabled):
+            return t("Apple Intelligence is turned off. Turn it on in System Settings › Apple Intelligence & Siri.")
+        case .unavailable(.deviceNotEligible):
+            return t("This Mac doesn't support Apple Intelligence. Choose Ollama or an OpenAI-compatible server instead.")
+        case .unavailable(.modelNotReady):
+            return t("Apple's on-device model is still downloading. Try again in a few minutes.")
+        case .unavailable:
+            return t("Apple's on-device model is unavailable right now.")
+        }
+    }
+
+    /// The meeting type, chosen by guided generation — the model can only answer with one of
+    /// `allowed`, so there's no free-text reply to parse. Nil on any failure (caller falls back).
+    func classify(transcript: String, instructions: String, allowed: [String]) async -> String? {
+        guard SystemLanguageModel.default.isAvailable, !allowed.isEmpty else { return nil }
+        let budget = capacityBudget(numPredict: 64)
+        let prompt = truncateMiddle(transcript, budgetTokens: max(1, budget - estimatedTokenCount(for: instructions)))
+        do {
+            let session = LanguageModelSession(instructions: instructions)
+            let schema = DynamicGenerationSchema(
+                name: "MeetingClassification",
+                properties: [.init(name: "type", schema: DynamicGenerationSchema(name: "MeetingType", anyOf: allowed))]
+            )
+            let response = try await session.respond(
+                to: prompt,
+                schema: try GenerationSchema(root: schema, dependencies: []),
+                options: makeOptions(numPredict: 64)
+            )
+            return try response.content.value(String.self, forProperty: "type")
+        } catch {
+            Logger.log("Server", "Apple guided classification failed: \(error)")
+            return nil
+        }
+    }
+
+    /// A short meeting title from a finished summary, by guided generation: a single string field
+    /// rather than a free reply that might come back quoted, labelled or with a preamble.
+    func title(forSummary summary: String, instructions: String) async -> String? {
+        guard SystemLanguageModel.default.isAvailable else { return nil }
+        let budget = capacityBudget(numPredict: 64)
+        let prompt = truncateMiddle(summary, budgetTokens: max(1, budget - estimatedTokenCount(for: instructions)))
+        do {
+            let session = LanguageModelSession(instructions: instructions)
+            let response = try await session.respond(to: prompt, generating: GuidedMeetingTitle.self, options: makeOptions(numPredict: 64))
+            return response.content.title
+        } catch {
+            Logger.log("Server", "Apple guided title failed: \(error)")
+            return nil
+        }
+    }
+
     // MARK: - Errors
 
     /// Splits `GenerationError` (Appendix §6 — the 26 SDK type; NOT `LanguageModelError`, which
@@ -252,4 +324,11 @@ final class FoundationModelsBackend: LLMBackend {
             throw error
         }
     }
+}
+
+/// Guided-generation shape for `FoundationModelsBackend.title(forSummary:instructions:)`.
+@Generable
+struct GuidedMeetingTitle {
+    @Guide(description: "A 3 to 6 word plain-text title naming what the meeting was about, with no quotes or trailing punctuation.")
+    let title: String
 }
