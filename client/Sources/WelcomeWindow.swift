@@ -124,8 +124,34 @@ final class WelcomeViewModel {
 
     /// Re-reads live permission state (granted toggles out-of-process when the user acts in
     /// System Settings, so the view polls this on a timer while open).
+    /// The speech model's download state, for the onboarding step that shows it.
+    var asrPhase: AsrModelPhase = .notInstalled
+    var asrActivity: String?
+
+    /// Free space on the volume the model downloads to, if it's tight (under ~1 GB), else nil.
+    var lowDiskWarning: String? {
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        guard let free = try? home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage, free < 1_000_000_000 else { return nil }
+        let size = ByteCountFormatter.string(fromByteCount: free, countStyle: .file)
+        return t("Only \(size) free — the speech model needs about 500 MB.")
+    }
+
+    /// Start (or retry) the speech model download. Idempotent; progress shows via `asrPhase`.
+    func prepareSpeechModel() {
+        Task {
+            do { try await ParakeetTranscriber.shared.prepare() } catch {
+                Logger.log("Welcome", "Speech model download failed: \(error)")
+            }
+        }
+    }
+
     func refreshStatuses() {
         permissions.refresh()
+        Task {
+            asrPhase = await ParakeetTranscriber.shared.phase
+            asrActivity = ParakeetTranscriber.shared.activity
+        }
 
         // The hotkey's active CGEventTap is gated by Accessibility and is created at launch; if
         // Accessibility wasn't granted then, creation failed and the hotkey is dead. Heal it the
@@ -251,6 +277,7 @@ private enum WizardStep: Int, CaseIterable {
     case welcome
     case permAccessibility   // Accessibility — powers BOTH the global hotkey (active event tap) AND typing at the cursor
     case permMic             // Microphone
+    case speechModel         // the ~470 MB Parakeet download, visible instead of silent
     case model
     case personalContext
     case vocabulary
@@ -283,6 +310,7 @@ struct WelcomeContentView: View {
                 case .welcome: welcomeStep
                 case .permAccessibility: permAccessibilityStep
                 case .permMic: permMicStep
+                case .speechModel: speechModelStep
                 case .model: modelStep
                 case .personalContext: personalContextStep
                 case .vocabulary: vocabularyStep
@@ -348,7 +376,7 @@ struct WelcomeContentView: View {
         case .model: viewModel.persistServer()
         case .personalContext: viewModel.persistPersonalContext()
         case .vocabulary: viewModel.persistVocabulary()
-        case .permAccessibility, .permMic, .notes, .done: break
+        case .permAccessibility, .permMic, .speechModel, .notes, .done: break
         }
     }
 
@@ -402,7 +430,7 @@ struct WelcomeContentView: View {
     private var permAccessibilityStep: some View {
         stepScaffold(
             title: t("Dictate Anywhere"),
-            subtitle: t("Hold your hotkey, speak, and release — Better Voice types cleaned-up text at your cursor in any app. Both the global hotkey and typing at your cursor use a single macOS permission: Accessibility.")
+            subtitle: t("Tap your hotkey and speak, then tap again — or just hold it while you talk. Better Voice types the text at your cursor in any app. Both the hotkey and typing use a single macOS permission: Accessibility.")
         ) {
             stepIcon("keyboard")
         } content: {
@@ -426,7 +454,7 @@ struct WelcomeContentView: View {
     private var permMicStep: some View {
         stepScaffold(
             title: t("Hear Your Voice"),
-            subtitle: t("Better Voice records your microphone only while you hold the hotkey, and transcribes it on-device.")
+            subtitle: t("Better Voice records your microphone only while you're dictating or recording a meeting, and transcribes it on-device.")
         ) {
             stepIcon("mic")
         } content: {
@@ -614,6 +642,46 @@ struct WelcomeContentView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15)))
     }
 
+    /// The speech model: a one-time ~470 MB download that dictation can't work without. It starts
+    /// at launch anyway; this step makes it visible (and retryable) instead of a silent wait behind
+    /// the first hotkey press. Continue is never blocked — the download carries on in the background.
+    private var speechModelStep: some View {
+        stepScaffold(
+            title: t("Speech Model"),
+            subtitle: t("Better Voice transcribes on your Mac with NVIDIA Parakeet. It downloads once (about 470 MB) — you can keep going while it does.")
+        ) {
+            stepIcon("waveform")
+        } content: {
+            VStack(spacing: 12) {
+                switch viewModel.asrPhase {
+                case .installed:
+                    Label(t("Speech model ready"), systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                case .downloading(let fraction):
+                    ProgressView(value: fraction)
+                        .frame(maxWidth: 360)
+                    Text(viewModel.asrActivity ?? t("Downloading speech model…"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                case .notInstalled:
+                    Button(t("Download Now")) { viewModel.prepareSpeechModel() }
+                        .buttonStyle(.borderedProminent)
+                case .failed:
+                    Text(t("The download didn't finish. Check your connection and try again."))
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                    Button(t("Retry")) { viewModel.prepareSpeechModel() }
+                }
+                if let warning = viewModel.lowDiskWarning, viewModel.asrPhase != .installed {
+                    Label(warning, systemImage: "externaldrive.badge.exclamationmark")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            .frame(maxWidth: 460)
+        }
+    }
+
     /// Optional at onboarding — dictation-only users can skip this entirely, so `complete()` /
     /// "Get Started" is never gated on it (Continue advances past this step regardless of
     /// Automation/destination state). The import wizard's own `.blocked` step catches an
@@ -662,8 +730,25 @@ struct WelcomeContentView: View {
                 .foregroundStyle(.green)
                 .frame(height: 52)
         } content: {
-            doneRecap
-                .frame(maxWidth: 520)
+            VStack(spacing: 22) {
+                doneRecap
+                    .frame(maxWidth: 520)
+                tryItField
+                    .frame(maxWidth: 420)
+            }
+        }
+    }
+
+    /// A place to try dictation before leaving onboarding: click in, use the hotkey, see the text.
+    @State private var tryItText = ""
+    private var tryItField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(t("Try it: click below, then press \(viewModel.hotkeyDisplayName) and say something."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField(t("Your words appear here"), text: $tryItText, axis: .vertical)
+                .lineLimit(2...3)
+                .textFieldStyle(.roundedBorder)
         }
     }
 
@@ -800,5 +885,6 @@ struct WelcomeContentView: View {
             .font(.system(size: 40, weight: .medium))
             .foregroundStyle(Color.brandAccent)
             .frame(height: 52)
+            .accessibilityHidden(true)   // decorative; the step title says what it is
     }
 }

@@ -180,6 +180,7 @@ struct SetupStepView: View {
             Image(systemName: session.fileURL == nil ? "waveform.badge.plus" : "waveform")
                 .font(.system(size: 34))
                 .foregroundStyle(Color.brandAccent)
+                .accessibilityHidden(true)
             if let url = session.fileURL {
                 Text(url.lastPathComponent)
                     .font(.body.weight(.medium))
