@@ -143,11 +143,15 @@ public func sampleQuotes(_ segments: [MeetingSegment], perSpeaker: Int = 3, maxL
 /// over a long meeting only fuzzes relative turn ordering by tens of milliseconds — an accepted
 /// trade-off for transcript readability in exchange for eliminating cross-clock sample-level
 /// drift entirely (the reason this is two files instead of one mixed file in the first place).
+///
+/// The mic channel is only the local user when the call is on headphones; on speakers it also
+/// hears the remote side, which `MeetingEchoFilter` removes before labeling.
 public func mergeSpeakerTimelines(
     localSegments: [MeetingSegment],
     remoteSegments: [MeetingSegment]
 ) -> [MeetingSegment] {
-    let labeledLocal = localSegments.map { seg -> MeetingSegment in
+    let ownSpeech = MeetingEchoFilter.apply(localSegments: localSegments, remoteSegments: remoteSegments)
+    let labeledLocal = ownSpeech.map { seg -> MeetingSegment in
         MeetingSegment(
             text: seg.text,
             startTime: seg.startTime,

@@ -49,9 +49,11 @@ public enum BoostReplacementFilter {
         return text.range(of: pattern, options: .regularExpression)
     }
 
-    /// How alike (letters only) a span and the term must be. 0.5 keeps every correction measured on
-    /// the jargon clips (the weakest: "SAOIS" → "Saoirse", 0.57) and rejects unrelated words.
-    static let minimumSimilarity = 0.5
+    /// How alike (letters only) a span and the term must be. 0.6 keeps every correction measured on
+    /// the jargon clips (the weakest: "Kuba needs" → "Kubernetes", exactly 0.6) and rejects the
+    /// real words live use saw swapped at 0.5–0.57: "commit" → "Emmie", "TikTok" → "Ikon",
+    /// "cetera" → "Alterra".
+    static let minimumSimilarity = 0.6
 
     static func isSafe(_ swap: Swap, aliases: [String: [String]]) -> Bool {
         let original = normalized(swap.original)

@@ -124,6 +124,19 @@ final class BoostReplacementFilterTests: XCTestCase {
         XCTAssertEqual(out, text)
     }
 
+    func testShortRealWordsNearTheTermAreRejected() {
+        // Measured in live use at the old 0.5 threshold: each scored 0.5–0.57 and was swapped in.
+        let text = "Yes, please commit everything from YouTube, TikTok, et cetera."
+        let out = BoostReplacementFilter.apply(
+            to: text,
+            swaps: [Swap(original: "commit", replacement: "Emmie"),
+                    Swap(original: "TikTok,", replacement: "Ikon"),
+                    Swap(original: "cetera.", replacement: "Alterra")],
+            aliases: [:]
+        )
+        XCTAssertEqual(out, text)
+    }
+
     func testMeasuredCorrectionsStillPass() {
         for (orig, term) in [("Xylequist", "Zylquist"), ("datadob", "Datadog"), ("icon pass", "Ikon Pass"),
                              ("SAOIS", "Saoirse"), ("Ulterra", "Alterra"), ("Kuba needs", "Kubernetes")] {
